@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleContinue = (e) => {
     e.preventDefault();
-    alert(`Login placeholder for: ${email || "(empty)"}`);
+    alert(`Login placeholder for: ${email || "(empty)"} / ${password ? "••••••" : "(no password)"}`);
   };
 
   return (
@@ -29,8 +30,19 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
             type="email"
+            autoComplete="email"
           />
-          <button className="primaryBtn" type="submit">Continue</button>
+
+          <input
+            className="input"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            type="password"
+            autoComplete="current-password"
+          />
+
+          <button className="primaryBtn" type="submit">Login</button>
         </form>
 
         <div className="authHint">
