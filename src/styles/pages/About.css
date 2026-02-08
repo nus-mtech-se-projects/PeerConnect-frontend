@@ -1,0 +1,110 @@
+/* About page layout */
+.page {
+  width: min(1100px, 92vw);
+  margin: 0 auto;
+  padding: 28px 0 40px;
+}
+
+/* 2-column grid */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 18px;
+  align-items: start;
+}
+
+/* Card blocks */
+.infoBlock {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.06);
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+/* subtle orange accent bar */
+.infoBlock::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f97316 0%, #fb923c 100%);
+  opacity: 0.9;
+}
+
+.infoBlock:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(17, 24, 39, 0.10);
+  border-color: rgba(249, 115, 22, 0.25);
+}
+
+/* Block title */
+.infoTitle {
+  margin-left: 10px;
+  /* space for accent bar */
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+/* Block body text */
+.infoBody {
+  margin-left: 10px;
+  /* space for accent bar */
+  color: #6b7280;
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+/* Contact lines look cleaner */
+.contactLine {
+  padding: 8px 0;
+  border-top: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.contactLine:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.rightPlaceholder {
+  border-radius: 18px;
+  overflow: hidden;
+  height: 360px;                
+  display: flex;            
+  align-items: center;        
+  justify-content: center;    
+}
+
+.aboutImg {
+  display: block;
+  width: 100%;
+  height: 85%;
+  border-radius: 20px;
+      
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+
+  .rightPlaceholder {
+    min-height: 220px;
+    aspect-ratio: 16 / 10;
+  }
+
+  .aboutImg {
+    min-height: 220px;
+  }
+}

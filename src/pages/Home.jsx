@@ -1,11 +1,33 @@
 import React from "react";
 import Carousel from "../components/Carousel";
+import FeatureCard from "../components/FeatureCard";
 
 export default function Home() {
-  const slides = [
-    { title: "Find the right tutor", description: "Match with peers who have aced the same module.", imageText: "Tutoring" },
-    { title: "Join study groups", description: "Learn together with scheduled group sessions.", imageText: "Groups" },
-    { title: "Ask the AI chatbot", description: "Get quick explanations and practice questions.", imageText: "AI Chat" },
+   const slides = [
+    {
+      title: "Find the right tutor",
+      description: "Match with peers who have aced the same module.",
+      imageSrc: "src/assets/images/tutoring.jpg",
+      imageAlt: "Peer tutoring session",
+    },
+    {
+      title: "Join study rooms",
+      description: "Create or join groups that keep you consistent.",
+      imageSrc: "src/assets/images/study-group.jpg",
+      imageAlt: "Students in a study group",
+    },
+    {
+      title: "Ask AI anytime",
+      description: "Instant explanations with examples and practice.",
+      imageSrc: "src/assets/images/chatbot.jpg",
+      imageAlt: "AI chatbot assistance",
+    },
+      {
+      title: "Support Groups",
+      description: "Get accountability, encouragement, and guidance from peers.",
+      imageSrc: "src/assets/images/support-system.jpg",
+      imageAlt: "Students in a supportive group discussion",
+    },
   ];
 
   const features = [
@@ -21,10 +43,7 @@ export default function Home() {
 
       <section className="featureRow">
         {features.map((f) => (
-          <article key={f.title} className="featureCard">
-            <div className="featureCardTitle">{f.title}</div>
-            <div className="featureCardDesc">{f.desc}</div>
-          </article>
+          <FeatureCard key ={f.title} title={f.title} description={f.desc}/>
         ))}
       </section>
     </div>
