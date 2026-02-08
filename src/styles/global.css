@@ -42,9 +42,8 @@ a:hover { text-decoration: underline; }
 }
 
 .centerPage {
-  min-height: calc(100vh - 160px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 0;
+  display: grid;
+  place-items: center;
+  padding: 22px 16px;             
+  min-height: calc(100vh - 260px); 
 }
