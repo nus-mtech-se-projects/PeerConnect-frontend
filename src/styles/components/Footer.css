@@ -1,0 +1,89 @@
+.footerPro {
+  margin-top: 22px;
+  background: rgba(255,255,255,0.92);
+  border-top: 1px solid var(--border);
+}
+
+.footerContainer {
+  width: min(1100px, 92vw);
+  margin: 0 auto;
+  padding: 28px 0;
+}
+
+.footerGrid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(4, 1fr);
+  gap: 18px;
+}
+
+.footerBrand { display: flex; gap: 12px; align-items: flex-start; }
+
+.footerBrandName { font-weight: 900; }
+.footerTagline { color: var(--muted); font-size: 13px; line-height: 1.4; }
+
+.footerColTitle { font-weight: 900; margin-bottom: 10px; }
+
+.footerLink {
+  display: block;
+  color: var(--text);
+  opacity: 0.85;
+  padding: 6px 0;
+}
+.footerLink:hover { color: var(--primary3); opacity: 1; }
+
+.footerNewsletter { display: flex; gap: 10px; margin-top: 10px; }
+
+.footerInput {
+  flex: 1;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(17,24,39,0.12);
+  padding: 0 12px;
+}
+
+.footerBtn {
+  height: 42px;
+  border-radius: 14px;
+  border: 0;
+  padding: 0 14px;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary2) 100%);
+}
+
+.footerSocial { display: flex; gap: 10px; margin-top: 12px; }
+
+.iconBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(17,24,39,0.12);
+  background: white;
+  cursor: pointer;
+}
+.iconBtn:hover { border-color: rgba(249,115,22,0.35); }
+
+.footerBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid rgba(17,24,39,0.08);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.footerBottomLinks { display: flex; gap: 14px; }
+.footerBottomLinks a { color: var(--muted); }
+.footerBottomLinks a:hover { color: var(--primary3); }
+
+@media (max-width: 980px) {
+  .footerGrid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .footerNewsletter { flex-direction: column; }
+  .footerBtn { width: 100%; }
+  .footerBottom { flex-direction: column; gap: 10px; }
+}

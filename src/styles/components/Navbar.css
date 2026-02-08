@@ -1,0 +1,79 @@
+.navPro {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.navProInner {
+  width: min(1100px, 92vw);
+  margin: 0 auto;
+  padding: 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.brandPro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 12px;
+}
+.brandPro:hover { background: rgba(249,115,22,0.08); }
+
+.brandProName { font-weight: 800; letter-spacing: 0.2px; }
+.brandProSub { font-size: 12px; color: var(--muted); }
+
+.navProLinks { display: flex; gap: 10px; }
+
+.navLink {
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--text);
+  font-weight: 600;
+}
+.navLink:hover { background: rgba(249,115,22,0.10); }
+
+.navLink.active {
+  background: rgba(249,115,22,0.16);
+  color: var(--primary3);
+}
+
+.navProActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btnGhost, .btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+}
+
+.btnGhost {
+  background: white;
+  color: var(--text);
+}
+.btnGhost:hover { border-color: rgba(249,115,22,0.35); }
+
+.btnPrimary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary2) 100%);
+  color: white;
+  box-shadow: 0 10px 18px rgba(249,115,22,0.22);
+}
+.btnPrimary:hover { filter: brightness(0.98); }

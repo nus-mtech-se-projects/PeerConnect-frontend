@@ -7,7 +7,17 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import "./styles/global.css";
 
+import "./styles/components/AppShell.css";
+import "./styles/components/Navbar.css";
+import "./styles/components/Carousel.css";
+import "./styles/components/Footer.css";
+
+import "./styles/pages/Home.css";
+import "./styles/pages/About.css";
+import "./styles/pages/Login.css";
+import "./styles/pages/Signup.css";
 export default function App() {
   return (
     <div className="appShell">

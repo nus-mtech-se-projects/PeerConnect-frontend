@@ -51,7 +51,16 @@ export default function Carousel({ slides = [], autoPlayMs = 0 }) {
             </div>
 
             <div className="heroMock">
-              <div className="heroMockInner">{current?.imageText ?? "Screenshot / Illustration"}</div>
+              {current?.imageSrc ? (
+                <img
+                  className="heroImg"
+                  src={current?.imageSrc}
+                  alt={current?.imageAlt ?? current?.title ?? "Carousel image"}
+                  loading="lazy"
+                />
+              ) : (
+                <div className="heroMockInner">{current?.imageText ?? "Screenshot / Illustration"}</div>
+              )}
             </div>
           </div>
 

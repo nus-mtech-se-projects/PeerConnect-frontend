@@ -31,8 +31,9 @@ export default function About() {
         </div>
 
         <div className="rightPlaceholder">
-          Placeholder image / illustration
+          <img className="aboutImg" src="src\assets\images\tutoring.jpg" alt="Peer tutoring session" />
         </div>
+
       </div>
     </div>
   );
