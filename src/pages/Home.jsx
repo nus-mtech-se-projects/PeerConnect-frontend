@@ -1,31 +1,33 @@
-import React from "react";
 import Carousel from "../components/Carousel";
 import FeatureCard from "../components/FeatureCard";
-
+import tutoringImg from "../assets/images/tutoring.jpg";
+import studyGroupImg from "../assets/images/study-group.jpg";
+import chatBotImg from "../assets/images/chatbot.jpg";
+import supportSystemImg from "../assets/images/support-system.jpg";
 export default function Home() {
    const slides = [
     {
       title: "Find the right tutor",
       description: "Match with peers who have aced the same module.",
-      imageSrc: "src/assets/images/tutoring.jpg",
+      imageSrc: tutoringImg,
       imageAlt: "Peer tutoring session",
     },
     {
       title: "Join study rooms",
       description: "Create or join groups that keep you consistent.",
-      imageSrc: "src/assets/images/study-group.jpg",
+      imageSrc: studyGroupImg,
       imageAlt: "Students in a study group",
     },
     {
       title: "Ask AI anytime",
       description: "Instant explanations with examples and practice.",
-      imageSrc: "src/assets/images/chatbot.jpg",
+      imageSrc: chatBotImg,
       imageAlt: "AI chatbot assistance",
     },
       {
       title: "Support Groups",
       description: "Get accountability, encouragement, and guidance from peers.",
-      imageSrc: "src/assets/images/support-system.jpg",
+      imageSrc: supportSystemImg,
       imageAlt: "Students in a supportive group discussion",
     },
   ];
