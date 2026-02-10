@@ -1,5 +1,5 @@
 import React from "react";
-
+import tutoringImg from "../assets/images/tutoring.jpg";
 function Block({ title, children }) {
   return (
     <section className="infoBlock">
@@ -31,7 +31,7 @@ export default function About() {
         </div>
 
         <div className="rightPlaceholder">
-          <img className="aboutImg" src="src\assets\images\tutoring.jpg" alt="Peer tutoring session" />
+          <img className="aboutImg" src={tutoringImg} alt="Peer tutoring session" />
         </div>
 
       </div>
