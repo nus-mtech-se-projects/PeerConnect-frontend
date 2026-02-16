@@ -8,7 +8,6 @@ export default function Login() {
   const { instance, accounts } = useMsal();
   const navigate = useNavigate();
   const isLoggedIn = accounts.length > 0;
-  //console.log("Accounts:", instance.getAllAccounts());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
