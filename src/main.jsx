@@ -11,8 +11,8 @@ import "./styles/components/Footer.css";
 
 import "./styles/pages/Home.css";
 import "./styles/pages/About.css";
-import "./styles/pages/Login.css";
-import "./styles/pages/Signup.css";
+import "./styles/pages/Auth.css";
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>

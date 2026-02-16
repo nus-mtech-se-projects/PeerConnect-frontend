@@ -1,0 +1,260 @@
+/*
+  Shared styles for Login / Signup pages.
+  Keeps the form neat and consistent with the app's look.
+*/
+
+.authPage {
+  width: 100%;
+  min-height: calc(100vh - 280px); /* accounts for navbar + footer */
+  padding: 28px 18px;
+  background: var(--bg, transparent);
+}
+
+.authContainer {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;   /* center horizontally */
+}
+
+.authCard {
+  width: 520px;
+  max-width: 100%;
+  background: var(--card, #fff);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  padding: 28px;
+}
+
+.authTitle {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+  color: var(--text, #0f172a);
+}
+
+.authSubtitle {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.authForm {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.authRow label {
+  display: block;
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.authInput {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  padding: 0 12px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+}
+
+.authInput:focus {
+  border-color: rgba(249, 115, 22, 0.65);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
+}
+
+.authGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 560px) {
+  .authContainer {
+    justify-content: center;
+  }
+  .authGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.authButton {
+  height: 44px;
+  border-radius: 14px;
+  border: none;
+  background: var(--accent, #f97316);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.05s ease, opacity 0.2s ease;
+}
+
+.authButton:hover {
+  opacity: 0.95;
+}
+
+.authButton:active {
+  transform: translateY(1px);
+}
+
+.authButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.authDivider {
+  position: relative;
+  text-align: center;
+  margin: 2px 0;
+}
+
+.authDivider span {
+  display: inline-block;
+  padding: 0 10px;
+  font-size: 13px;
+  color: #64748b;
+  background: var(--card, #fff);
+}
+
+.authDivider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(15, 23, 42, 0.10);
+  transform: translateY(-50%);
+}
+
+.authOauthButton {
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #fff;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.authOauthButton:hover {
+  border-color: rgba(249, 115, 22, 0.55);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.10);
+}
+
+.authError {
+  background: rgba(239, 68, 68, 0.10);
+  color: #991b1b;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.authMessage {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.authMessage.success {
+  background: rgba(34, 197, 94, 0.08);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.authMessage.error {
+  background: rgba(239, 68, 68, 0.10);
+  color: #991b1b;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.authFooter {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.authFooter a {
+  color: var(--accent, #f97316);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.authFooter a:hover {
+  text-decoration: underline;
+}
+
+.authHint {
+  color: #64748b;
+}
+
+.authLinks {
+  margin-top: 12px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.fakeLink {
+  color: #f97316;
+  font-weight: 700;
+}
+.authLinksRow{
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 14px;
+}
+
+.authLinksRow a,
+.fakeLink{
+  color: #ff7a18;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.authLinksRow a:hover,
+.fakeLink:hover{
+  text-decoration: underline;
+}
+.primaryBtn{
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #ff7a18;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.08);
+  transition: transform 0.06s ease, opacity 0.15s ease;
+}
+
+.primaryBtn:hover { opacity: 0.95; }
+.primaryBtn:active { transform: translateY(1px); }
+
+.primaryBtn:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+.authLinksTwoLines{
+  margin-top: 14px;
+  text-align: center;
+  font-size: 14px;
+  display: grid;
+  gap: 6px;
+}
