@@ -1,3 +1,5 @@
+import { MsalProvider } from "@azure/msal-react";
+import { msalInstance } from "./authConfig";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -13,10 +15,14 @@ import "./styles/pages/Home.css";
 import "./styles/pages/About.css";
 import "./styles/pages/Login.css";
 import "./styles/pages/Signup.css";
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <MsalProvider instance={msalInstance}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </MsalProvider>
   </React.StrictMode>
 );
+

@@ -1,10 +1,23 @@
+import { useNavigate } from "react-router-dom";
+import { useMsal } from "@azure/msal-react";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 
 export default function Login() {
+  const { instance, accounts } = useMsal();
+  const navigate = useNavigate();
+  const isLoggedIn = accounts.length > 0;
+  //console.log("Accounts:", instance.getAllAccounts());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+  if (accounts.length > 0) {
+    navigate("/");
+  }
+  }, [accounts, navigate]);
+  
   const handleContinue = (e) => {
     e.preventDefault();
     alert(`Login placeholder for: ${email || "(empty)"} / ${password ? "••••••" : "(no password)"}`);
@@ -15,10 +28,27 @@ export default function Login() {
       <section className="authCard">
         <h1 className="authTitle">Login To Start Learning Now!</h1>
 
+        {isLoggedIn && (
+        <p style={{ color: "green", marginBottom: "10px" }}>
+          You are logged in with Microsoft.
+        </p>
+        )}
+
         <div className="socialStack">
           <button className="socialBtn" type="button">Continue with Google</button>
           <button className="socialBtn" type="button">Continue with Facebook</button>
-          <button className="socialBtn" type="button">Continue with Microsoft</button>
+          <button 
+            className="socialBtn" 
+            type="button"
+            onClick={() =>
+              instance.loginRedirect({
+                scopes: ["User.Read"],
+              })
+            }
+          >
+            Continue with Microsoft
+          </button>
+
         </div>
 
         <div className="divider"><span>OR</span></div>
