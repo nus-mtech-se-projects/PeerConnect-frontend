@@ -121,8 +121,9 @@ export default function Signup() {
 
         <form className="authFormGrid" onSubmit={onSubmit}>
           <div className="authField">
-            <label className="authLabel">NUS Student ID</label>
+            <label className="authLabel" htmlFor="nusStudentId">NUS Student ID</label>
             <input
+              id="nusStudentId"
               className="authInput"
               value={nusStudentId}
               onChange={(e) => setNusStudentId(e.target.value)}
@@ -131,8 +132,9 @@ export default function Signup() {
 
           <div className="authRow2">
             <div className="authField">
-              <label className="authLabel">First Name</label>
+              <label className="authLabel" htmlFor="firstName">First Name</label>
               <input
+                id="firstName"
                 className="authInput"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
@@ -140,8 +142,9 @@ export default function Signup() {
             </div>
 
             <div className="authField">
-              <label className="authLabel">Last Name</label>
+              <label className="authLabel" htmlFor="lastName">Last Name</label>
               <input
+                id="lastName"
                 className="authInput"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
@@ -150,8 +153,9 @@ export default function Signup() {
           </div>
 
           <div className="authField">
-            <label className="authLabel">Email</label>
+            <label className="authLabel" htmlFor="email">Email</label>
             <input
+              id="email"
               className="authInput"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -160,8 +164,9 @@ export default function Signup() {
           </div>
 
           <div className="authField">
-            <label className="authLabel">Phone</label>
+            <label className="authLabel" htmlFor="phone">Phone</label>
             <input
+              id="phone"
               className="authInput"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -169,8 +174,9 @@ export default function Signup() {
           </div>
 
           <div className="authField">
-            <label className="authLabel">Password</label>
+            <label className="authLabel" htmlFor="signupPassword">Password</label>
             <input
+              id="signupPassword"
               className="authInput"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

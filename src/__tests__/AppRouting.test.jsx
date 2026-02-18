@@ -27,15 +27,17 @@ describe("App routing", () => {
       await user.click(nav.getByRole("link", { name: nameMatcher }));
     };
 
-    // Go to Login via navbar
+    // Login
     await navClick(/^login$/i);
     expect(
-      screen.getByRole("heading", { name: /login to start learning now/i })
+      screen.getByRole("heading", { name: /^login$/i })
     ).toBeInTheDocument();
 
-    // Go to Signup via navbar (exact text avoids "Sign up now")
+    // Signup
     await navClick(/^sign up$/i);
-    expect(screen.getByRole("heading", { name: /^sign up$/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /create account/i })
+    ).toBeInTheDocument();
 
     // Go to About/Contact via navbar
     await navClick(/about \/ contact/i);
