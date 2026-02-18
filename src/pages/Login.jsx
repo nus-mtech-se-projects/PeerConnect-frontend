@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 // Shared auth page styles (login + signup)
 import "../styles/pages/Auth.css";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function Login() {
   const nav = useNavigate();
