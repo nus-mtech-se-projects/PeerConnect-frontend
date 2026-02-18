@@ -1,134 +1,148 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+// Shared auth page styles (login + signup)
+import "../styles/pages/Auth.css";
 
-const DEFAULT_API_BASE = "http://localhost:8080";
+const API_BASE = "http://localhost:8080";
 
 export default function Login() {
-  const navigate = useNavigate();
+  const nav = useNavigate();
 
-  const API_BASE = useMemo(
-    () => import.meta?.env?.VITE_API_BASE_URL || DEFAULT_API_BASE,
-    []
-  );
-
-  // OAuth (UI + redirect). Adjust the path to match whatever you configure in
-  // Spring Security (common default is /oauth2/authorization/{registrationId}).
-  const oauthLogin = (provider) => {
-    window.location.href = `${API_BASE}/oauth2/authorization/${provider}`;
-  };
-
-  const [identifier, setIdentifier] = useState(""); // email or nusStudentId
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
-
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
-  const isEmail = (value) => value.includes("@");
+  const loginBody = useMemo(() => {
+    const trimmed = identifier.trim();
+    const isEmail = trimmed.includes("@");
+    return {
+      email: isEmail ? trimmed : null,
+      nusStudentId: !isEmail ? trimmed : null,
+      password,
+    };
+  }, [identifier, password]);
 
-  const onSubmit = async (e) => {
+  async function onSubmit(e) {
     e.preventDefault();
     setError("");
-    setSuccess("");
+
+    const trimmed = identifier.trim();
+    if (!trimmed || !password) {
+      setError("Please enter your email/NUS Student ID and password.");
+      return;
+    }
+
     setLoading(true);
-
     try {
-      const payload = {
-        email: isEmail(identifier) ? identifier : null,
-        nusStudentId: !isEmail(identifier) ? identifier : null,
-        password,
-      };
-
       const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        credentials: "include",
+        body: JSON.stringify(loginBody),
       });
 
-      const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
-        setError(data?.error || `Login failed (${res.status})`);
-        setLoading(false);
-        return;
+        const text = await res.text().catch(() => "");
+        if (res.status === 401) throw new Error("Invalid credentials.");
+        throw new Error(text || `Login failed (${res.status})`);
       }
 
-      setSuccess("Login successful.");
-      // If you later return JWT from backend, store it here:
-      // localStorage.setItem("token", data.token)
-
-      setTimeout(() => navigate("/"), 500);
+      const data = await res.json().catch(() => ({}));
+      if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+      nav("/profile");
     } catch (err) {
-      setError(err?.message || "Network error");
+      setError(
+        err?.message || "Network error. Is Spring Boot running on 8080?"
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  // Placeholder-only: wire these up when backend OAuth is ready
+  function startOAuth(provider) {
+    // Example future:
+    // window.location.href = `${API_BASE}/oauth2/authorization/${provider}`;
+    console.log("OAuth provider clicked:", provider);
+  }
 
   return (
     <div className="authPage">
-      <div className="authContainer">
-        <div className="authCard">
-          <h1 className="authTitle">Login</h1>
-          <p className="authSubtitle">Welcome back — sign in to PeerConnect</p>
+      <div className="authCard">
+        <h1 className="authTitle">Login</h1>
+        <p className="authSubtitle">Welcome back — sign in to PeerConnect</p>
 
-          <form className="authForm" onSubmit={onSubmit}>
-            <div className="authRow">
-              <label>Email or NUS Student ID</label>
-              <input
-                className="authInput"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="e.g. johntan@u.nus.edu or A1234567X"
-                autoComplete="username"
-                required
-              />
-            </div>
+        <div className="socialStack">
+          <button
+            type="button"
+            className="socialBtn"
+            onClick={() => startOAuth("google")}
+          >
+            Continue with Google
+          </button>
+          <button
+            type="button"
+            className="socialBtn"
+            onClick={() => startOAuth("microsoft")}
+          >
+            Continue with Microsoft
+          </button>
+          <button
+            type="button"
+            className="socialBtn"
+            onClick={() => startOAuth("github")}
+          >
+            Continue with GitHub
+          </button>
+        </div>
 
-            <div className="authRow">
-              <label>Password</label>
-              <input
-                className="authInput"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                required
-              />
-            </div>
+        <div className="divider" aria-hidden="true">
+          <span />
+          <em>or</em>
+          <span />
+        </div>
 
-            <button className="authButton" type="submit" disabled={loading}>
-              {loading ? "Signing in…" : "Login"}
-            </button>
+        <form className="authForm" onSubmit={onSubmit}>
+          <div className="authField">
+            <label className="authLabel">Email or NUS Student ID</label>
+            <input
+              className="authInput"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="e.g. johntan@u.nus.edu or A1234567X"
+              autoComplete="username"
+            />
+          </div>
 
-            {/* OAuth login (UI + redirect) */}
-            <div className="authDivider" aria-hidden="true">
-              <span>or</span>
-            </div>
+          <div className="authField">
+            <label className="authLabel">Password</label>
+            <input
+              className="authInput"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              placeholder="Password"
+              autoComplete="current-password"
+            />
+          </div>
 
-            <button
-              className="authOauthButton"
-              type="button"
-              onClick={() => oauthLogin("google")}
-            >
-              Continue with Google
-            </button>
+          {error ? <div className="authError">{error}</div> : null}
 
-            {error ? <div className="authError">{error}</div> : null}
-            {success ? <div className="authMessage">{success}</div> : null}
+          <button className="authButton" type="submit" disabled={loading}>
+            {loading ? "Signing in…" : "Login"}
+          </button>
+        </form>
 
-            <div className="authLinks">
-              <span className="authHint">Don&apos;t have an account?</span>{" "}
-              <Link to="/signup">Create one</Link>
-            </div>
-
-            {/* per your request: text + link string, not necessarily clickable */}
-            <div className="authHint" style={{ marginTop: 8 }}>
-              Forgot password? <span className="fakeLink">/forgot-password</span>
-            </div>
-          </form>
+        <div className="authFooter authFooterRow">
+          <span>
+            Don&apos;t have an account? <Link to="/signup">Create one</Link>
+          </span>
+          <span>
+            Forgot password? <span className="fakeLink">Click here</span>
+          </span>
         </div>
       </div>
     </div>

@@ -1,190 +1,245 @@
-/*
-  Shared styles for Login / Signup pages.
-  Keeps the form neat and consistent with the app's look.
-*/
+/* Shared styling for Login + Signup pages */
 
 .authPage {
-  width: 100%;
-  min-height: calc(100vh - 280px); /* accounts for navbar + footer */
-  padding: 28px 18px;
-  background: var(--bg, transparent);
-}
-
-.authContainer {
-  max-width: 1100px;
-  margin: 0 auto;
+  min-height: calc(100vh - 120px);
   display: flex;
-  justify-content: center;   /* center horizontally */
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px 16px 64px;
 }
 
 .authCard {
-  width: 520px;
-  max-width: 100%;
-  background: var(--card, #fff);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  width: 100%;
+  max-width: 480px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 18px 40px rgba(17, 24, 39, 0.10);
   border-radius: 22px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-  padding: 28px;
+  padding: 26px 24px 20px;
+}
+
+.authCardWide {
+  max-width: 620px;
 }
 
 .authTitle {
-  margin: 0;
   font-size: 30px;
-  line-height: 1.1;
-  color: var(--text, #0f172a);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  color: #0f172a;
 }
 
 .authSubtitle {
-  margin: 10px 0 0;
-  color: #64748b;
-  font-size: 15px;
+  margin: 0 0 12px;
+  color: rgba(15, 23, 42, 0.72);
+}
+
+.oauthRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 10px 0 12px;
+}
+
+.oauthBtn {
+  flex: 1;
+  min-width: 150px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  background: #ffffff;
+  color: rgba(15, 23, 42, 0.9);
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.oauthBtn:hover {
+  border-color: rgba(249, 115, 22, 0.45);
+  box-shadow: 0 10px 18px rgba(249, 115, 22, 0.10);
+  transform: translateY(-1px);
+}
+
+.oauthBtn:active {
+  transform: translateY(0px);
+}
+
+.socialStack {
+  display: flex;
+  flex-direction: column;   /* stack vertically */
+  gap: 8px;
+  margin: 12px 0 12px;
+}
+
+.socialBtn {
+  width: 100%;              /* full width bars */
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  background: #ffffff;
+  color: rgba(15, 23, 42, 0.9);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.socialBtn:hover {
+  border-color: rgba(249, 115, 22, 0.45);
+  box-shadow: 0 10px 18px rgba(249, 115, 22, 0.10);
+  transform: translateY(-1px);
+}
+
+.socialBtn:active {
+  transform: translateY(0px);
+}
+
+.authDivider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 18px;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 13px;
+}
+
+.authDividerLine {
+  height: 1px;
+  flex: 1;
+  background: rgba(15, 23, 42, 0.10);
+}
+
+.authDividerText {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Divider markup in the JSX: <div className="divider"><span/><em>or</em><span/></div> */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 18px;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 13px;
+}
+
+.divider span {
+  height: 1px;
+  flex: 1;
+  background: rgba(15, 23, 42, 0.10);
+  display: block;
+}
+
+.divider em {
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .authForm {
-  margin-top: 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.authRow label {
-  display: block;
-  font-size: 14px;
-  color: #0f172a;
-  font-weight: 600;
-  margin-bottom: 6px;
+.authFormGrid {
+  display: grid;
+  gap: 14px;
 }
 
-.authInput {
-  width: 100%;
-  height: 42px;
-  border-radius: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  padding: 0 12px;
-  font-size: 14px;
-  outline: none;
-  background: #fff;
-}
-
-.authInput:focus {
-  border-color: rgba(249, 115, 22, 0.65);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
-}
-
-.authGrid {
+.authRow2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
 
 @media (max-width: 560px) {
-  .authContainer {
-    justify-content: center;
-  }
-  .authGrid {
+  .authRow2 {
     grid-template-columns: 1fr;
   }
 }
 
-.authButton {
-  height: 44px;
-  border-radius: 14px;
-  border: none;
-  background: var(--accent, #f97316);
-  color: #fff;
+.authField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.authLabel {
   font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.05s ease, opacity 0.2s ease;
+  color: #0f172a;
 }
 
-.authButton:hover {
-  opacity: 0.95;
-}
-
-.authButton:active {
-  transform: translateY(1px);
-}
-
-.authButton:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.authDivider {
-  position: relative;
-  text-align: center;
-  margin: 2px 0;
-}
-
-.authDivider span {
-  display: inline-block;
-  padding: 0 10px;
-  font-size: 13px;
-  color: #64748b;
-  background: var(--card, #fff);
-}
-
-.authDivider::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-  background: rgba(15, 23, 42, 0.10);
-  transform: translateY(-50%);
-}
-
-.authOauthButton {
+.authInput {
   height: 44px;
   border-radius: 14px;
   border: 1px solid rgba(15, 23, 42, 0.14);
-  background: #fff;
-  color: #0f172a;
-  font-weight: 700;
-  cursor: pointer;
+  padding: 0 14px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.98);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
-.authOauthButton:hover {
+.authInput:focus {
   border-color: rgba(249, 115, 22, 0.55);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.10);
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.16);
 }
 
 .authError {
-  background: rgba(239, 68, 68, 0.10);
-  color: #991b1b;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-size: 14px;
+  margin-top: -6px;
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 13px;
 }
 
-.authMessage {
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-size: 14px;
+.authPrimaryButton,
+.authButton {
+  margin-top: 6px;
+  height: 46px;
+  border-radius: 14px;
+  border: none;
+  background: #f97316; /* orange */
+  color: white;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 14px 26px rgba(249, 115, 22, 0.26);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
 }
 
-.authMessage.success {
-  background: rgba(34, 197, 94, 0.08);
-  color: #15803d;
-  border: 1px solid rgba(34, 197, 94, 0.25);
+.authPrimaryButton:hover,
+.authButton:hover {
+  filter: brightness(0.98);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(249, 115, 22, 0.30);
 }
 
-.authMessage.error {
-  background: rgba(239, 68, 68, 0.10);
-  color: #991b1b;
-  border: 1px solid rgba(239, 68, 68, 0.25);
+.authPrimaryButton:active,
+.authButton:active {
+  transform: translateY(0px);
+}
+
+.authPrimaryButton:disabled,
+.authButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .authFooter {
   margin-top: 12px;
-  font-size: 14px;
-  color: #64748b;
+  color: rgba(15, 23, 42, 0.72);
 }
 
 .authFooter a {
-  color: var(--accent, #f97316);
+  color: #f97316;
   font-weight: 700;
   text-decoration: none;
 }
@@ -193,68 +248,35 @@
   text-decoration: underline;
 }
 
-.authHint {
-  color: #64748b;
+.authFooterRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
 
-.authLinks {
-  margin-top: 12px;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
+.authDot {
+  color: rgba(15, 23, 42, 0.35);
 }
 
 .fakeLink {
   color: #f97316;
   font-weight: 700;
 }
-.authLinksRow{
-  margin-top: 14px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-  font-size: 14px;
-}
 
-.authLinksRow a,
-.fakeLink{
-  color: #ff7a18;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-.authLinksRow a:hover,
-.fakeLink:hover{
-  text-decoration: underline;
-}
-.primaryBtn{
-  width: 100%;
-  height: 44px;
-  border: none;
-  border-radius: 10px;
-  background: #ff7a18;
-  color: #fff;
-  font-weight: 700;
-  font-size: 15px;
-  cursor: pointer;
-  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.08);
-  transition: transform 0.06s ease, opacity 0.15s ease;
-}
-
-.primaryBtn:hover { opacity: 0.95; }
-.primaryBtn:active { transform: translateY(1px); }
-
-.primaryBtn:disabled{
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-.authLinksTwoLines{
-  margin-top: 14px;
-  text-align: center;
-  font-size: 14px;
-  display: grid;
-  gap: 6px;
+@media (max-width: 420px) {
+  .authCard {
+    padding: 22px 18px 18px;
+  }
+  .authTitle {
+    font-size: 28px;
+  }
+  .oauthBtn {
+    min-width: 120px;
+  }
+  /* Let footer wrap on very small screens rather than overflow */
+  .authFooterRow {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
 }
