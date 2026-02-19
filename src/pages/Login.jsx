@@ -1,14 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState} from "react";
 import { Link, useNavigate } from "react-router-dom";
-
+import { useMsal } from "@azure/msal-react";
 // Shared auth page styles (login + signup)
 import "../styles/pages/Auth.css";
-
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function Login() {
-  const nav = useNavigate();
-
+  const navigate = useNavigate();
+  const { instance} = useMsal();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
@@ -52,21 +51,14 @@ export default function Login() {
 
       const data = await res.json().catch(() => ({}));
       if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
-      nav("/profile");
+      navigate("/profile");
     } catch (err) {
       setError(
-        err?.message || "Network error. Is Spring Boot running on 8080?"
+        err?.message
       );
     } finally {
       setLoading(false);
     }
-  }
-
-  // Placeholder-only: wire these up when backend OAuth is ready
-  function startOAuth(provider) {
-    // Example future:
-    // window.location.href = `${API_BASE}/oauth2/authorization/${provider}`;
-    console.log("OAuth provider clicked:", provider);
   }
 
   return (
@@ -79,23 +71,17 @@ export default function Login() {
           <button
             type="button"
             className="socialBtn"
-            onClick={() => startOAuth("google")}
-          >
-            Continue with Google
-          </button>
-          <button
-            type="button"
-            className="socialBtn"
-            onClick={() => startOAuth("microsoft")}
+            onClick={async () => {
+              try {
+                await instance.loginRedirect({ scopes: ["User.Read"] });
+              } catch (err) {
+                if (err.errorCode !== "interaction_in_progress") {
+                  setError("Microsoft login failed. Please try again.");
+                }
+              }
+            }}
           >
             Continue with Microsoft
-          </button>
-          <button
-            type="button"
-            className="socialBtn"
-            onClick={() => startOAuth("github")}
-          >
-            Continue with GitHub
           </button>
         </div>
 

@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
+import { useMsal } from "@azure/msal-react";
+
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function Profile() {
   const nav = useNavigate();
-
+  const { instance, accounts } = useMsal();
   async function handleLogout() {
     try {
       await fetch(`${API_BASE}/api/auth/logout`, {
@@ -16,7 +18,16 @@ export default function Profile() {
     }
 
     localStorage.removeItem("accessToken");
-    nav("/login");
+    if (accounts.length > 0) {
+      // Hand over navigation to MSAL so it can clear the Microsoft server session
+      instance.logoutRedirect({
+        account: accounts[0],         // Crucial: This tells Microsoft WHO is logging out so it can redirect back
+        postLogoutRedirectUri: "/",   // Sends them to your unauthenticated home page
+      });
+    } else {
+      // Fallback: If they logged in via standard email/password, just use React Router
+      nav("/"); 
+    }
   }
 
   return (

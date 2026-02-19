@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
+import { useMsal } from "@azure/msal-react";
 // Shared auth page styles (login + signup)
 import "../styles/pages/Auth.css";
 
@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function Signup() {
   const nav = useNavigate();
-
+  const { instance } = useMsal();
   const [nusStudentId, setNusStudentId] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -76,13 +76,6 @@ export default function Signup() {
     }
   }
 
-  // Placeholder-only: wire these up when backend OAuth is ready
-  function startOAuth(provider) {
-    // Example future:
-    // window.location.href = `${API_BASE}/oauth2/authorization/${provider}`;
-    console.log("OAuth provider clicked:", provider);
-  }
-
   return (
     <div className="authPage">
       <div className="authCard authCardWide">
@@ -93,23 +86,17 @@ export default function Signup() {
           <button
             type="button"
             className="socialBtn"
-            onClick={() => startOAuth("google")}
-          >
-            Continue with Google
-          </button>
-          <button
-            type="button"
-            className="socialBtn"
-            onClick={() => startOAuth("microsoft")}
+            onClick={async () => {
+              try {
+                await instance.loginRedirect({ scopes: ["User.Read"] });
+              } catch (err) {
+                if (err.errorCode !== "interaction_in_progress") {
+                  setError("Microsoft signup failed. Please try again.");
+                }
+              }
+            }}
           >
             Continue with Microsoft
-          </button>
-          <button
-            type="button"
-            className="socialBtn"
-            onClick={() => startOAuth("github")}
-          >
-            Continue with GitHub
           </button>
         </div>
 
