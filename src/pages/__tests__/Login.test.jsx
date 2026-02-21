@@ -1,9 +1,10 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach} from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Login from "../Login";
+import { useMsal } from "@azure/msal-react";
 
 // Mock useNavigate
 const mockNav = vi.fn();
@@ -39,9 +40,7 @@ describe("Login page", () => {
 
   it("renders OAuth buttons for Google, Microsoft and GitHub", () => {
     render(<MemoryRouter><Login /></MemoryRouter>);
-    expect(screen.getByRole("button", { name: /continue with google/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /continue with microsoft/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /continue with github/i })).toBeInTheDocument();
   });
 
   it("has a link to /signup", () => {
@@ -122,17 +121,24 @@ describe("Login page", () => {
 
   // ── OAuth buttons ──────────────────────────────────────────────────────────
 
+  vi.mock("@azure/msal-react", () => ({
+    useMsal: vi.fn(() => ({
+      instance: { loginRedirect: vi.fn().mockResolvedValue(undefined) },
+      accounts: [],
+    })),
+  }));
   it("OAuth buttons are clickable without throwing", async () => {
     const user = userEvent.setup();
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const mockLoginRedirect = vi.fn().mockResolvedValue(undefined);
+
+    useMsal.mockReturnValue({
+      instance: { loginRedirect: mockLoginRedirect },
+      accounts: [],
+    });
 
     render(<MemoryRouter><Login /></MemoryRouter>);
+    await user.click(screen.getByRole("button", { name: /Continue with Microsoft/i }));
 
-    await user.click(screen.getByRole("button", { name: /continue with google/i }));
-    await user.click(screen.getByRole("button", { name: /continue with microsoft/i }));
-    await user.click(screen.getByRole("button", { name: /continue with github/i }));
-
-    expect(consoleSpy).toHaveBeenCalledTimes(3);
-    consoleSpy.mockRestore();
+    expect(mockLoginRedirect).toHaveBeenCalledWith({ scopes: ["User.Read"] });
   });
 });

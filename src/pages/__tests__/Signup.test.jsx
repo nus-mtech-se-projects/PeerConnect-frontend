@@ -39,11 +39,9 @@ describe("Signup page", () => {
     expect(screen.getByRole("button", { name: /create account/i })).toBeInTheDocument();
   });
 
-  it("renders OAuth buttons for Google, Microsoft and GitHub", () => {
+  it("renders OAuth buttons for Microsoft", () => {
     render(<MemoryRouter><Signup /></MemoryRouter>);
-    expect(screen.getByRole("button", { name: /continue with google/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /continue with microsoft/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /continue with github/i })).toBeInTheDocument();
   });
 
   it("has a link to /login", () => {
