@@ -1,5 +1,5 @@
 import { MsalProvider } from "@azure/msal-react";
-import { msalInstance } from "./authConfig";
+import { msalInstance } from "./AuthConfig";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
