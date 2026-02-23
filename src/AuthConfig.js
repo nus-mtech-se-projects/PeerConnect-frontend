@@ -36,4 +36,5 @@ export const msalInstance = new PublicClientApplication(msalConfig);
 // Scopes requested when logging in — User.Read gives access to basic profile
 export const loginRequest = {
   scopes: ["User.Read"],
+  prompt: "select_account",   // always show the account picker
 };
