@@ -6,6 +6,7 @@ import "../styles/pages/Auth.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
+
 export default function Signup() {
   const nav = useNavigate();
   const { instance } = useMsal();

@@ -5,6 +5,7 @@ import { useMsal } from "@azure/msal-react";
 import "../styles/pages/Auth.css";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
+
 export default function Login() {
   const navigate = useNavigate();
   const { instance} = useMsal();

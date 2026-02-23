@@ -12,7 +12,8 @@ import Profile from "./pages/Profile";
 import PrivateRoute from "./components/PrivateRoute"
 import PublicRoute from "./components/PublicRoute";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+
 export default function App() {
   const { instance, accounts } = useMsal();
   const nav = useNavigate();

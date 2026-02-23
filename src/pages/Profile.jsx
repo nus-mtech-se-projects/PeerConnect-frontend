@@ -4,6 +4,7 @@ import { useMsal } from "@azure/msal-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
+
 export default function Profile() {
   const nav = useNavigate();
   const { instance, accounts } = useMsal();
