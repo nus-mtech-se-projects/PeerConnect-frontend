@@ -8,7 +8,9 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import Profile from "./pages/Profile";
+import Dashboard from "./pages/Dashboard";
 import PrivateRoute from "./components/PrivateRoute"
 import PublicRoute from "./components/PublicRoute";
 
@@ -20,7 +22,20 @@ export default function App() {
 
   useEffect(() => {
     if (accounts.length === 0) return;
-    if (localStorage.getItem("accessToken")) return; // already logged in, skip
+
+    // Check if existing token is still valid (not expired)
+    const existingToken = localStorage.getItem("accessToken");
+    if (existingToken) {
+      try {
+        const payload = JSON.parse(atob(existingToken.split(".")[1]));
+        const expiresAt = payload.exp * 1000; // convert to ms
+        if (Date.now() < expiresAt - 60000) return; // still valid (1 min buffer)
+        // Token expired — remove it and continue with exchange
+        localStorage.removeItem("accessToken");
+      } catch {
+        localStorage.removeItem("accessToken");
+      }
+    }
 
     instance.acquireTokenSilent({
       scopes: ["User.Read"],
@@ -35,7 +50,7 @@ export default function App() {
         .then((data) => {
           if (data.accessToken) {
             localStorage.setItem("accessToken", data.accessToken);
-            nav("/profile");
+            nav("/dashboard");
           }
         })
         .catch((err) => console.error("Microsoft token exchange failed:", err));
@@ -52,12 +67,21 @@ export default function App() {
           <Route path="/contact" element={<PublicRoute><About /></PublicRoute>} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+          <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
 
           <Route
             path="/profile"
             element={
               <PrivateRoute>
                 <Profile />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
               </PrivateRoute>
             }
           />

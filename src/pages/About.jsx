@@ -25,7 +25,7 @@ export default function About() {
           </Block>
 
           <Block title="Contact us">
-            <div className="contactLine">Email: support@peerconnect.example</div>
+            <div className="contactLine">Email: peerconnectsg@gmail.com</div>
             <div className="contactLine">Hours: Mon–Fri, 9am–6pm</div>
           </Block>
         </div>

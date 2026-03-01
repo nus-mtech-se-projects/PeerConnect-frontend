@@ -59,8 +59,8 @@
 }
 
 .oauthBtn:hover {
-  border-color: rgba(249, 115, 22, 0.45);
-  box-shadow: 0 10px 18px rgba(249, 115, 22, 0.10);
+  border-color: rgba(0, 61, 124, 0.45);
+  box-shadow: 0 10px 18px rgba(0, 61, 124, 0.10);
   transform: translateY(-1px);
 }
 
@@ -90,8 +90,8 @@
 }
 
 .socialBtn:hover {
-  border-color: rgba(249, 115, 22, 0.45);
-  box-shadow: 0 10px 18px rgba(249, 115, 22, 0.10);
+  border-color: rgba(0, 61, 124, 0.45);
+  box-shadow: 0 10px 18px rgba(0, 61, 124, 0.10);
   transform: translateY(-1px);
 }
 
@@ -187,8 +187,8 @@
 }
 
 .authInput:focus {
-  border-color: rgba(249, 115, 22, 0.55);
-  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.16);
+  border-color: rgba(0, 61, 124, 0.55);
+  box-shadow: 0 0 0 4px rgba(0, 61, 124, 0.12);
 }
 
 .authError {
@@ -204,12 +204,12 @@
   height: 46px;
   border-radius: 14px;
   border: none;
-  background: #f97316; /* orange */
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
   color: white;
   font-weight: 800;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow: 0 14px 26px rgba(249, 115, 22, 0.26);
+  box-shadow: 0 14px 26px rgba(239, 124, 0, 0.26);
   transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
 }
 
@@ -217,7 +217,7 @@
 .authButton:hover {
   filter: brightness(0.98);
   transform: translateY(-1px);
-  box-shadow: 0 18px 34px rgba(249, 115, 22, 0.30);
+  box-shadow: 0 18px 34px rgba(239, 124, 0, 0.30);
 }
 
 .authPrimaryButton:active,
@@ -239,7 +239,7 @@
 }
 
 .authFooter a {
-  color: #f97316;
+  color: var(--accent);
   font-weight: 700;
   text-decoration: none;
 }
@@ -260,23 +260,94 @@
 }
 
 .fakeLink {
-  color: #f97316;
+  color: var(--accent);
   font-weight: 700;
+}
+
+.authSuccess {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #047857;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.authLinkBtn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 0;
+  text-align: center;
+}
+.authLinkBtn:hover {
+  text-decoration: underline;
+}
+
+/* ── Responsive ────────────────────────────────── */
+@media (max-width: 768px) {
+  .authPage {
+    padding: 24px 16px 48px;
+    align-items: flex-start;
+  }
+
+  .authCard {
+    max-width: 100%;
+    border-radius: 18px;
+    padding: 22px 20px 18px;
+  }
+
+  .authCardWide {
+    max-width: 100%;
+  }
+
+  .authTitle {
+    font-size: 26px;
+  }
+
+  .authInput {
+    height: 48px;
+    font-size: 16px; /* prevent iOS zoom */
+  }
+
+  .authPrimaryButton,
+  .authButton {
+    height: 50px;
+    font-size: 15px;
+  }
+
+  .socialBtn {
+    height: 48px;
+    font-size: 15px;
+  }
 }
 
 @media (max-width: 420px) {
   .authCard {
-    padding: 22px 18px 18px;
+    padding: 18px 14px 16px;
+    border-radius: 14px;
   }
+
   .authTitle {
-    font-size: 28px;
+    font-size: 24px;
   }
+
+  .authSubtitle {
+    font-size: 14px;
+  }
+
   .oauthBtn {
     min-width: 120px;
   }
-  /* Let footer wrap on very small screens rather than overflow */
+
   .authFooterRow {
     flex-wrap: wrap;
     white-space: normal;
+    font-size: 13px;
   }
 }

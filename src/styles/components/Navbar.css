@@ -1,10 +1,11 @@
 .navPro {
   position: sticky;
   top: 0;
-  z-index: 20;
-  background: rgba(255,255,255,0.82);
+  z-index: 100;
+  background: linear-gradient(135deg, #003D7C 0%, #004f99 100%);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(0,61,124,0.15);
+  box-shadow: 0 2px 8px rgba(0,61,124,0.12);
 }
 
 .navProInner {
@@ -26,25 +27,36 @@
   cursor: pointer;
   padding: 6px 8px;
   border-radius: 12px;
+  flex-shrink: 0;
 }
-.brandPro:hover { background: rgba(249,115,22,0.08); }
+.brandPro:hover { background: rgba(255,255,255,0.08); }
 
-.brandProName { font-weight: 800; letter-spacing: 0.2px; }
-.brandProSub { font-size: 12px; color: var(--muted); }
+.brandProIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: contain;
+}
 
-.navProLinks { display: flex; gap: 10px; }
+.brandProName { font-weight: 800; letter-spacing: 0.2px; color: #ffffff; font-size: clamp(16px, 2.5vw, 18px); }
+.brandProSub { font-size: 12px; color: rgba(255,255,255,0.7); }
+
+.navProLinks { display: flex; gap: 10px; margin: 0 auto; }
 
 .navLink {
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-radius: 12px;
-  color: var(--text);
+  color: rgba(255,255,255,0.9);
   font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 150ms ease, color 150ms ease;
 }
-.navLink:hover { background: rgba(249,115,22,0.10); }
+.navLink:hover { background: rgba(255,255,255,0.12); text-decoration: none; }
 
 .navLink.active {
-  background: rgba(249,115,22,0.16);
-  color: var(--primary3);
+  background: rgba(255,255,255,0.18);
+  color: #ffffff;
 }
 
 .navProActions {
@@ -58,22 +70,173 @@
   align-items: center;
   justify-content: center;
   height: 40px;
-  padding: 0 14px;
+  padding: 0 18px;
   border-radius: 12px;
   font-weight: 700;
   border: 1px solid var(--border);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 150ms ease, border-color 150ms ease, transform 120ms ease;
 }
 
 .btnGhost {
-  background: white;
-  color: var(--text);
+  background: rgba(255,255,255,0.12);
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.25);
 }
-.btnGhost:hover { border-color: rgba(249,115,22,0.35); }
+.btnGhost:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.18); text-decoration: none; }
 
 .btnPrimary {
   border-color: transparent;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary2) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
   color: white;
-  box-shadow: 0 10px 18px rgba(249,115,22,0.22);
+  box-shadow: 0 10px 18px rgba(239,124,0,0.22);
 }
-.btnPrimary:hover { filter: brightness(0.98); }
+.btnPrimary:hover { filter: brightness(0.98); text-decoration: none; }
+
+/* ── Hamburger button ─────────────────────────────────────── */
+.navHamburger {
+  display: none; /* hidden on desktop */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.10);
+  cursor: pointer;
+  padding: 0;
+  z-index: 110;
+  transition: background 200ms ease;
+}
+.navHamburger:hover { background: rgba(255,255,255,0.18); }
+
+.navHamburgerBar {
+  display: block;
+  width: 22px;
+  height: 2.5px;
+  background: #fff;
+  border-radius: 2px;
+  transition: transform 300ms ease, opacity 200ms ease;
+}
+
+/* Animate to X when open */
+.navHamburger.open .navHamburgerBar:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+.navHamburger.open .navHamburgerBar:nth-child(2) { opacity: 0; }
+.navHamburger.open .navHamburgerBar:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+/* ── Overlay ──────────────────────────────────────────────── */
+.navOverlay {
+  display: none;
+}
+
+/* ── Drawer: on desktop it's an inline flex container ────── */
+.navDrawer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── MOBILE: ≤ 768px ────────────────────────────────────── */
+@media (max-width: 768px) {
+  .navProInner {
+    padding: 10px 0;
+  }
+
+  .navHamburger {
+    display: flex;
+  }
+
+  .navOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 99;
+    animation: fadeIn 200ms ease;
+  }
+
+  .navDrawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(320px, 85vw);
+    height: 100vh;
+    height: 100dvh;
+    background: linear-gradient(180deg, #003D7C 0%, #002a57 100%);
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 80px 24px 32px;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.3);
+    transform: translateX(100%);
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+
+  .navDrawer.open {
+    transform: translateX(0);
+  }
+
+  .navProLinks {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .navLink {
+    padding: 14px 16px;
+    font-size: 16px;
+    border-radius: 14px;
+  }
+
+  .navProActions {
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .btnGhost, .btnPrimary {
+    width: 100%;
+    height: 48px;
+    font-size: 15px;
+    justify-content: center;
+  }
+
+  /* Hide tagline on small screens */
+  .brandProSub {
+    display: none;
+  }
+}
+
+/* ── TABLET: 769-1024px ─────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .navProInner {
+    gap: 12px;
+  }
+
+  .navLink {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  .btnGhost, .btnPrimary {
+    padding: 0 12px;
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .brandProSub {
+    display: none;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

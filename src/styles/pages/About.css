@@ -35,14 +35,14 @@
   bottom: 14px;
   width: 4px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #f97316 0%, #fb923c 100%);
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent) 100%);
   opacity: 0.9;
 }
 
 .infoBlock:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(17, 24, 39, 0.10);
-  border-color: rgba(249, 115, 22, 0.25);
+  box-shadow: 0 14px 30px rgba(0, 61, 124, 0.10);
+  border-color: rgba(0, 61, 124, 0.25);
 }
 
 /* Block title */
@@ -93,18 +93,52 @@
       
 }
 
-/* Responsive */
+/* ── Responsive ────────────────────────────────── */
 @media (max-width: 900px) {
   .twoCol {
     grid-template-columns: 1fr;
+    gap: 14px;
   }
 
   .rightPlaceholder {
-    min-height: 220px;
+    min-height: 200px;
     aspect-ratio: 16 / 10;
+    order: -1; /* image first on mobile */
   }
 
   .aboutImg {
-    min-height: 220px;
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .infoBlock {
+    padding: 14px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+  }
+
+  .infoTitle {
+    font-size: 15px;
+  }
+
+  .infoBody {
+    font-size: 13px;
+  }
+
+  .rightPlaceholder {
+    height: auto;
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .infoBlock {
+    padding: 12px;
+  }
+
+  .contactLine {
+    font-size: 13px;
+    padding: 6px 0;
   }
 }

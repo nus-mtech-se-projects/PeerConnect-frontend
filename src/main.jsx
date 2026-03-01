@@ -14,6 +14,8 @@ import "./styles/components/Footer.css";
 import "./styles/pages/Home.css";
 import "./styles/pages/About.css";
 import "./styles/pages/Auth.css";
+import "./styles/pages/Dashboard.css";
+import "./styles/pages/Profile.css";
 
 async function bootstrap() {
   await msalInstance.initialize();

@@ -52,7 +52,7 @@ export default function Login() {
 
       const data = await res.json().catch(() => ({}));
       if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
-      navigate("/profile");
+      navigate("/dashboard");
     } catch (err) {
       setError(
         err?.message
@@ -128,7 +128,7 @@ export default function Login() {
             Don&apos;t have an account? <Link to="/signup">Create one</Link>
           </span>
           <span>
-            Forgot password? <span className="fakeLink">Click here</span>
+            Forgot password? <Link to="/forgot-password">Click here</Link>
           </span>
         </div>
       </div>
