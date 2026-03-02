@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
-import peerconnectIcon from "../assets/images/peerconnect_icon.png";
 import "../styles/pages/Dashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";

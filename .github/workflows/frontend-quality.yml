@@ -1,0 +1,31 @@
+name: Frontend Quality
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: 
+      - main
+      - "new_devsecops_pipelines"
+  workflow_dispatch:
+concurrency:
+  group: frontend-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm test -- --run
+        env:
+          CI: true
+      - run: npm run build

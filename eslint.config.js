@@ -3,7 +3,7 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
-
+import vitest from 'eslint-plugin-vitest'
 export default defineConfig([
   globalIgnores(['dist']),
   {
@@ -24,6 +24,13 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+    },
+  },
+  {
+    files: ['**/__tests__/**', '**/*.test.*'],
+    plugins: { vitest },
+    languageOptions: {
+      globals: vitest.environments.env.globals,
     },
   },
 ])

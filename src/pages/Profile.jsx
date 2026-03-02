@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import "../styles/pages/Profile.css";
 
@@ -14,7 +13,6 @@ function authHeaders() {
 }
 
 export default function Profile() {
-  const nav = useNavigate();
   const { accounts } = useMsal();
 
   const [form, setForm] = useState({

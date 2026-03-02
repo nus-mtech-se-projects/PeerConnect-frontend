@@ -1,0 +1,48 @@
+name: Frontend Security
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches:
+      - main
+      - "new_devsecops_pipelines"
+  workflow_dispatch:
+
+jobs:
+  sonar:
+    runs-on: ubuntu-latest
+    services:
+      sonarqube:
+        image: sonarqube:community
+        ports:
+          - 9000:9000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm test -- --coverage
+        env:
+          CI: true
+
+      - name: Wait for SonarQube to start
+        run: npx wait-on http://localhost:9000 --timeout 120000
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v3
+        continue-on-error: true
+        env:
+          SONAR_TOKEN: admin
+          SONAR_HOST_URL: http://localhost:9000
+        with:
+          args: >
+            -Dsonar.projectKey=peerconnect-frontend
+            -Dsonar.sources=src
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
