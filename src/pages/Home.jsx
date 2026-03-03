@@ -190,6 +190,7 @@ function DashboardHome() {
   }
 
   async function handleLogout() {
+    if (!window.confirm("Are you sure you want to logout?")) return;
     try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch {}
     localStorage.removeItem("accessToken");
     if (accounts.length > 0) {

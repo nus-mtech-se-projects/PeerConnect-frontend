@@ -73,6 +73,7 @@ export default function Navbar() {
                 <button
                   className="btnPrimary"
                   onClick={async () => {
+                    if (!window.confirm("Are you sure you want to logout?")) return;
                     const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
                     try {
                       await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
