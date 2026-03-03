@@ -23,8 +23,8 @@
 }
 
 .profileAvatar {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   background: linear-gradient(135deg, #003D7C, #0065cc);
   display: flex;
@@ -35,8 +35,8 @@
 }
 
 .profileAvatarImg {
-  width: 100%;
-  height: 100%;
+  width: 70px;
+  height: 70px;
   object-fit: cover;
 }
 
@@ -99,6 +99,148 @@
 .profileTextarea {
   resize: vertical;
   min-height: 80px;
+}
+
+/* ── Select dropdowns ────────────────────────────── */
+.profileSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+.profileSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f3f4f6;
+}
+
+/* ── Avatar upload drop-zone ─────────────────────── */
+.profileFileHidden {
+  display: none;
+}
+
+.profileDropZone {
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease;
+  background: #fafafa;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.profileDropZone:hover {
+  border-color: #003D7C;
+  background: rgba(0, 61, 124, 0.03);
+}
+.profileDropZoneActive {
+  border-color: #003D7C;
+  background: rgba(0, 61, 124, 0.06);
+}
+
+.profileDropContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.profileDropIcon {
+  font-size: 24px;
+  color: #9ca3af;
+  line-height: 1;
+}
+
+.profileDropText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.profileDropHint {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.profileDropPreview {
+  position: relative;
+  display: inline-block;
+}
+
+.profileDropThumb {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid #e5e7eb;
+}
+
+.profileDropRemove {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.profileDropRemove:hover {
+  background: #dc2626;
+}
+
+/* ── Upload spinner ──────────────────────────────── */
+.profileDropSpin {
+  display: inline-block;
+  animation: avatarSpin 1s linear infinite;
+}
+
+@keyframes avatarSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Full-Time toggle ────────────────────────────── */
+.profileToggleRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profileRadioGroup {
+  display: flex;
+  gap: 18px;
+}
+
+.profileRadioLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+}
+
+.profileRadio {
+  accent-color: #003D7C;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 /* ── Messages ────────────────────────────────────── */

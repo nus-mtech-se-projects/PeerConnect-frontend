@@ -1,9 +1,57 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import "../styles/pages/Profile.css";
 
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
+const ALLOWED_TYPES = ["image/png", "image/jpeg"];
+
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+
+/* ── NUS Faculty → Major mapping ── */
+const FACULTY_MAJORS = {
+  "Faculty of Arts and Social Sciences": [
+    "Chinese Language", "Chinese Studies", "Communications and New Media",
+    "Economics", "English Language", "English Literature", "Geography",
+    "Global Studies", "History", "Japanese Studies", "Malay Studies",
+    "Philosophy", "Political Science", "Psychology", "Social Work",
+    "Sociology", "South Asian Studies", "Southeast Asian Studies",
+  ],
+  "School of Business": [
+    "Business Administration", "Accountancy",
+  ],
+  "School of Computing": [
+    "Computer Science", "Information Systems", "Information Security",
+    "Computer Engineering", "Business Analytics",
+  ],
+  "College of Design and Engineering": [
+    "Architecture", "Biomedical Engineering", "Chemical Engineering",
+    "Civil Engineering", "Electrical Engineering",
+    "Engineering Science", "Environmental Engineering",
+    "Industrial and Systems Engineering", "Infrastructure and Project Management",
+    "Landscape Architecture", "Materials Science and Engineering",
+    "Mechanical Engineering", "Industrial Design",
+  ],
+  "Faculty of Dentistry": [
+    "Dentistry",
+  ],
+  "Faculty of Law": [
+    "Law",
+  ],
+  "Yong Loo Lin School of Medicine": [
+    "Medicine", "Nursing",
+  ],
+  "Yong Siew Toh Conservatory of Music": [
+    "Music",
+  ],
+  "Faculty of Science": [
+    "Chemistry", "Data Science and Analytics", "Food Science and Technology",
+    "Life Sciences", "Mathematics", "Pharmaceutical Science", "Pharmacy",
+    "Physics", "Quantitative Finance", "Statistics",
+  ],
+};
+
+const FACULTIES = Object.keys(FACULTY_MAJORS);
 
 function authHeaders() {
   const token = localStorage.getItem("accessToken");
@@ -21,12 +69,17 @@ export default function Profile() {
     faculty: "",
     major: "",
     yearOfStudy: "",
+    fullTime: true,
     bio: "",
     avatarUrl: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(""); // local preview while uploading
+  const fileInputRef = useRef(null);
 
   /* ── load existing profile ── */
   useEffect(() => {
@@ -40,6 +93,7 @@ export default function Profile() {
           faculty: data.faculty || "",
           major: data.major || "",
           yearOfStudy: data.yearOfStudy ?? "",
+          fullTime: data.fullTime ?? true,
           bio: data.bio || "",
           avatarUrl: data.avatarUrl || "",
         });
@@ -64,6 +118,7 @@ export default function Profile() {
           faculty: form.faculty.trim() || null,
           major: form.major.trim() || null,
           yearOfStudy: form.yearOfStudy ? Number(form.yearOfStudy) : null,
+          fullTime: form.fullTime,
           bio: form.bio.trim() || null,
           avatarUrl: form.avatarUrl.trim() || null,
         }),
@@ -78,8 +133,105 @@ export default function Profile() {
   }
 
   function handleChange(field) {
-    return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    return (e) => {
+      const value = e.target.value;
+      if (field === "faculty") {
+        // Reset major when faculty changes
+        setForm((prev) => ({ ...prev, faculty: value, major: "" }));
+      } else {
+        setForm((prev) => ({ ...prev, [field]: value }));
+      }
+    };
   }
+
+  const availableMajors = form.faculty ? (FACULTY_MAJORS[form.faculty] || []) : [];
+
+  /* ── avatar file handling ── */
+  async function processAvatarFile(file) {
+    if (!file) return;
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setMessage("Only PNG or JPG files are allowed.");
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setMessage("File must be smaller than 2 MB.");
+      return;
+    }
+
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file);
+    setAvatarPreview(localUrl);
+    setMessage("");
+    setUploading(true);
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const res = await fetch(`${API_BASE}/api/profile/avatar`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+
+      const data = await res.json();
+      // Backend returns the stored URL, e.g. { avatarUrl: "https://..." }
+      setForm((prev) => ({ ...prev, avatarUrl: data.avatarUrl }));
+      setAvatarPreview("");
+    } catch (err) {
+      setMessage(err.message);
+      setAvatarPreview("");
+    } finally {
+      setUploading(false);
+      URL.revokeObjectURL(localUrl);
+    }
+  }
+
+  function handleAvatarClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(e) {
+    processAvatarFile(e.target.files?.[0]);
+    e.target.value = ""; // allow re-selecting same file
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    setDragging(true);
+  }
+  function handleDragLeave(e) {
+    e.preventDefault();
+    setDragging(false);
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragging(false);
+    processAvatarFile(e.dataTransfer.files?.[0]);
+  }
+
+  async function handleRemoveAvatar() {
+    setForm((prev) => ({ ...prev, avatarUrl: "" }));
+    setAvatarPreview("");
+
+    // Also delete the blob from Azure Storage
+    try {
+      const token = await getToken();
+      await fetch(`${API_BASE}/api/profile/avatar`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // best-effort; profile save will clear the URL anyway
+    }
+  }
+
+  // Resolved avatar source: local preview (during upload) or saved URL
+  const avatarSrc = avatarPreview || form.avatarUrl;
 
   if (loading) return <div className="profilePage"><p className="profileMsg">Loading profile…</p></div>;
 
@@ -89,8 +241,8 @@ export default function Profile() {
         {/* avatar preview */}
         <div className="profileAvatarSection">
           <div className="profileAvatar">
-            {form.avatarUrl ? (
-              <img src={form.avatarUrl} alt="Avatar" className="profileAvatarImg" />
+            {avatarSrc ? (
+              <img src={avatarSrc} alt="Avatar" className="profileAvatarImg" />
             ) : (
               <span className="profileAvatarLetter">
                 {accounts[0]?.name?.charAt(0)?.toUpperCase() || "U"}
@@ -105,22 +257,31 @@ export default function Profile() {
           <div className="profileRow">
             <label className="profileLabel">
               Faculty
-              <input
-                className="profileInput"
-                placeholder="e.g. School of Computing"
+              <select
+                className="profileInput profileSelect"
                 value={form.faculty}
                 onChange={handleChange("faculty")}
-              />
+              >
+                <option value="">Select faculty</option>
+                {FACULTIES.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
             </label>
 
             <label className="profileLabel">
               Major
-              <input
-                className="profileInput"
-                placeholder="e.g. Computer Science"
+              <select
+                className="profileInput profileSelect"
                 value={form.major}
                 onChange={handleChange("major")}
-              />
+                disabled={!form.faculty}
+              >
+                <option value="">{form.faculty ? "Select major" : "Select faculty first"}</option>
+                {availableMajors.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
             </label>
           </div>
 
@@ -141,15 +302,78 @@ export default function Profile() {
               </select>
             </label>
 
-            <label className="profileLabel">
-              Avatar URL
+            <div className="profileLabel">
+              Avatar
               <input
-                className="profileInput"
-                placeholder="https://example.com/avatar.jpg"
-                value={form.avatarUrl}
-                onChange={handleChange("avatarUrl")}
+                ref={fileInputRef}
+                type="file"
+                accept=".png,.jpg,.jpeg"
+                className="profileFileHidden"
+                onChange={handleFileChange}
               />
-            </label>
+              <div
+                className={`profileDropZone${dragging ? " profileDropZoneActive" : ""}`}
+                onClick={handleAvatarClick}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && handleAvatarClick()}
+              >
+                {uploading ? (
+                  <div className="profileDropContent">
+                    <span className="profileDropIcon profileDropSpin">⟳</span>
+                    <span className="profileDropText">Uploading…</span>
+                  </div>
+                ) : avatarSrc ? (
+                  <div className="profileDropPreview">
+                    <img src={avatarSrc} alt="Avatar preview" className="profileDropThumb" />
+                    <span className="profileDropHint">Click to replace</span>
+                    <button
+                      type="button"
+                      className="profileDropRemove"
+                      onClick={(e) => { e.stopPropagation(); handleRemoveAvatar(); }}
+                      title="Remove avatar"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="profileDropContent">
+                    <span className="profileDropIcon">⇧</span>
+                    <span className="profileDropText">Click or drag image here</span>
+                    <span className="profileDropHint">PNG / JPG — max 2 MB</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="profileToggleRow">
+            <span className="profileLabel">Full Time</span>
+            <div className="profileRadioGroup">
+              <label className="profileRadioLabel">
+                <input
+                  type="radio"
+                  name="fullTime"
+                  className="profileRadio"
+                  checked={form.fullTime === true}
+                  onChange={() => setForm((prev) => ({ ...prev, fullTime: true }))}
+                />
+                Yes
+              </label>
+              <label className="profileRadioLabel">
+                <input
+                  type="radio"
+                  name="fullTime"
+                  className="profileRadio"
+                  checked={form.fullTime === false}
+                  onChange={() => setForm((prev) => ({ ...prev, fullTime: false }))}
+                />
+                No
+              </label>
+            </div>
           </div>
 
           <label className="profileLabel">

@@ -11,7 +11,7 @@
 .navProInner {
   width: min(1100px, 92vw);
   margin: 0 auto;
-  padding: 12px 0;
+  padding: 8px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -32,8 +32,8 @@
 .brandPro:hover { background: rgba(255,255,255,0.08); }
 
 .brandProIcon {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   border-radius: 8px;
   object-fit: contain;
 }
@@ -144,7 +144,7 @@
 /* ── MOBILE: ≤ 768px ────────────────────────────────────── */
 @media (max-width: 768px) {
   .navProInner {
-    padding: 10px 0;
+    padding: 8px 0;
   }
 
   .navHamburger {

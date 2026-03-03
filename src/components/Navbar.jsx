@@ -61,14 +61,7 @@ export default function Navbar() {
             >
               About / Contact
             </NavLink>
-            {isLoggedIn && (
-              <NavLink
-                className={({ isActive }) => `navLink ${isActive ? "active" : ""}`}
-                to="/dashboard"
-              >
-                Dashboard
-              </NavLink>
-            )}
+
           </nav>
 
           <div className="navProActions">
