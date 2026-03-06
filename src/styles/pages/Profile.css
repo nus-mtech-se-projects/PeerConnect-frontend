@@ -262,6 +262,36 @@
   color: #ef4444;
 }
 
+/* ── Button row ──────────────────────────────────── */
+.profileBtnRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Change Password button ──────────────────────── */
+.profileChangePassBtn {
+  padding: 12px 28px;
+  border-radius: 12px;
+  border: 2px solid #003D7C;
+  background: transparent;
+  color: #003D7C;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 120ms ease;
+}
+.profileChangePassBtn:hover {
+  background: #003D7C;
+  color: #fff;
+  transform: translateY(-1px);
+}
+.profileChangePassBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ── Save button ─────────────────────────────────── */
 .profileSaveBtn {
   padding: 12px 28px;
@@ -274,7 +304,6 @@
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(239, 124, 0, 0.25);
   transition: filter 150ms ease, transform 120ms ease;
-  align-self: flex-end;
 }
 .profileSaveBtn:hover {
   filter: brightness(1.05);
@@ -297,5 +326,13 @@
 
   .profileSaveBtn {
     width: 100%;
+  }
+
+  .profileChangePassBtn {
+    width: 100%;
+  }
+
+  .profileBtnRow {
+    flex-direction: column;
   }
 }

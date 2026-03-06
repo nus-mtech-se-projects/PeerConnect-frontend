@@ -393,9 +393,19 @@ export default function Profile() {
             </p>
           )}
 
-          <button className="profileSaveBtn" type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save Profile"}
-          </button>
+          <div className="profileBtnRow">
+            <button
+              className="profileChangePassBtn"
+              type="button"
+              disabled={saving}
+              onClick={() => nav("/change-password")}
+            >
+              Change Password
+            </button>
+            <button className="profileSaveBtn" type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save Profile"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
