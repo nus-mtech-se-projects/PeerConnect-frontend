@@ -75,7 +75,7 @@ describe("Login page", () => {
 
     await waitFor(() => {
       expect(localStorage.getItem("accessToken")).toBe("test-token-123");
-      expect(mockNav).toHaveBeenCalledWith("/dashboard");
+      expect(mockNav).toHaveBeenCalledWith("/");
     });
   });
 
