@@ -41,7 +41,7 @@ test.describe('Login page', () => {
     await page.getByPlaceholder('e.g. johntan@u.nus.edu or A1234567X').fill('test@u.nus.edu');
     await page.locator('input[type="password"]').fill('password123');
     await page.getByRole('button', { name: 'Login' }).click();
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/');
   });
 
   test('has link to signup page', async ({ page }) => {

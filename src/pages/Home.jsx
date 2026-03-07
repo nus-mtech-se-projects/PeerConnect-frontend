@@ -7,7 +7,6 @@ import tutoringImg from "../assets/images/tutoring.jpg";
 import studyGroupImg from "../assets/images/study-group.jpg";
 import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
-import peerconnectIcon from "../assets/images/peerconnect_icon.png";
 import "../styles/pages/Dashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
@@ -191,7 +190,7 @@ function DashboardHome() {
 
   async function handleLogout() {
     if (!window.confirm("Are you sure you want to logout?")) return;
-    try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch {}
+    try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch { /* best-effort */ }
     localStorage.removeItem("accessToken");
     if (accounts.length > 0) {
       instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });

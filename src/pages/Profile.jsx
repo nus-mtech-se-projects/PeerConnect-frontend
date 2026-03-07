@@ -220,7 +220,7 @@ export default function Profile() {
 
     // Also delete the blob from Azure Storage
     try {
-      const token = await getToken();
+      const token = localStorage.getItem("accessToken");
       await fetch(`${API_BASE}/api/profile/avatar`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
