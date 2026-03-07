@@ -9,8 +9,8 @@ import About from "./pages/About";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
+import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
-import Dashboard from "./pages/Dashboard";
 import PrivateRoute from "./components/PrivateRoute"
 import PublicRoute from "./components/PublicRoute";
 
@@ -50,7 +50,7 @@ export default function App() {
         .then((data) => {
           if (data.accessToken) {
             localStorage.setItem("accessToken", data.accessToken);
-            nav("/dashboard");
+            nav("/");
           }
         })
         .catch((err) => console.error("Microsoft token exchange failed:", err));
@@ -63,7 +63,7 @@ export default function App() {
 
       <main className="mainContent">
         <Routes>
-          <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
+          <Route path="/" element={<Home />} />
           <Route path="/contact" element={<PublicRoute><About /></PublicRoute>} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
@@ -78,10 +78,10 @@ export default function App() {
             }
           />
           <Route
-            path="/dashboard"
+            path="/change-password"
             element={
               <PrivateRoute>
-                <Dashboard />
+                <ChangePassword />
               </PrivateRoute>
             }
           />

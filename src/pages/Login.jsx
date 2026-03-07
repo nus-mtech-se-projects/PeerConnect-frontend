@@ -52,7 +52,7 @@ export default function Login() {
 
       const data = await res.json().catch(() => ({}));
       if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
-      navigate("/dashboard");
+      navigate("/");
     } catch (err) {
       setError(
         err?.message
