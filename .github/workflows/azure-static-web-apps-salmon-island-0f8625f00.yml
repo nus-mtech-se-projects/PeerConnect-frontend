@@ -5,6 +5,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      deploy_environment:
+        description: "Deployment environment"
+        required: true
+        type: choice
+        default: production
+        options:
+          - production
+          - test
 
 jobs:
   build_and_deploy_job:
@@ -15,6 +24,7 @@ jobs:
       packages: read
     env:
       NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DEPLOY_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_environment || vars.DEPLOY_ENVIRONMENT || 'production' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,7 +49,8 @@ jobs:
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_SALMON_ISLAND_0F8625F00 }}
+          azure_static_web_apps_api_token: ${{ env.DEPLOY_ENVIRONMENT == 'test' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_TEST || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_SALMON_ISLAND_0F8625F00 }}
+          skip_deploy_on_missing_secrets: false
           action: "upload"
           app_location: "dist"
           api_location: ""
