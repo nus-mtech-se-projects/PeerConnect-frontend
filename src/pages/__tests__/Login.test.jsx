@@ -58,7 +58,7 @@ describe("Login page", () => {
 
   // ── Successful login ───────────────────────────────────────────────────────
 
-  it("stores accessToken and navigates to /profile on success", async () => {
+  it("stores accessToken and navigates to / on success", async () => {
     const user = userEvent.setup();
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
@@ -75,7 +75,7 @@ describe("Login page", () => {
 
     await waitFor(() => {
       expect(localStorage.getItem("accessToken")).toBe("test-token-123");
-      expect(mockNav).toHaveBeenCalledWith("/profile");
+      expect(mockNav).toHaveBeenCalledWith("/");
     });
   });
 
