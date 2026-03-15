@@ -27,6 +27,10 @@ async function gotoProfile(page, profileData = EMPTY_PROFILE) {
     }
   });
   await page.goto('/profile');
+  // Wait for loading to finish so any route handlers added afterward don't race
+  // against the initial GET fetch (Playwright routes are LIFO, and a later PUT
+  // handler calling route.continue() would intercept the GET and hit the real network).
+  await page.getByRole('button', { name: 'Save Profile' }).waitFor();
 }
 
 test.describe('Profile page', () => {

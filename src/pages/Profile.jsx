@@ -85,10 +85,16 @@ export default function Profile() {
   useEffect(() => {
     fetch(`${API_BASE}/api/profile`, { headers: authHeaders(), credentials: "include" })
       .then((r) => {
+        if (r.status === 401 || r.status === 403) {
+          localStorage.removeItem("accessToken");
+          nav("/login");
+          return null;
+        }
         if (!r.ok) throw new Error(`Failed to load profile (${r.status})`);
         return r.json();
       })
       .then((data) => {
+        if (!data) return;
         setForm({
           faculty: data.faculty || "",
           major: data.major || "",
@@ -102,7 +108,7 @@ export default function Profile() {
         // profile may not exist yet — that's fine, user fills it in
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [nav]);
 
   /* ── save profile ── */
   async function handleSave(e) {
@@ -123,6 +129,11 @@ export default function Profile() {
           avatarUrl: form.avatarUrl.trim() || null,
         }),
       });
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem("accessToken");
+        nav("/login");
+        return;
+      }
       if (!res.ok) throw new Error(`Save failed (${res.status})`);
       setMessage("Profile saved successfully!");
     } catch (err) {
