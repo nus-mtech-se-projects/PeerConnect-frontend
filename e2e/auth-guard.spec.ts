@@ -23,4 +23,18 @@ test.describe('Auth guard (private routes)', () => {
     await page.goto('/profile');
     await expect(page).not.toHaveURL('/login');
   });
+
+  test('allows access to /change-password when token is set', async ({ page }) => {
+    await page.evaluate(() =>
+      localStorage.setItem('accessToken', 'fake.jwt.token')
+    );
+    await page.goto('/change-password');
+    await expect(page).not.toHaveURL('/login');
+  });
+
+  test('/forgot-password is accessible without authentication', async ({ page }) => {
+    await page.goto('/forgot-password');
+    await expect(page).toHaveURL('/forgot-password');
+    await expect(page.getByRole('heading', { name: 'Reset password' })).toBeVisible();
+  });
 });

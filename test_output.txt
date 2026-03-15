@@ -1,0 +1,12 @@
+﻿
+> peerconnect-frontend-js@0.0.0 test:run
+> vitest run
+
+node.exe : '"node"' is not recognized as an internal or external command,
+At C:\Program Files\nodejs\npm.ps1:29 char:3
++   & $NODE_EXE $NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ('"node"' is not...ternal command,:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+operable program or batch file.

@@ -30,4 +30,16 @@ test.describe('Navigation', () => {
     await page.locator('.brandPro').click();
     await expect(page).toHaveURL('/');
   });
+
+  test('navigates to ForgotPassword from login page', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByRole('link', { name: 'Click here' }).click();
+    await expect(page).toHaveURL('/forgot-password');
+  });
+
+  test('navigates back to login from ForgotPassword', async ({ page }) => {
+    await page.goto('/forgot-password');
+    await page.getByRole('main').getByRole('link', { name: 'Login' }).click();
+    await expect(page).toHaveURL('/login');
+  });
 });
