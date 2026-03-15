@@ -21,7 +21,7 @@ describe("PublicRoute", () => {
     expect(screen.getByText("Login page")).toBeInTheDocument();
   });
 
-  it("redirects to /profile when accessToken exists", () => {
+  it("redirects to / when accessToken exists", () => {
     localStorage.setItem("accessToken", "valid-token");
 
     render(
@@ -31,16 +31,16 @@ describe("PublicRoute", () => {
             path="/login"
             element={<PublicRoute><div>Login page</div></PublicRoute>}
           />
-          <Route path="/profile" element={<div>Profile page</div>} />
+          <Route path="/" element={<div>Home page</div>} />
         </Routes>
       </MemoryRouter>
     );
 
     expect(screen.queryByText("Login page")).not.toBeInTheDocument();
-    expect(screen.getByText("Profile page")).toBeInTheDocument();
+    expect(screen.getByText("Home page")).toBeInTheDocument();
   });
 
-  it("redirects signup to /profile when already logged in", () => {
+  it("redirects signup to / when already logged in", () => {
     localStorage.setItem("accessToken", "valid-token");
 
     render(
@@ -50,12 +50,12 @@ describe("PublicRoute", () => {
             path="/signup"
             element={<PublicRoute><div>Signup page</div></PublicRoute>}
           />
-          <Route path="/profile" element={<div>Profile page</div>} />
+          <Route path="/" element={<div>Home page</div>} />
         </Routes>
       </MemoryRouter>
     );
 
     expect(screen.queryByText("Signup page")).not.toBeInTheDocument();
-    expect(screen.getByText("Profile page")).toBeInTheDocument();
+    expect(screen.getByText("Home page")).toBeInTheDocument();
   });
 });
