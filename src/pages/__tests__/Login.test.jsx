@@ -58,7 +58,7 @@ describe("Login page", () => {
 
   // ── Successful login ───────────────────────────────────────────────────────
 
-  it("stores accessToken and navigates to /dashboard on success", async () => {
+  it("stores accessToken and navigates to / on success", async () => {
     const user = userEvent.setup();
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
