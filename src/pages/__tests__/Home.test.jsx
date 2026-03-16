@@ -48,6 +48,53 @@ function mockDashboardFetch({
   });
 }
 
+async function openFeedbackForm(user, groupId = "g1", sessionId = "s1") {
+  render(<Home />);
+
+  await screen.findByRole("heading", { name: /study groups/i });
+  await user.click(screen.getByRole("button", { name: /peer tutoring/i }));
+
+  const groupSelect = await screen.findByLabelText(/study group/i);
+  const sessionSelect = screen.getByLabelText(/scheduled session/i);
+
+  await user.selectOptions(groupSelect, groupId);
+  await user.selectOptions(sessionSelect, sessionId);
+  await user.click(screen.getByRole("button", { name: /continue/i }));
+
+  expect(await screen.findByRole("heading", { name: /give feedback/i })).toBeInTheDocument();
+}
+
+async function completeFeedbackForm(user, {
+  revieweeId = "peer-1",
+  overallRating = 4,
+  preparedness = "4",
+  communication = "5",
+  helpfulness = "4",
+  reliability = "3",
+  strengths = "  Explains concepts clearly.  ",
+  improvements = "  Could prepare examples earlier.  ",
+  anonymousToPeer = true,
+} = {}) {
+  await user.selectOptions(screen.getByLabelText(/select peer to review/i), revieweeId);
+
+  await user.click(screen.getByRole("button", { name: new RegExp(`rate ${overallRating} star`, "i") }));
+  await user.click(document.querySelector(`input[name="preparedness"][value="${preparedness}"]`));
+  await user.click(document.querySelector(`input[name="communication"][value="${communication}"]`));
+  await user.click(document.querySelector(`input[name="helpfulness"][value="${helpfulness}"]`));
+  await user.click(document.querySelector(`input[name="reliability"][value="${reliability}"]`));
+
+  await user.type(screen.getByLabelText(/what went well\?/i), strengths);
+  await user.type(screen.getByLabelText(/suggestions for improvement/i), improvements);
+
+  const anonymousCheckbox = screen.getByRole("checkbox", { name: /anonymous to peer/i });
+  if (anonymousToPeer && !anonymousCheckbox.checked) {
+    await user.click(anonymousCheckbox);
+  }
+  if (!anonymousToPeer && anonymousCheckbox.checked) {
+    await user.click(anonymousCheckbox);
+  }
+}
+
 describe("Home page", () => {
   beforeEach(() => {
     mockNav.mockClear();
@@ -175,5 +222,165 @@ describe("Home page", () => {
     expect(await screen.findByRole("heading", { name: /give feedback/i })).toBeInTheDocument();
     expect(screen.getByText(/normalization clinic/i)).toBeInTheDocument();
     expect(screen.getByText(/group: db group/i)).toBeInTheDocument();
+  });
+
+  it("submits peer feedback to the selected group and session with the expected payload", async () => {
+    localStorage.setItem("accessToken", createAccessToken());
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, options = {}) => {
+      if (url.endsWith("/api/users/me")) {
+        return createFetchResponse({ firstName: "Test", lastName: "User" });
+      }
+      if (url.endsWith("/api/profile")) {
+        return createFetchResponse({}, false, 404);
+      }
+      if (url.endsWith("/api/groups")) {
+        return createFetchResponse([{ id: "g1", name: "Algo Group", joined: true }]);
+      }
+      if (url.endsWith("/api/groups/g1")) {
+        return createFetchResponse({
+          id: "g1",
+          name: "Algo Group",
+          members: [
+            { userId: "peer-1", email: "peer1@u.nus.edu", membershipStatus: "approved", firstName: "Peer", lastName: "One" },
+            { userId: "self", email: "student@u.nus.edu", membershipStatus: "approved", firstName: "Student", lastName: "User" },
+          ],
+          sessions: [{ id: "s1", title: "Week 5 Review", startsAt: "2026-03-20T10:00:00" }],
+        });
+      }
+      if (url.endsWith("/api/groups/g1/sessions/s1/feedback")) {
+        expect(options.method).toBe("POST");
+        expect(options.headers).toMatchObject({
+          "Content-Type": "application/json",
+          Authorization: expect.stringMatching(/^Bearer /),
+        });
+        expect(JSON.parse(options.body)).toEqual({
+          sessionId: "s1",
+          groupId: "g1",
+          revieweeId: "peer-1",
+          overallRating: 4,
+          preparedness: 4,
+          communication: 5,
+          helpfulness: 4,
+          reliability: 3,
+          strengths: "Explains concepts clearly.",
+          improvements: "Could prepare examples earlier.",
+          anonymousToPeer: true,
+        });
+
+        return createFetchResponse({ id: "fb-1", revieweeName: "Peer One" }, true, 200);
+      }
+
+      throw new Error(`Unhandled fetch: ${url}`);
+    });
+
+    const user = userEvent.setup();
+    await openFeedbackForm(user);
+    await completeFeedbackForm(user);
+    await user.click(screen.getByRole("button", { name: /submit feedback/i }));
+
+    expect(await screen.findByText(/feedback submitted successfully/i)).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/groups\/g1\/sessions\/s1\/feedback$/),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("shows the backend error message instead of silently falling back to a local draft when submission is rejected", async () => {
+    localStorage.setItem("accessToken", createAccessToken());
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      if (url.endsWith("/api/users/me")) {
+        return createFetchResponse({ firstName: "Test", lastName: "User" });
+      }
+      if (url.endsWith("/api/profile")) {
+        return createFetchResponse({}, false, 404);
+      }
+      if (url.endsWith("/api/groups")) {
+        return createFetchResponse([{ id: "g1", name: "Algo Group", joined: true }]);
+      }
+      if (url.endsWith("/api/groups/g1")) {
+        return createFetchResponse({
+          id: "g1",
+          name: "Algo Group",
+          members: [
+            { userId: "peer-1", email: "peer1@u.nus.edu", membershipStatus: "approved", firstName: "Peer", lastName: "One" },
+            { userId: "self", email: "student@u.nus.edu", membershipStatus: "approved", firstName: "Student", lastName: "User" },
+          ],
+          sessions: [{ id: "s1", title: "Week 5 Review", startsAt: "2026-03-20T10:00:00" }],
+        });
+      }
+      if (url.endsWith("/api/groups/g1/sessions/s1/feedback")) {
+        return createFetchResponse(
+          { error: "You have already submitted feedback for this peer in this session." },
+          false,
+          409,
+        );
+      }
+
+      throw new Error(`Unhandled fetch: ${url}`);
+    });
+
+    const user = userEvent.setup();
+    await openFeedbackForm(user);
+    await completeFeedbackForm(user, { anonymousToPeer: false });
+    await user.click(screen.getByRole("button", { name: /submit feedback/i }));
+
+    expect(
+      await screen.findByText(/you have already submitted feedback for this peer in this session/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/saved locally for demo purposes/i)).not.toBeInTheDocument();
+
+    const savedDrafts = JSON.parse(localStorage.getItem("peerconnect-feedback-drafts") || "{}");
+    expect(savedDrafts["s1::peer-1"]).toBeUndefined();
+  });
+
+  it("shows a 404 backend error message instead of treating it as backend unavailable", async () => {
+    localStorage.setItem("accessToken", createAccessToken());
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      if (url.endsWith("/api/users/me")) {
+        return createFetchResponse({ firstName: "Test", lastName: "User" });
+      }
+      if (url.endsWith("/api/profile")) {
+        return createFetchResponse({}, false, 404);
+      }
+      if (url.endsWith("/api/groups")) {
+        return createFetchResponse([{ id: "g1", name: "Algo Group", joined: true }]);
+      }
+      if (url.endsWith("/api/groups/g1")) {
+        return createFetchResponse({
+          id: "g1",
+          name: "Algo Group",
+          members: [
+            { userId: "peer-1", email: "peer1@u.nus.edu", membershipStatus: "approved", firstName: "Peer", lastName: "One" },
+            { userId: "self", email: "student@u.nus.edu", membershipStatus: "approved", firstName: "Student", lastName: "User" },
+          ],
+          sessions: [{ id: "s1", title: "Week 5 Review", startsAt: "2026-03-20T10:00:00" }],
+        });
+      }
+      if (url.endsWith("/api/groups/g1/sessions/s1/feedback")) {
+        return createFetchResponse(
+          { error: "Study group, session, or peer could not be found." },
+          false,
+          404,
+        );
+      }
+
+      throw new Error(`Unhandled fetch: ${url}`);
+    });
+
+    const user = userEvent.setup();
+    await openFeedbackForm(user);
+    await completeFeedbackForm(user, { anonymousToPeer: false });
+    await user.click(screen.getByRole("button", { name: /submit feedback/i }));
+
+    expect(
+      await screen.findByText(/study group, session, or peer could not be found/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/saved locally for demo purposes/i)).not.toBeInTheDocument();
+
+    const savedDrafts = JSON.parse(localStorage.getItem("peerconnect-feedback-drafts") || "{}");
+    expect(savedDrafts["s1::peer-1"]).toBeUndefined();
   });
 });

@@ -640,7 +640,16 @@ function DashboardHome() {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Feedback submission failed (${res.status})`);
+      if (!res.ok) {
+        if (res.status === 501) {
+          throw new Error("feedback-backend-unavailable");
+        }
+        setFeedbackStatus({
+          type: "warning",
+          message: data?.error || `Feedback submission failed (${res.status})`,
+        });
+        return;
+      }
 
       saveFeedbackRecords((prev) => ({
         ...prev,
@@ -652,7 +661,14 @@ function DashboardHome() {
         },
       }));
       setFeedbackStatus({ type: "success", message: "Feedback submitted successfully." });
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.message !== "feedback-backend-unavailable") {
+        setFeedbackStatus({
+          type: "warning",
+          message: err.message || "Feedback submission failed.",
+        });
+        return;
+      }
       saveFeedbackRecords((prev) => ({
         ...prev,
         [feedbackKey]: {
