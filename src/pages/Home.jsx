@@ -12,8 +12,22 @@ import "../styles/pages/Dashboard.css";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 /* ──────────────────── helpers ──────────────────── */
+function safeGetItem(key) {
+  if (typeof window === "undefined") return null;
+  const storage = window.localStorage;
+  if (!storage || typeof storage.getItem !== "function") return null;
+  return storage.getItem(key);
+}
+
+function safeRemoveItem(key) {
+  if (typeof window === "undefined") return;
+  const storage = window.localStorage;
+  if (!storage || typeof storage.removeItem !== "function") return;
+  storage.removeItem(key);
+}
+
 function authHeaders() {
-  const token = localStorage.getItem("accessToken");
+  const token = safeGetItem("accessToken");
   return {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -24,7 +38,7 @@ function waitForToken(timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     (function check() {
-      const token = localStorage.getItem("accessToken");
+      const token = safeGetItem("accessToken");
       if (token) {
         try {
           const payload = JSON.parse(atob(token.split(".")[1]));
@@ -168,7 +182,7 @@ function DashboardHome() {
         .then((r) => {
           if (!r.ok) {
             if (r.status === 401 || r.status === 403) {
-              localStorage.removeItem("accessToken");
+              safeRemoveItem("accessToken");
               nav("/login");
               throw new Error("Session expired. Please login again.");
             }
@@ -432,7 +446,7 @@ function DashboardHome() {
   async function handleLogout() {
     if (!window.confirm("Are you sure you want to logout?")) return;
     try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch { /* best-effort */ }
-    localStorage.removeItem("accessToken");
+    safeRemoveItem("accessToken");
     if (accounts.length > 0) {
       instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
     } else { nav("/"); }
@@ -821,6 +835,6 @@ function DashboardHome() {
    Main export — switches based on auth state
    ═══════════════════════════════════════════════════ */
 export default function Home() {
-  const isLoggedIn = !!localStorage.getItem("accessToken");
+  const isLoggedIn = !!safeGetItem("accessToken");
   return isLoggedIn ? <DashboardHome /> : <LandingHome />;
 }

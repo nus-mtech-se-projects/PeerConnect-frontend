@@ -6,7 +6,7 @@ test.describe('Home page', () => {
   });
 
   test('renders PeerConnect branding in navbar', async ({ page }) => {
-    await expect(page.locator('.brandProName')).toHaveText('PeerConnect');
+    await expect(page.getByRole('button', { name: /peerconnect/i })).toBeVisible();
   });
 
   test('shows Login and Sign up buttons when logged out', async ({ page }) => {
@@ -16,6 +16,7 @@ test.describe('Home page', () => {
 
   test('renders all 4 feature cards', async ({ page }) => {
     const cards = page.locator('.featureRow');
+    await expect(cards).toBeVisible();
     await expect(cards.getByText('Peer tutoring system')).toBeVisible();
     await expect(cards.getByText('Study Groups', { exact: true })).toBeVisible();
     await expect(cards.getByText('AI Chatbot')).toBeVisible();

@@ -5,6 +5,12 @@ import { MemoryRouter } from "react-router-dom";
 import App from "../App";
 
 describe("App routing", () => {
+  const clickNavLink = async (user, nameMatcher) => {
+    const header = screen.getByRole("banner");
+    const nav = within(header);
+    await user.click(nav.getByRole("link", { name: nameMatcher }));
+  };
+
   it("navigates between pages from navbar", async () => {
     const user = userEvent.setup();
 
@@ -19,27 +25,20 @@ describe("App routing", () => {
       screen.getByRole("heading", { name: /study smarter with peers/i })
     ).toBeInTheDocument();
 
-    // Helper: always scope clicks to the navbar only
-    const navClick = async (nameMatcher) => {
-      const header = screen.getByRole("banner");
-      const nav = within(header);
-      await user.click(nav.getByRole("link", { name: nameMatcher }));
-    };
-
     // Login
-    await navClick(/^login$/i);
+    await clickNavLink(user, /^login$/i);
     expect(
       screen.getByRole("heading", { name: /^login$/i })
     ).toBeInTheDocument();
 
     // Signup
-    await navClick(/^sign up$/i);
+    await clickNavLink(user, /^sign up$/i);
     expect(
       screen.getByRole("heading", { name: /create account/i })
     ).toBeInTheDocument();
 
     // Go to About/Contact via navbar
-    await navClick(/about \/ contact/i);
+    await clickNavLink(user, /about \/ contact/i);
     expect(screen.getByText(/who are we\?/i)).toBeInTheDocument();
   });
 });
