@@ -93,6 +93,312 @@ function LandingHome() {
   );
 }
 
+/* ──────────────────── Peer Tutoring Components ──────────────────── */
+
+function TutorDashboard({ onClassCreated }) {
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newClass, setNewClass] = useState({
+    title: "", moduleCode: "", topic: "", description: "",
+    schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    waitForToken().then(() => {
+      fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
+        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`Failed to load (${r.status})`)))
+        .then((data) => {
+          if (!cancelled) {
+            const myClasses = Array.isArray(data) ? data.filter((c) => c.isTutor) : [];
+            setClasses(myClasses);
+          }
+        })
+        .catch((err) => { if (!cancelled) setError(err.message); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes`, {
+        method: "POST", headers: authHeaders(), credentials: "include",
+        body: JSON.stringify(newClass),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Create failed (${res.status})`);
+      setClasses((prev) => [data, ...prev]);
+      onClassCreated?.(data);
+      setShowCreate(false);
+      setNewClass({ title: "", moduleCode: "", topic: "", description: "", schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5 });
+    } catch (err) { alert(err.message); }
+    finally { setCreating(false); }
+  }
+
+  async function handleDelete(classId) {
+    if (!window.confirm("Delete this tutoring class?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}`, {
+        method: "DELETE", headers: authHeaders(), credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Delete failed (${res.status})`);
+      }
+      setClasses((prev) => prev.filter((c) => c.id !== classId));
+    } catch (err) { alert(err.message); }
+  }
+
+  return (
+    <div>
+      <div className="dashHeader">
+        <div className="dashHeaderTop">
+          <div>
+            <h1 className="dashTitle">Tutor Dashboard</h1>
+            <p className="dashSubtitle">Create and manage your tutoring classes</p>
+          </div>
+          <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Class</button>
+        </div>
+      </div>
+
+      {loading && <p className="dashMsg">Loading classes…</p>}
+      {error && <p className="dashMsg dashError">{error}</p>}
+      {!loading && !error && classes.length === 0 && (
+        <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
+      )}
+
+      <div className="dashGrid">
+        {classes.map((c) => (
+          <div className="groupCard" key={c.id}>
+            <div className="groupCardHeader">
+              <span className="groupCourse">{c.moduleCode || "General"}</span>
+              <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
+            </div>
+            <h3 className="groupName">{c.title}</h3>
+            <p className="groupTopic">{c.topic || "No topic specified"}</p>
+            {c.description && <p className="groupDesc">{c.description}</p>}
+            {c.schedule && <p className="groupTopic">Schedule: {c.schedule}</p>}
+            <div className="groupFooter">
+              <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
+              <button className="groupJoinBtn ptDeleteBtn" onClick={() => handleDelete(c.id)}>Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showCreate && (
+        <div className="modalOverlay" onClick={() => setShowCreate(false)}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modalTitle">Create Tutoring Class</h2>
+            <form className="modalForm" onSubmit={handleCreate}>
+              <label className="modalLabel">Class Title *
+                <input className="modalInput" required value={newClass.title} onChange={(e) => setNewClass({ ...newClass, title: e.target.value })} placeholder="e.g. CS2030 Weekly Tutoring" />
+              </label>
+              <div className="modalRow">
+                <label className="modalLabel">Module Code *
+                  <input className="modalInput" required value={newClass.moduleCode} onChange={(e) => setNewClass({ ...newClass, moduleCode: e.target.value })} placeholder="e.g. CS2030" />
+                </label>
+                <label className="modalLabel">Topic
+                  <input className="modalInput" value={newClass.topic} onChange={(e) => setNewClass({ ...newClass, topic: e.target.value })} placeholder="e.g. OOP & Streams" />
+                </label>
+              </div>
+              <div className="modalRow">
+                <label className="modalLabel">Mode
+                  <select className="modalInput" value={newClass.mode} onChange={(e) => setNewClass({ ...newClass, mode: e.target.value })}>
+                    <option value="online">Online</option>
+                    <option value="in-person">In-Person</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </label>
+                <label className="modalLabel">Max Students
+                  <input className="modalInput" type="number" min={1} max={20} value={newClass.maxStudents} onChange={(e) => setNewClass({ ...newClass, maxStudents: Number(e.target.value) })} />
+                </label>
+              </div>
+              {(newClass.mode === "in-person" || newClass.mode === "hybrid") && (
+                <label className="modalLabel">Location *
+                  <input className="modalInput" required value={newClass.location} onChange={(e) => setNewClass({ ...newClass, location: e.target.value })} placeholder="e.g. COM1 Level 2" />
+                </label>
+              )}
+              {(newClass.mode === "online" || newClass.mode === "hybrid") && (
+                <label className="modalLabel">Meeting Link *
+                  <input className="modalInput" required value={newClass.meetingLink} onChange={(e) => setNewClass({ ...newClass, meetingLink: e.target.value })} placeholder="e.g. https://zoom.us/j/..." />
+                </label>
+              )}
+              <label className="modalLabel">Schedule *
+                <input className="modalInput" required value={newClass.schedule} onChange={(e) => setNewClass({ ...newClass, schedule: e.target.value })} placeholder="e.g. Every Sat 2–4pm" />
+              </label>
+              <label className="modalLabel">Description
+                <textarea className="modalInput modalTextarea" rows={3} value={newClass.description} onChange={(e) => setNewClass({ ...newClass, description: e.target.value })} />
+              </label>
+              <div className="modalActions">
+                <button type="button" className="modalCancel" onClick={() => setShowCreate(false)}>Cancel</button>
+                <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Class"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TuteeDashboard({ excludeIds = new Set() }) {
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [enrollingId, setEnrollingId] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    waitForToken().then(() => {
+      fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
+        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`Failed to load (${r.status})`)))
+        .then((data) => { if (!cancelled) setClasses(Array.isArray(data) ? data.filter((c) => !c.isTutor && !excludeIds.has(c.id)) : []); })
+        .catch((err) => { if (!cancelled) setError(err.message); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const visible = classes.filter((c) => !excludeIds.has(c.id));
+    const q = search.toLowerCase().trim();
+    if (!q) return visible;
+    return visible.filter((c) =>
+      c.title?.toLowerCase().includes(q) ||
+      c.moduleCode?.toLowerCase().includes(q) ||
+      c.topic?.toLowerCase().includes(q) ||
+      c.tutorName?.toLowerCase().includes(q)
+    );
+  }, [classes, search, excludeIds]);
+
+  async function handleEnroll(classId) {
+    setEnrollingId(classId);
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}/enroll`, {
+        method: "POST", headers: authHeaders(), credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Enroll failed (${res.status})`);
+      setClasses((prev) => prev.map((c) => c.id === classId ? { ...c, enrolled: true, enrolledCount: (c.enrolledCount ?? 0) + 1 } : c));
+    } catch (err) { alert(err.message); }
+    finally { setEnrollingId(null); }
+  }
+
+  async function handleLeaveClass(classId) {
+    setEnrollingId(classId);
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}/leave`, {
+        method: "POST", headers: authHeaders(), credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Leave failed (${res.status})`);
+      setClasses((prev) => prev.map((c) => c.id === classId ? { ...c, enrolled: false, enrolledCount: Math.max(0, (c.enrolledCount ?? 1) - 1) } : c));
+    } catch (err) { alert(err.message); }
+    finally { setEnrollingId(null); }
+  }
+
+  return (
+    <div>
+      <div className="dashHeader">
+        <div className="dashHeaderTop">
+          <div>
+            <h1 className="dashTitle">Tutee Dashboard</h1>
+            <p className="dashSubtitle">Find and join tutoring classes</p>
+          </div>
+        </div>
+        <div className="dashSearchWrap">
+          <SearchIcon />
+          <input className="dashSearch" type="text" placeholder="Search by module, topic, or tutor…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+      </div>
+
+      {loading && <p className="dashMsg">Loading classes…</p>}
+      {error && <p className="dashMsg dashError">{error}</p>}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
+      )}
+
+      <div className="dashGrid">
+        {filtered.map((c) => (
+          <div className="groupCard" key={c.id}>
+            <div className="groupCardHeader">
+              <span className="groupCourse">{c.moduleCode || "General"}</span>
+              <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
+            </div>
+            <h3 className="groupName">{c.title}</h3>
+            {c.tutorName && <p className="groupTopic">Tutor: <strong>{c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ")}</strong></p>}
+            <p className="groupTopic">{c.topic || "No topic specified"}</p>
+            {c.description && <p className="groupDesc">{c.description}</p>}
+            {c.schedule && <p className="groupTopic">Schedule: {c.schedule}</p>}
+            <div className="groupFooter">
+              <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
+              <button
+                className="groupJoinBtn"
+                onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
+                disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
+              >
+                {enrollingId === c.id
+                  ? (c.enrolled ? "Leaving…" : "Joining…")
+                  : (c.enrolled ? "Leave" : "Join")}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PeerTutoringSection() {
+  const [role, setRole] = useState(null);
+  const [myClassIds, setMyClassIds] = useState(new Set());
+
+  function handleClassCreated(classData) {
+    if (classData?.id) {
+      setMyClassIds((prev) => new Set([...prev, classData.id]));
+    }
+  }
+
+  return (
+    <div>
+      <div className="ptRoleNav">
+        <button
+          className={`ptRoleBtn ${role === "tutor" ? "active" : ""}`}
+          onClick={() => setRole("tutor")}
+        >
+          <TutoringIcon /> I&apos;m a Tutor
+        </button>
+        <button
+          className={`ptRoleBtn ${role === "tutee" ? "active" : ""}`}
+          onClick={() => setRole("tutee")}
+        >
+          <GroupsIcon /> I&apos;m a Tutee
+        </button>
+      </div>
+
+      {!role && (
+        <div className="dashEmpty" style={{ marginTop: 40 }}>
+          <TutoringIcon />
+          <p>Select your role above to get started with peer tutoring.</p>
+        </div>
+      )}
+
+      {role === "tutor" && <TutorDashboard onClassCreated={handleClassCreated} />}
+      {role === "tutee" && <TuteeDashboard excludeIds={myClassIds} />}
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════
    Dashboard (shown to logged-in users)
    ═══════════════════════════════════════════════════ */
@@ -125,6 +431,7 @@ function DashboardHome() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [transferOwnerId, setTransferOwnerId] = useState("");
   const [creating, setCreating] = useState(false);
+  const [activeModule, setActiveModule] = useState("studyGroups");
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -537,8 +844,8 @@ function DashboardHome() {
 
         <nav className="dashNav">
           <span className="dashNavLabel">MODULES</span>
-          <button className="dashNavItem active" onClick={closeSidebar}><GroupsIcon /> Study Groups</button>
-          <button className="dashNavItem" disabled><TutoringIcon /> Peer Tutoring</button>
+          <button className={`dashNavItem ${activeModule === "studyGroups" ? "active" : ""}`} onClick={() => { setActiveModule("studyGroups"); closeSidebar(); }}><GroupsIcon /> Study Groups</button>
+          <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
           <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
         </nav>
@@ -549,61 +856,67 @@ function DashboardHome() {
       </aside>
 
       <section className="dashMain">
-        <div className="dashHeader">
-          <div className="dashHeaderTop">
-            <div>
-              <h1 className="dashTitle">Study Groups</h1>
-              <p className="dashSubtitle">Discover, create, and join study groups</p>
-            </div>
-            <div className="dashHeaderBtns">
-              <button className="dashMyGroupsBtn" onClick={() => {}}><GroupsIcon /> My Groups</button>
-              <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
-            </div>
-          </div>
-          <div className="dashSearchWrap">
-            <SearchIcon />
-            <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        </div>
-
-        {loading && <p className="dashMsg">Loading groups…</p>}
-        {error && <p className="dashMsg dashError">{error}</p>}
-        {!loading && !error && filtered.length === 0 && (
-          <div className="dashEmpty"><GroupsIcon /><p>No groups found. Create one to get started!</p></div>
-        )}
-
-        <div className="dashGrid">
-          {filtered.map((g) => (
-            <div className="groupCard" key={g.id || g.name}>
-              <div className="groupCardHeader">
-                <span className="groupCourse">{g.moduleCode || g.courseCode || "General"}</span>
-                <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : "In-Person"}</span>
-              </div>
-              <h3 className="groupName">{g.name || "Study Group"}</h3>
-              <p className="groupTopic">{g.topic || "No topic specified"}</p>
-              {g.description && <p className="groupDesc">{g.description}</p>}
-              {g.preferredSchedule && <p className="groupTopic">Schedule: {g.preferredSchedule}</p>}
-              {g.status && <p className="groupTopic">Status: {g.status}</p>}
-              <div className="groupFooter">
-                <span className="groupMembers">{g.memberCount ?? "?"}/{g.maxMembers ?? "∞"} members</span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    className="groupJoinBtn"
-                    onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
-                    disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
-                  >
-                    {membershipActionId === g.id
-                      ? (g.joined ? "Leaving…" : "Joining…")
-                      : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
-                  </button>
-                  {g.isAdmin && (
-                    <button className="groupJoinBtn" onClick={() => openManage(g.id)}>Manage</button>
-                  )}
+        {activeModule === "studyGroups" && (
+          <>
+            <div className="dashHeader">
+              <div className="dashHeaderTop">
+                <div>
+                  <h1 className="dashTitle">Study Groups</h1>
+                  <p className="dashSubtitle">Discover, create, and join study groups</p>
+                </div>
+                <div className="dashHeaderBtns">
+                  <button className="dashMyGroupsBtn" onClick={() => {}}><GroupsIcon /> My Groups</button>
+                  <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
                 </div>
               </div>
+              <div className="dashSearchWrap">
+                <SearchIcon />
+                <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
             </div>
-          ))}
-        </div>
+
+            {loading && <p className="dashMsg">Loading groups…</p>}
+            {error && <p className="dashMsg dashError">{error}</p>}
+            {!loading && !error && filtered.length === 0 && (
+              <div className="dashEmpty"><GroupsIcon /><p>No groups found. Create one to get started!</p></div>
+            )}
+
+            <div className="dashGrid">
+              {filtered.map((g) => (
+                <div className="groupCard" key={g.id || g.name}>
+                  <div className="groupCardHeader">
+                    <span className="groupCourse">{g.moduleCode || g.courseCode || "General"}</span>
+                    <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : "In-Person"}</span>
+                  </div>
+                  <h3 className="groupName">{g.name || "Study Group"}</h3>
+                  <p className="groupTopic">{g.topic || "No topic specified"}</p>
+                  {g.description && <p className="groupDesc">{g.description}</p>}
+                  {g.preferredSchedule && <p className="groupTopic">Schedule: {g.preferredSchedule}</p>}
+                  {g.status && <p className="groupTopic">Status: {g.status}</p>}
+                  <div className="groupFooter">
+                    <span className="groupMembers">{g.memberCount ?? "?"}/{g.maxMembers ?? "∞"} members</span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        className="groupJoinBtn"
+                        onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
+                        disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
+                      >
+                        {membershipActionId === g.id
+                          ? (g.joined ? "Leaving…" : "Joining…")
+                          : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
+                      </button>
+                      {g.isAdmin && (
+                        <button className="groupJoinBtn" onClick={() => openManage(g.id)}>Manage</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {activeModule === "peerTutoring" && <PeerTutoringSection />}
       </section>
 
       {showCreate && (

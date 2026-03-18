@@ -544,6 +544,52 @@
 .modalSubmit:hover { filter: brightness(1.05); }
 .modalSubmit:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* ── Peer Tutoring role nav ── */
+.ptRoleNav {
+  display: flex;
+  gap: 12px;
+  padding: 24px 0 28px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 28px;
+}
+
+.ptRoleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  background: #ffffff;
+  color: #4b5563;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.ptRoleBtn:hover {
+  border-color: #003D7C;
+  color: #003D7C;
+  background: rgba(0, 61, 124, 0.04);
+}
+
+.ptRoleBtn.active {
+  border-color: #003D7C;
+  background: #003D7C;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 61, 124, 0.25);
+}
+
+
+.ptDeleteBtn {
+  background: #ef4444 !important;
+}
+.ptDeleteBtn:hover {
+  background: #dc2626 !important;
+}
+
 /* MOBILE: max-width 768px */
 @media (max-width: 768px) {
   .dashPage {
