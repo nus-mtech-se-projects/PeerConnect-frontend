@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import Carousel from "../components/Carousel";
@@ -55,6 +55,9 @@ const AiIcon = () => (
 );
 const SupportIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+);
+const RestrictIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="4"/><line x1="17" y1="9" x2="21" y2="13"/></svg>
 );
 const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -116,7 +119,7 @@ function DashboardHome() {
   const [membershipActionId, setMembershipActionId] = useState(null);
   const [newGroup, setNewGroup] = useState({
     name: "", moduleCode: "", topic: "", studyMode: "online",
-    location: "", meetingLink: "", preferredSchedule: "", maxMembers: 10,
+    location: "", meetingLink: "", scheduleDate: "", scheduleTime: "", maxMembers: 10,
     description: "", approvalRequired: false,
   });
   const [sessionForm, setSessionForm] = useState({
@@ -124,7 +127,19 @@ function DashboardHome() {
   });
   const [inviteEmail, setInviteEmail] = useState("");
   const [transferOwnerId, setTransferOwnerId] = useState("");
+  const [manageScheduleDate, setManageScheduleDate] = useState("");
+  const [manageScheduleTime, setManageScheduleTime] = useState("");
   const [creating, setCreating] = useState(false);
+  const [myGroupsOnly, setMyGroupsOnly] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  function showToast(message, type = "success") {
+    clearTimeout(toastTimer.current);
+    setToast({ message, type });
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -184,15 +199,21 @@ function DashboardHome() {
   }, [nav]);
 
   const filtered = useMemo(() => {
+    let result = groups;
+    if (myGroupsOnly) {
+      result = result.filter((g) => g.isAdmin);
+    }
     const q = search.toLowerCase().trim();
-    if (!q) return groups;
-    return groups.filter((g) =>
-      g.name?.toLowerCase().includes(q) ||
-      g.moduleCode?.toLowerCase().includes(q) ||
-      g.courseCode?.toLowerCase().includes(q) ||
-      g.topic?.toLowerCase().includes(q)
-    );
-  }, [groups, search]);
+    if (q) {
+      result = result.filter((g) =>
+        g.name?.toLowerCase().includes(q) ||
+        g.moduleCode?.toLowerCase().includes(q) ||
+        g.courseCode?.toLowerCase().includes(q) ||
+        g.topic?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [groups, search, myGroupsOnly]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -200,7 +221,12 @@ function DashboardHome() {
     try {
       const res = await fetch(`${API_BASE}/api/groups`, {
         method: "POST", headers: authHeaders(), credentials: "include",
-        body: JSON.stringify(newGroup),
+        body: JSON.stringify({
+          ...newGroup,
+          preferredSchedule: [newGroup.scheduleDate, newGroup.scheduleTime].filter(Boolean).join("T"),
+          scheduleDate: undefined,
+          scheduleTime: undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Create failed (${res.status})`);
@@ -209,9 +235,9 @@ function DashboardHome() {
       setShowCreate(false);
       setNewGroup({
         name: "", moduleCode: "", topic: "", studyMode: "online", location: "", meetingLink: "",
-        preferredSchedule: "", maxMembers: 10, description: "", approvalRequired: false,
+        scheduleDate: "", scheduleTime: "", maxMembers: 10, description: "", approvalRequired: false,
       });
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, "error"); }
     finally { setCreating(false); }
   }
 
@@ -233,9 +259,13 @@ function DashboardHome() {
       setSelectedSessions(Array.isArray(data.sessions) ? data.sessions : []);
       setTransferOwnerId("");
       setInviteEmail("");
+      const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
+      const parts = ps.split(/[T ]/);
+      setManageScheduleDate(parts[0] || "");
+      setManageScheduleTime(parts[1] ? parts[1].substring(0, 5) : "");
       setSessionForm({ title: "", startsAt: "", endsAt: "", location: data.location || "", meetingLink: data.meetingLink || "", notes: "" });
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
       setShowManage(false);
     } finally {
       setManageLoading(false);
@@ -275,7 +305,7 @@ function DashboardHome() {
         studyMode: selectedGroup.studyMode,
         location: selectedGroup.location,
         meetingLink: selectedGroup.meetingLink,
-        preferredSchedule: selectedGroup.preferredSchedule,
+        preferredSchedule: [manageScheduleDate, manageScheduleTime].filter(Boolean).join("T"),
         maxMembers: Number(selectedGroup.maxMembers),
         approvalRequired: !!selectedGroup.approvalRequired,
       };
@@ -289,10 +319,10 @@ function DashboardHome() {
       if (!res.ok) throw new Error(data?.error || `Update failed (${res.status})`);
       setGroups((prev) => prev.map((g) => (g.id === data.id ? { ...g, ...data } : g)));
       setSelectedGroup((prev) => ({ ...prev, ...data }));
-      alert("Group updated.");
+      showToast("Group updated successfully!");
       await refreshSelectedGroup();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -319,7 +349,7 @@ function DashboardHome() {
       setSessionForm({ ...sessionForm, title: "", startsAt: "", endsAt: "", notes: "" });
       await refreshSelectedGroup();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -336,7 +366,7 @@ function DashboardHome() {
       if (!res.ok) throw new Error(data?.error || `Delete session failed (${res.status})`);
       await refreshSelectedGroup();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -355,7 +385,7 @@ function DashboardHome() {
       setInviteEmail("");
       await refreshSelectedGroup();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -371,7 +401,7 @@ function DashboardHome() {
       if (!res.ok) throw new Error(data?.error || `Approve failed (${res.status})`);
       await refreshSelectedGroup();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -388,7 +418,7 @@ function DashboardHome() {
       if (!res.ok) throw new Error(data?.error || `Remove failed (${res.status})`);
       await refreshSelectedGroup();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -404,10 +434,10 @@ function DashboardHome() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Transfer failed (${res.status})`);
-      alert("Ownership transferred.");
+      showToast("Ownership transferred successfully!");
       await refreshSelectedGroup();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -425,12 +455,23 @@ function DashboardHome() {
       setGroups((prev) => prev.filter((g) => g.id !== selectedGroup.id));
       closeManage();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
   async function handleLogout() {
-    if (!window.confirm("Are you sure you want to logout?")) return;
+    setConfirmDialog({
+      message: "Are you sure you want to logout?",
+      confirmBtnClass: "confirmBtnGreen",
+      cancelBtnClass: "confirmBtnOutline",
+      confirmLabel: "OK",
+      cancelLabel: "Cancel",
+      onConfirm: () => { setConfirmDialog(null); executeLogout(); },
+      onCancel: () => setConfirmDialog(null),
+    });
+  }
+
+  async function executeLogout() {
     try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch { /* best-effort */ }
     localStorage.removeItem("accessToken");
     if (accounts.length > 0) {
@@ -440,6 +481,15 @@ function DashboardHome() {
 
   async function handleJoin(groupId) {
     if (!groupId) return;
+    setConfirmDialog({
+      message: "Are you sure you want to join this group?",
+      confirmBtnClass: "groupJoinBtn",
+      onConfirm: () => { setConfirmDialog(null); executeJoin(groupId); },
+      onCancel: () => setConfirmDialog(null),
+    });
+  }
+
+  async function executeJoin(groupId) {
     setMembershipActionId(groupId);
     try {
       const res = await fetch(`${API_BASE}/api/groups/${groupId}/join`, {
@@ -463,10 +513,10 @@ function DashboardHome() {
       }));
 
       if (data.alreadyJoined) {
-        alert("You already joined this group.");
+        showToast("You have already joined this group.", "error");
       }
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       setMembershipActionId(null);
     }
@@ -474,6 +524,15 @@ function DashboardHome() {
 
   async function handleLeave(groupId) {
     if (!groupId) return;
+    setConfirmDialog({
+      message: "Are you sure you want to leave this group?",
+      confirmBtnClass: "groupLeaveBtn",
+      onConfirm: () => { setConfirmDialog(null); executeLeave(groupId); },
+      onCancel: () => setConfirmDialog(null),
+    });
+  }
+
+  async function executeLeave(groupId) {
     setMembershipActionId(groupId);
     try {
       const res = await fetch(`${API_BASE}/api/groups/${groupId}/leave`, {
@@ -496,7 +555,7 @@ function DashboardHome() {
         };
       }));
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       setMembershipActionId(null);
     }
@@ -539,6 +598,7 @@ function DashboardHome() {
           <span className="dashNavLabel">MODULES</span>
           <button className="dashNavItem active" onClick={closeSidebar}><GroupsIcon /> Study Groups</button>
           <button className="dashNavItem" disabled><TutoringIcon /> Peer Tutoring</button>
+          <button className="dashNavItem" onClick={() => { nav("/restrict-user"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
           <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
         </nav>
@@ -556,7 +616,7 @@ function DashboardHome() {
               <p className="dashSubtitle">Discover, create, and join study groups</p>
             </div>
             <div className="dashHeaderBtns">
-              <button className="dashMyGroupsBtn" onClick={() => {}}><GroupsIcon /> My Groups</button>
+              <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
               <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
             </div>
           </div>
@@ -577,7 +637,7 @@ function DashboardHome() {
             <div className="groupCard" key={g.id || g.name}>
               <div className="groupCardHeader">
                 <span className="groupCourse">{g.moduleCode || g.courseCode || "General"}</span>
-                <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : "In-Person"}</span>
+                <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : g.studyMode === "hybrid" ? "Hybrid" : "In-Person"}</span>
               </div>
               <h3 className="groupName">{g.name || "Study Group"}</h3>
               <p className="groupTopic">{g.topic || "No topic specified"}</p>
@@ -587,17 +647,19 @@ function DashboardHome() {
               <div className="groupFooter">
                 <span className="groupMembers">{g.memberCount ?? "?"}/{g.maxMembers ?? "∞"} members</span>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    className="groupJoinBtn"
-                    onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
-                    disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
-                  >
-                    {membershipActionId === g.id
-                      ? (g.joined ? "Leaving…" : "Joining…")
-                      : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
-                  </button>
+                  {!g.isAdmin && (
+                    <button
+                      className={g.joined ? "groupLeaveBtn" : "groupJoinBtn"}
+                      onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
+                      disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
+                    >
+                      {membershipActionId === g.id
+                        ? (g.joined ? "Leaving…" : "Joining…")
+                        : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
+                    </button>
+                  )}
                   {g.isAdmin && (
-                    <button className="groupJoinBtn" onClick={() => openManage(g.id)}>Manage</button>
+                    <button className="groupManageBtn" onClick={() => openManage(g.id)}>Manage</button>
                   )}
                 </div>
               </div>
@@ -645,7 +707,10 @@ function DashboardHome() {
                 </label>
               )}
               <label className="modalLabel">Preferred Schedule *
-                <input className="modalInput" required placeholder="e.g. Tue/Thu 7-9pm" value={newGroup.preferredSchedule} onChange={(e) => setNewGroup({ ...newGroup, preferredSchedule: e.target.value })} />
+                <div className="modalRow">
+                  <input className="modalInput" type="date" required value={newGroup.scheduleDate} onChange={(e) => setNewGroup({ ...newGroup, scheduleDate: e.target.value })} />
+                  <input className="modalInput" type="time" required value={newGroup.scheduleTime} onChange={(e) => setNewGroup({ ...newGroup, scheduleTime: e.target.value })} />
+                </div>
               </label>
               <label className="modalLabel">Description
                 <textarea className="modalInput modalTextarea" required rows={3} value={newGroup.description} onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })} />
@@ -702,7 +767,10 @@ function DashboardHome() {
                     <input className="modalInput" value={selectedGroup.meetingLink || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, meetingLink: e.target.value })} />
                   </label>
                   <label className="modalLabel">Preferred Schedule *
-                    <input className="modalInput" required value={selectedGroup.preferredSchedule || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, preferredSchedule: e.target.value })} />
+                    <div className="modalRow">
+                      <input className="modalInput" type="date" required value={manageScheduleDate} onChange={(e) => setManageScheduleDate(e.target.value)} />
+                      <input className="modalInput" type="time" required value={manageScheduleTime} onChange={(e) => setManageScheduleTime(e.target.value)} />
+                    </div>
                   </label>
                   <label className="modalLabel">Description *
                     <textarea className="modalInput modalTextarea" required rows={3} value={selectedGroup.description || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, description: e.target.value })} />
@@ -811,6 +879,24 @@ function DashboardHome() {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {confirmDialog && (
+        <div className="modalOverlay" onClick={() => setConfirmDialog(null)}>
+          <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
+            <p className="confirmMsg">{confirmDialog.message}</p>
+            <div className="confirmActions">
+              <button className={confirmDialog.cancelBtnClass || "modalCancel"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
+              <button className={confirmDialog.confirmBtnClass || "modalSubmit"} onClick={confirmDialog.onConfirm}>{confirmDialog.confirmLabel || "Yes"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`} onClick={() => setToast(null)}>
+          {toast.message}
         </div>
       )}
     </div>
