@@ -153,6 +153,10 @@ function DashboardHome() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [showFeedbackPicker, setShowFeedbackPicker] = useState(false);
+  const [feedbackOptions, setFeedbackOptions] = useState([]);
+  const [selectedFeedbackGroupId, setSelectedFeedbackGroupId] = useState("");
+  const [selectedFeedbackSessionId, setSelectedFeedbackSessionId] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackSession, setFeedbackSession] = useState(null);
   const [feedbackForm, setFeedbackForm] = useState(createFeedbackForm);
@@ -180,6 +184,12 @@ function DashboardHome() {
       localStorage.setItem(FEEDBACK_DRAFTS_KEY, JSON.stringify(next));
       return next;
     });
+  }, []);
+  const closeFeedbackPicker = useCallback(() => {
+    setShowFeedbackPicker(false);
+    setFeedbackOptions([]);
+    setSelectedFeedbackGroupId("");
+    setSelectedFeedbackSessionId("");
   }, []);
 
   /* fetch user name + avatar */
@@ -280,7 +290,7 @@ function DashboardHome() {
     finally { setCreating(false); }
   }
 
-  async function loadGroupDetails(groupId) {
+  async function loadGroupDetails(groupId, { applyState = true } = {}) {
     try {
       const res = await fetch(`${API_BASE}/api/groups/${groupId}`, {
         headers: authHeaders(),
@@ -294,16 +304,18 @@ function DashboardHome() {
       };
       const nextMembers = Array.isArray(data.members) ? data.members : [];
       const nextSessions = Array.isArray(data.sessions) ? data.sessions : [];
-      setSelectedGroup(nextGroup);
-      setSelectedMembers(nextMembers);
-      setSelectedSessions(nextSessions);
-      setTransferOwnerId("");
-      setInviteEmail("");
-      const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
-      const parts = ps.split(/[T ]/);
-      setManageScheduleDate(parts[0] || "");
-      setManageScheduleTime(parts[1] ? parts[1].substring(0, 5) : "");
-      setSessionForm({ title: "", startsAt: "", endsAt: "", location: data.location || "", meetingLink: data.meetingLink || "", notes: "" });
+      if (applyState) {
+        setSelectedGroup(nextGroup);
+        setSelectedMembers(nextMembers);
+        setSelectedSessions(nextSessions);
+        setTransferOwnerId("");
+        setInviteEmail("");
+        const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
+        const parts = ps.split(/[T ]/);
+        setManageScheduleDate(parts[0] || "");
+        setManageScheduleTime(parts[1] ? parts[1].substring(0, 5) : "");
+        setSessionForm({ title: "", startsAt: "", endsAt: "", location: data.location || "", meetingLink: data.meetingLink || "", notes: "" });
+      }
       return { group: nextGroup, members: nextMembers, sessions: nextSessions };
     } catch (err) {
       throw new Error(err.message);
@@ -328,6 +340,7 @@ function DashboardHome() {
     setSelectedGroup(null);
     setSelectedMembers([]);
     setSelectedSessions([]);
+    closeFeedbackPicker();
     setShowFeedback(false);
     setFeedbackSession(null);
     setFeedbackForm(createFeedbackForm());
@@ -358,26 +371,56 @@ function DashboardHome() {
 
     setManageLoading(true);
     try {
+      const nextOptions = [];
       for (const group of joinedGroups) {
-        const details = await loadGroupDetails(group.id);
+        const details = await loadGroupDetails(group.id, { applyState: false });
         const approvedPeers = details.members.filter((member) =>
           member.membershipStatus === "approved" && member.email !== userEmail
         );
-        const session = details.sessions[0];
+        const availableSessions = details.sessions.filter((session) => session?.id);
 
-        if (session && approvedPeers.length > 0) {
-          setShowManage(false);
-          openFeedback(session, details.members);
-          return;
+        if (availableSessions.length > 0 && approvedPeers.length > 0) {
+          nextOptions.push({
+            group: details.group,
+            members: details.members,
+            sessions: availableSessions,
+          });
         }
       }
 
-      alert("No peer feedback session is ready yet. Make sure one of your groups has a scheduled session and at least one approved peer.");
+      if (nextOptions.length === 0) {
+        alert("No peer feedback session is ready yet. Make sure one of your groups has a scheduled session and at least one approved peer.");
+        return;
+      }
+
+      setShowManage(false);
+      setFeedbackOptions(nextOptions);
+      setSelectedFeedbackGroupId(nextOptions[0].group.id);
+      setSelectedFeedbackSessionId(nextOptions[0].sessions[0]?.id || "");
+      setShowFeedbackPicker(true);
     } catch (err) {
       alert(err.message);
     } finally {
       setManageLoading(false);
     }
+  }
+
+  function handleSelectFeedbackGroup(groupId) {
+    setSelectedFeedbackGroupId(groupId);
+    const nextGroup = feedbackOptions.find((option) => option.group.id === groupId);
+    setSelectedFeedbackSessionId(nextGroup?.sessions[0]?.id || "");
+  }
+
+  function handleLaunchFeedback() {
+    const selectedOption = feedbackOptions.find((option) => option.group.id === selectedFeedbackGroupId);
+    const selectedSession = selectedOption?.sessions.find((session) => session.id === selectedFeedbackSessionId);
+    if (!selectedOption || !selectedSession) return;
+
+    setSelectedGroup(selectedOption.group);
+    setSelectedMembers(selectedOption.members);
+    setSelectedSessions(selectedOption.sessions);
+    closeFeedbackPicker();
+    openFeedback(selectedSession, selectedOption.members);
   }
 
   function closeFeedback() {
@@ -738,6 +781,7 @@ function DashboardHome() {
   const reviewableMembers = selectedMembers.filter((member) =>
     member.membershipStatus === "approved" && member.email !== userEmail
   );
+  const selectedFeedbackGroup = feedbackOptions.find((option) => option.group.id === selectedFeedbackGroupId) || null;
   const getRevieweeLabel = useCallback((revieweeId) => {
     const reviewee = selectedMembers.find((member) => (member.userId || member.email) === revieweeId);
     return reviewee
@@ -1244,6 +1288,63 @@ function DashboardHome() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {showFeedbackPicker && (
+        <div className="modalOverlay" onClick={closeFeedbackPicker}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modalTitle">Choose Feedback Session</h2>
+            <p className="dashSubtitle">Select one of your joined study groups and a scheduled session before submitting peer feedback.</p>
+
+            <div className="modalForm">
+              <label className="modalLabel">
+                Study group
+                <select
+                  className="modalInput"
+                  value={selectedFeedbackGroupId}
+                  onChange={(e) => handleSelectFeedbackGroup(e.target.value)}
+                >
+                  {feedbackOptions.map((option) => (
+                    <option key={option.group.id} value={option.group.id}>
+                      {option.group.name || "Study Group"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="modalLabel">
+                Scheduled session
+                <select
+                  className="modalInput"
+                  value={selectedFeedbackSessionId}
+                  onChange={(e) => setSelectedFeedbackSessionId(e.target.value)}
+                >
+                  {(selectedFeedbackGroup?.sessions || []).map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.title} - {session.startsAt}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="feedbackEmptyState">
+                You can only choose from study groups you have joined that already have at least one scheduled session and one approved peer to review.
+              </div>
+
+              <div className="modalActions">
+                <button type="button" className="modalCancel" onClick={closeFeedbackPicker}>Cancel</button>
+                <button
+                  type="button"
+                  className="modalSubmit"
+                  onClick={handleLaunchFeedback}
+                  disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
