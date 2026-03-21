@@ -10,6 +10,25 @@ import supportSystemImg from "../assets/images/support-system.jpg";
 import "../styles/pages/Dashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+const FEEDBACK_DRAFTS_KEY = "peerconnect-feedback-drafts";
+
+function createFeedbackForm() {
+  return {
+    revieweeId: "",
+    overallRating: 0,
+    preparedness: 0,
+    communication: 0,
+    helpfulness: 0,
+    reliability: 0,
+    strengths: "",
+    improvements: "",
+    anonymousToPeer: false,
+  };
+}
+
+function getFeedbackKey(sessionId, revieweeId) {
+  return `${sessionId || "group"}::${revieweeId || "unknown"}`;
+}
 
 /* ──────────────────── helpers ──────────────────── */
 function authHeaders() {
@@ -134,6 +153,19 @@ function DashboardHome() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackSession, setFeedbackSession] = useState(null);
+  const [feedbackForm, setFeedbackForm] = useState(createFeedbackForm);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState({ type: "", message: "" });
+  const [feedbackRecords, setFeedbackRecords] = useState(() => {
+    try {
+      const saved = localStorage.getItem(FEEDBACK_DRAFTS_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   function showToast(message, type = "success") {
     clearTimeout(toastTimer.current);
@@ -142,6 +174,13 @@ function DashboardHome() {
   }
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const saveFeedbackRecords = useCallback((updater) => {
+    setFeedbackRecords((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      localStorage.setItem(FEEDBACK_DRAFTS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   /* fetch user name + avatar */
   useEffect(() => {
@@ -241,9 +280,7 @@ function DashboardHome() {
     finally { setCreating(false); }
   }
 
-  async function openManage(groupId) {
-    setManageLoading(true);
-    setShowManage(true);
+  async function loadGroupDetails(groupId) {
     try {
       const res = await fetch(`${API_BASE}/api/groups/${groupId}`, {
         headers: authHeaders(),
@@ -251,12 +288,15 @@ function DashboardHome() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Failed to load group details (${res.status})`);
-      setSelectedGroup({
+      const nextGroup = {
         ...data,
         moduleCode: data.moduleCode || data.courseCode || "",
-      });
-      setSelectedMembers(Array.isArray(data.members) ? data.members : []);
-      setSelectedSessions(Array.isArray(data.sessions) ? data.sessions : []);
+      };
+      const nextMembers = Array.isArray(data.members) ? data.members : [];
+      const nextSessions = Array.isArray(data.sessions) ? data.sessions : [];
+      setSelectedGroup(nextGroup);
+      setSelectedMembers(nextMembers);
+      setSelectedSessions(nextSessions);
       setTransferOwnerId("");
       setInviteEmail("");
       const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
@@ -264,6 +304,17 @@ function DashboardHome() {
       setManageScheduleDate(parts[0] || "");
       setManageScheduleTime(parts[1] ? parts[1].substring(0, 5) : "");
       setSessionForm({ title: "", startsAt: "", endsAt: "", location: data.location || "", meetingLink: data.meetingLink || "", notes: "" });
+      return { group: nextGroup, members: nextMembers, sessions: nextSessions };
+    } catch (err) {
+      throw new Error(err.message);
+    }
+  }
+
+  async function openManage(groupId) {
+    setManageLoading(true);
+    setShowManage(true);
+    try {
+      await loadGroupDetails(groupId);
     } catch (err) {
       showToast(err.message, "error");
       setShowManage(false);
@@ -277,6 +328,63 @@ function DashboardHome() {
     setSelectedGroup(null);
     setSelectedMembers([]);
     setSelectedSessions([]);
+    setShowFeedback(false);
+    setFeedbackSession(null);
+    setFeedbackForm(createFeedbackForm());
+    setFeedbackStatus({ type: "", message: "" });
+  }
+
+  function openFeedback(session, membersOverride = selectedMembers) {
+    const approvedMembers = membersOverride.filter((member) =>
+      member.membershipStatus === "approved" && member.email !== userEmail
+    );
+    const firstReviewee = approvedMembers[0]?.userId || approvedMembers[0]?.email || "";
+    setFeedbackSession(session);
+    setFeedbackForm({
+      ...createFeedbackForm(),
+      revieweeId: firstReviewee,
+    });
+    setFeedbackStatus({ type: "", message: "" });
+    setShowFeedback(true);
+  }
+
+  async function handleOpenPeerTutoring() {
+    closeSidebar();
+    const joinedGroups = groups.filter((group) => group.joined);
+    if (joinedGroups.length === 0) {
+      alert("Join a study group first to submit peer feedback.");
+      return;
+    }
+
+    setManageLoading(true);
+    try {
+      for (const group of joinedGroups) {
+        const details = await loadGroupDetails(group.id);
+        const approvedPeers = details.members.filter((member) =>
+          member.membershipStatus === "approved" && member.email !== userEmail
+        );
+        const session = details.sessions[0];
+
+        if (session && approvedPeers.length > 0) {
+          setShowManage(false);
+          openFeedback(session, details.members);
+          return;
+        }
+      }
+
+      alert("No peer feedback session is ready yet. Make sure one of your groups has a scheduled session and at least one approved peer.");
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setManageLoading(false);
+    }
+  }
+
+  function closeFeedback() {
+    setShowFeedback(false);
+    setFeedbackSession(null);
+    setFeedbackForm(createFeedbackForm());
+    setFeedbackStatus({ type: "", message: "" });
   }
 
   async function refreshSelectedGroup() {
@@ -459,6 +567,67 @@ function DashboardHome() {
     }
   }
 
+  async function handleSubmitFeedback(e) {
+    e.preventDefault();
+    if (!selectedGroup?.id || !feedbackSession?.id || !feedbackForm.revieweeId) return;
+
+    const payload = {
+      sessionId: feedbackSession.id,
+      groupId: selectedGroup.id,
+      revieweeId: feedbackForm.revieweeId,
+      overallRating: feedbackForm.overallRating,
+      preparedness: feedbackForm.preparedness,
+      communication: feedbackForm.communication,
+      helpfulness: feedbackForm.helpfulness,
+      reliability: feedbackForm.reliability,
+      strengths: feedbackForm.strengths.trim() || null,
+      improvements: feedbackForm.improvements.trim() || null,
+      anonymousToPeer: feedbackForm.anonymousToPeer,
+    };
+    const feedbackKey = getFeedbackKey(feedbackSession.id, feedbackForm.revieweeId);
+
+    setFeedbackSubmitting(true);
+    setFeedbackStatus({ type: "", message: "" });
+
+    try {
+      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/sessions/${feedbackSession.id}/feedback`, {
+        method: "POST",
+        headers: authHeaders(),
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Feedback submission failed (${res.status})`);
+
+      saveFeedbackRecords((prev) => ({
+        ...prev,
+        [feedbackKey]: {
+          ...payload,
+          revieweeLabel: data?.revieweeName || getRevieweeLabel(feedbackForm.revieweeId),
+          savedAt: new Date().toISOString(),
+          syncStatus: "submitted",
+        },
+      }));
+      setFeedbackStatus({ type: "success", message: "Feedback submitted successfully." });
+    } catch {
+      saveFeedbackRecords((prev) => ({
+        ...prev,
+        [feedbackKey]: {
+          ...payload,
+          revieweeLabel: getRevieweeLabel(feedbackForm.revieweeId),
+          savedAt: new Date().toISOString(),
+          syncStatus: "local",
+        },
+      }));
+      setFeedbackStatus({
+        type: "warning",
+        message: "Backend sync is not available yet. Your feedback has been saved locally for demo purposes.",
+      });
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  }
+
   async function handleLogout() {
     setConfirmDialog({
       message: "Are you sure you want to logout?",
@@ -566,6 +735,23 @@ function DashboardHome() {
     [account?.idTokenClaims?.given_name, account?.idTokenClaims?.family_name].filter(Boolean).join(" ") || "Student";
   const userEmail = account?.username || "";
   const userInitial = userName.charAt(0).toUpperCase();
+  const reviewableMembers = selectedMembers.filter((member) =>
+    member.membershipStatus === "approved" && member.email !== userEmail
+  );
+  const getRevieweeLabel = useCallback((revieweeId) => {
+    const reviewee = selectedMembers.find((member) => (member.userId || member.email) === revieweeId);
+    return reviewee
+      ? ([reviewee.firstName, reviewee.lastName].filter(Boolean).join(" ") || reviewee.email || reviewee.userId)
+      : "Selected peer";
+  }, [selectedMembers]);
+  const feedbackSummaryBySession = useMemo(() => Object.values(feedbackRecords).reduce((acc, record) => {
+    const sessionId = record?.sessionId;
+    if (!sessionId) return acc;
+    if (!acc[sessionId]) acc[sessionId] = { submitted: 0, local: 0 };
+    if (record.syncStatus === "submitted") acc[sessionId].submitted += 1;
+    else acc[sessionId].local += 1;
+    return acc;
+  }, {}), [feedbackRecords]);
 
   return (
     <div className="dashPage">
@@ -597,7 +783,7 @@ function DashboardHome() {
         <nav className="dashNav">
           <span className="dashNavLabel">MODULES</span>
           <button className="dashNavItem active" onClick={closeSidebar}><GroupsIcon /> Study Groups</button>
-          <button className="dashNavItem" disabled><TutoringIcon /> Peer Tutoring</button>
+          <button className="dashNavItem" onClick={handleOpenPeerTutoring}><TutoringIcon /> Peer Tutoring</button>
           <button className="dashNavItem" onClick={() => { nav("/restrict-user"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
           <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
@@ -861,13 +1047,35 @@ function DashboardHome() {
 
                 <div>
                   {selectedSessions.map((s) => (
-                    <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #eee" }}>
-                      <div>
+                    <div key={s.id} className="sessionCard">
+                      <div className="sessionCardBody">
                         <strong>{s.title}</strong>
                         <div>{s.startsAt} {s.endsAt ? `→ ${s.endsAt}` : ""}</div>
                         <div>{s.location || s.meetingLink || "No location/link"}</div>
+                        <div className="sessionFeedbackMeta">
+                          {feedbackSummaryBySession[s.id]?.submitted > 0 && (
+                            <span className="sessionFeedbackBadge sessionFeedbackBadgeSuccess">
+                              {feedbackSummaryBySession[s.id].submitted} submitted
+                            </span>
+                          )}
+                          {feedbackSummaryBySession[s.id]?.local > 0 && (
+                            <span className="sessionFeedbackBadge sessionFeedbackBadgeWarning">
+                              {feedbackSummaryBySession[s.id].local} local draft
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <button className="groupJoinBtn" onClick={() => handleDeleteSession(s.id)}>Delete</button>
+                      <div className="sessionCardActions">
+                        <button
+                          type="button"
+                          className="feedbackActionBtn"
+                          onClick={() => openFeedback(s)}
+                          disabled={reviewableMembers.length === 0}
+                        >
+                          Give Feedback
+                        </button>
+                        <button className="groupJoinBtn" onClick={() => handleDeleteSession(s.id)}>Delete</button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -897,6 +1105,146 @@ function DashboardHome() {
       {toast && (
         <div className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`} onClick={() => setToast(null)}>
           {toast.message}
+        </div>
+      )}
+
+      {showFeedback && (
+        <div className="modalOverlay" onClick={closeFeedback}>
+          <div className="modalCard feedbackModalCard" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modalTitle">Give Feedback</h2>
+            <div className="feedbackIntro">
+              <p className="feedbackIntroTitle">{feedbackSession?.title || "Session feedback"}</p>
+              <p className="feedbackIntroMeta">Group: {selectedGroup?.name || "Study Group"}</p>
+              <p className="feedbackIntroNote">
+                Structured peer feedback is ready in the frontend. If the backend endpoint is unavailable, we will save your submission locally.
+              </p>
+            </div>
+
+            {reviewableMembers.length === 0 ? (
+              <div className="feedbackEmptyState">
+                No approved peers are available to review yet. Invite or approve more members first.
+              </div>
+            ) : (
+              <form className="modalForm" onSubmit={handleSubmitFeedback}>
+                <label className="modalLabel">
+                  Select peer to review
+                  <select
+                    className="modalInput"
+                    value={feedbackForm.revieweeId}
+                    onChange={(e) => setFeedbackForm({ ...feedbackForm, revieweeId: e.target.value })}
+                    required
+                  >
+                    <option value="">Choose a peer</option>
+                    {reviewableMembers.map((member) => {
+                      const memberId = member.userId || member.email;
+                      const memberLabel = [member.firstName, member.lastName].filter(Boolean).join(" ") || member.email || member.userId;
+                      return <option key={memberId} value={memberId}>{memberLabel}</option>;
+                    })}
+                  </select>
+                </label>
+
+                <div className="feedbackSection">
+                  <span className="modalLabel">Overall rating</span>
+                  <div className="ratingRow" role="radiogroup" aria-label="Overall rating">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`ratingStar ${feedbackForm.overallRating >= value ? "active" : ""}`}
+                        onClick={() => setFeedbackForm({ ...feedbackForm, overallRating: value })}
+                        aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="feedbackGrid">
+                  {[
+                    ["preparedness", "Preparedness"],
+                    ["communication", "Communication"],
+                    ["helpfulness", "Helpfulness / Contribution"],
+                    ["reliability", "Reliability / Punctuality"],
+                  ].map(([field, label]) => (
+                    <div className="feedbackMetricCard" key={field}>
+                      <span className="feedbackMetricLabel">{label}</span>
+                      <div className="feedbackScaleRow">
+                        {[1, 2, 3, 4, 5].map((value) => (
+                          <label className="feedbackScaleOption" key={value}>
+                            <input
+                              type="radio"
+                              name={field}
+                              value={value}
+                              checked={feedbackForm[field] === value}
+                              onChange={() => setFeedbackForm({ ...feedbackForm, [field]: value })}
+                            />
+                            <span>{value}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <label className="modalLabel">
+                  What went well?
+                  <textarea
+                    className="modalInput modalTextarea"
+                    rows={3}
+                    placeholder="Highlight positive behaviors, contributions, or collaboration."
+                    value={feedbackForm.strengths}
+                    onChange={(e) => setFeedbackForm({ ...feedbackForm, strengths: e.target.value })}
+                  />
+                </label>
+
+                <label className="modalLabel">
+                  Suggestions for improvement
+                  <textarea
+                    className="modalInput modalTextarea"
+                    rows={3}
+                    placeholder="Share concrete, respectful suggestions."
+                    value={feedbackForm.improvements}
+                    onChange={(e) => setFeedbackForm({ ...feedbackForm, improvements: e.target.value })}
+                  />
+                </label>
+
+                <label className="feedbackCheckbox">
+                  <input
+                    type="checkbox"
+                    checked={feedbackForm.anonymousToPeer}
+                    onChange={(e) => setFeedbackForm({ ...feedbackForm, anonymousToPeer: e.target.checked })}
+                  />
+                  <span>Anonymous to peer</span>
+                </label>
+
+                {feedbackStatus.message && (
+                  <div className={`feedbackStatus feedbackStatus${feedbackStatus.type === "success" ? "Success" : "Warning"}`}>
+                    {feedbackStatus.message}
+                  </div>
+                )}
+
+                <div className="modalActions">
+                  <button type="button" className="modalCancel" onClick={closeFeedback}>Close</button>
+                  <button
+                    type="submit"
+                    className="modalSubmit"
+                    disabled={
+                      feedbackSubmitting ||
+                      !feedbackForm.revieweeId ||
+                      feedbackForm.overallRating === 0 ||
+                      feedbackForm.preparedness === 0 ||
+                      feedbackForm.communication === 0 ||
+                      feedbackForm.helpfulness === 0 ||
+                      feedbackForm.reliability === 0
+                    }
+                  >
+                    {feedbackSubmitting ? "Submitting..." : "Submit Feedback"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
     </div>

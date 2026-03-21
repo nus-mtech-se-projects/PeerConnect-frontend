@@ -677,6 +677,219 @@
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
+.sessionCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.sessionCardBody {
+  min-width: 0;
+}
+
+.sessionCardActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.feedbackActionBtn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 124, 0, 0.3);
+  background: rgba(239, 124, 0, 0.1);
+  color: #b45309;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 150ms ease, transform 120ms ease, border-color 150ms ease;
+}
+
+.feedbackActionBtn:hover {
+  background: rgba(239, 124, 0, 0.18);
+  border-color: rgba(239, 124, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+.feedbackActionBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sessionFeedbackMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sessionFeedbackBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.sessionFeedbackBadgeSuccess {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.sessionFeedbackBadgeWarning {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.feedbackModalCard {
+  width: min(720px, 94vw);
+}
+
+.feedbackIntro {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(0, 61, 124, 0.06), rgba(239, 124, 0, 0.08));
+  border: 1px solid rgba(0, 61, 124, 0.08);
+}
+
+.feedbackIntroTitle,
+.feedbackIntroMeta,
+.feedbackIntroNote {
+  margin: 0;
+}
+
+.feedbackIntroTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.feedbackIntroMeta {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.feedbackIntroNote {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.feedbackSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ratingRow {
+  display: flex;
+  gap: 8px;
+}
+
+.ratingStar {
+  border: none;
+  background: transparent;
+  color: #d1d5db;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 120ms ease, color 150ms ease;
+}
+
+.ratingStar:hover,
+.ratingStar.active {
+  color: #f59e0b;
+  transform: translateY(-1px);
+}
+
+.feedbackGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.feedbackMetricCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #f9fafb;
+}
+
+.feedbackMetricLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.feedbackScaleRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.feedbackScaleOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  font-size: 13px;
+  color: #374151;
+}
+
+.feedbackCheckbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.feedbackStatus {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.feedbackStatusSuccess {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.feedbackStatusWarning {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
+
+.feedbackEmptyState {
+  padding: 18px;
+  border-radius: 14px;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 /* MOBILE: max-width 768px */
 @media (max-width: 768px) {
   .dashPage {
@@ -796,6 +1009,23 @@
 
   .modalRow {
     grid-template-columns: 1fr;
+  }
+
+  .sessionCard {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sessionCardActions {
+    justify-content: flex-end;
+  }
+
+  .feedbackGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .ratingRow {
+    flex-wrap: wrap;
   }
 }
 
