@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Login from "../Login";
 import { useMsal } from "@azure/msal-react";
+import { loginRequest } from "../../AuthConfig";
 
 // Mock useNavigate
 const mockNav = vi.fn();
@@ -138,6 +139,6 @@ describe("Login page", () => {
     render(<MemoryRouter><Login /></MemoryRouter>);
     await user.click(screen.getByRole("button", { name: /Continue with Microsoft/i }));
 
-    expect(mockLoginRedirect).toHaveBeenCalledWith({ scopes: ["User.Read"] });
+    expect(mockLoginRedirect).toHaveBeenCalledWith(loginRequest);
   });
 });
