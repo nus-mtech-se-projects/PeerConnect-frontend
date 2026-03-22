@@ -2,12 +2,14 @@ import React, { useState, useCallback, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import peerconnectIcon from "../assets/images/peerconnect_icon.png";
+import "../styles/pages/Dashboard.css";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { instance, accounts } = useMsal();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null);
   const isLoggedIn = !!localStorage.getItem("accessToken");
 
   const toggleMenu = useCallback(() => setMenuOpen((v) => !v), []);
@@ -23,6 +25,7 @@ export default function Navbar() {
   }, [menuOpen]);
 
   return (
+    <>
     <header className="navPro">
       <div className="navProInner">
         <button className="brandPro" onClick={() => navigate("/")}>
@@ -73,18 +76,24 @@ export default function Navbar() {
                 </NavLink>
                 <button
                   className="btnPrimary"
-                  onClick={async () => {
-                    if (!window.confirm("Are you sure you want to logout?")) return;
-                    const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-                    try {
-                      await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
-                    } catch { /* proceed anyway */ }
-                    localStorage.removeItem("accessToken");
-                    if (accounts.length > 0) {
-                      instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
-                    } else {
-                      navigate("/");
-                    }
+                  onClick={() => {
+                    setConfirmDialog({
+                      message: "Are you sure you want to logout?",
+                      onConfirm: async () => {
+                        setConfirmDialog(null);
+                        const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+                        try {
+                          await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
+                        } catch { /* proceed anyway */ }
+                        localStorage.removeItem("accessToken");
+                        if (accounts.length > 0) {
+                          instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
+                        } else {
+                          navigate("/");
+                        }
+                      },
+                      onCancel: () => setConfirmDialog(null),
+                    });
                   }}
                 >
                   Logout
@@ -104,5 +113,18 @@ export default function Navbar() {
         </div>
       </div>
     </header>
+
+    {confirmDialog && (
+      <div className="modalOverlay" onClick={() => setConfirmDialog(null)}>
+        <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
+          <p className="confirmMsg">{confirmDialog.message}</p>
+          <div className="confirmActions">
+            <button className="confirmBtnOutline" onClick={confirmDialog.onCancel}>Cancel</button>
+            <button className="confirmBtnGreen" onClick={confirmDialog.onConfirm}>OK</button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

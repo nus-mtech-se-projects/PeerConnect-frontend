@@ -11,6 +11,7 @@ import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
+import RestrictUser from "./pages/RestrictUser";
 import PrivateRoute from "./components/PrivateRoute"
 import PublicRoute from "./components/PublicRoute";
 
@@ -64,7 +65,7 @@ export default function App() {
       <main className="mainContent">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/contact" element={<PublicRoute><About /></PublicRoute>} />
+          <Route path="/contact" element={<About />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
@@ -82,6 +83,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <ChangePassword />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/restrict-user"
+            element={
+              <PrivateRoute>
+                <RestrictUser />
               </PrivateRoute>
             }
           />
