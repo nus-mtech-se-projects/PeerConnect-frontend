@@ -39,31 +39,31 @@ function waitForToken(timeoutMs = 8000) {
 
 /* ──────── SVG icons ──────── */
 const MenuIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
 );
 const CloseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
 );
 const GroupsIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
 );
 const TutoringIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
 );
 const AiIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M12 12h.01" /><path d="M17 12h.01" /><path d="M7 12h.01" /></svg>
 );
 const SupportIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
 );
 const RestrictIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="4"/><line x1="17" y1="9" x2="21" y2="13"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><circle cx="19" cy="11" r="4" /><line x1="17" y1="9" x2="21" y2="13" /></svg>
 );
 const SearchIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
 );
 const PlusIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
 );
 
 /* ═══════════════════════════════════════════════════
@@ -402,6 +402,31 @@ function PeerTutoringSection() {
   );
 }
 
+function RestrictedMemberSection() {
+  return (
+    <div>
+      <div className="dashHeader">
+        <div className="dashHeaderTop">
+          <div>
+            <h1 className="dashTitle">Restricted Member</h1>
+            <p className="dashSubtitle">
+              Manage members who have participated in your groups or tutoring sessions.
+              Select a member to restrict them from joining your future groups or tutoring sessions.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="dashEmpty">
+        <RestrictIcon />
+        <p>This feature is coming soon.</p>
+        <p style={{ fontSize: 13, color: "#b0b0b0", marginTop: 4 }}>
+          You will be able to view all members from your groups and tutoring sessions, and restrict specific members from future participation.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════
    Dashboard (shown to logged-in users)
    ═══════════════════════════════════════════════════ */
@@ -476,7 +501,7 @@ function DashboardHome() {
           if (nameFound && avatarUrl) break;
         } catch { /* try next */ }
       }
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { cancelled = true; };
   }, []);
 
@@ -905,7 +930,7 @@ function DashboardHome() {
           <span className="dashNavLabel">MODULES</span>
           <button className={`dashNavItem ${activeModule === "studyGroups" ? "active" : ""}`} onClick={() => { setActiveModule("studyGroups"); closeSidebar(); }}><GroupsIcon /> Study Groups</button>
           <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
-          <button className="dashNavItem" onClick={() => { nav("/restrict-user"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
+          <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
           <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
         </nav>
@@ -925,7 +950,7 @@ function DashboardHome() {
                   <p className="dashSubtitle">Discover, create, and join study groups</p>
                 </div>
                 <div className="dashHeaderBtns">
-                  <button className="dashMyGroupsBtn" onClick={() => {}}><GroupsIcon /> My Groups</button>
+                  <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
                   <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
                 </div>
               </div>
@@ -934,22 +959,6 @@ function DashboardHome() {
                 <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
             </div>
-        <div className="dashHeader">
-          <div className="dashHeaderTop">
-            <div>
-              <h1 className="dashTitle">Study Groups</h1>
-              <p className="dashSubtitle">Discover, create, and join study groups</p>
-            </div>
-            <div className="dashHeaderBtns">
-              <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
-              <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
-            </div>
-          </div>
-          <div className="dashSearchWrap">
-            <SearchIcon />
-            <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        </div>
 
             {loading && <p className="dashMsg">Loading groups…</p>}
             {error && <p className="dashMsg dashError">{error}</p>}
@@ -993,40 +1002,7 @@ function DashboardHome() {
         )}
 
         {activeModule === "peerTutoring" && <PeerTutoringSection />}
-        <div className="dashGrid">
-          {filtered.map((g) => (
-            <div className="groupCard" key={g.id || g.name}>
-              <div className="groupCardHeader">
-                <span className="groupCourse">{g.moduleCode || g.courseCode || "General"}</span>
-                <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : g.studyMode === "hybrid" ? "Hybrid" : "In-Person"}</span>
-              </div>
-              <h3 className="groupName">{g.name || "Study Group"}</h3>
-              <p className="groupTopic">{g.topic || "No topic specified"}</p>
-              {g.description && <p className="groupDesc">{g.description}</p>}
-              {g.preferredSchedule && <p className="groupTopic">Schedule: {g.preferredSchedule}</p>}
-              {g.status && <p className="groupTopic">Status: {g.status}</p>}
-              <div className="groupFooter">
-                <span className="groupMembers">{g.memberCount ?? "?"}/{g.maxMembers ?? "∞"} members</span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {!g.isAdmin && (
-                    <button
-                      className={g.joined ? "groupLeaveBtn" : "groupJoinBtn"}
-                      onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
-                      disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
-                    >
-                      {membershipActionId === g.id
-                        ? (g.joined ? "Leaving…" : "Joining…")
-                        : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
-                    </button>
-                  )}
-                  {g.isAdmin && (
-                    <button className="groupManageBtn" onClick={() => openManage(g.id)}>Manage</button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        {activeModule === "restrictedMembers" && <RestrictedMemberSection />}
       </section>
 
       {showCreate && (
