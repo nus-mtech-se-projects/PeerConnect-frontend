@@ -31,9 +31,10 @@ function mockJsonResponse(data, ok = true, status = 200) {
   });
 }
 
-function mockDashboardFetch({ groups = [], profile = {}, classes = [] } = {}) {
-  return vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+function mockDashboardFetch({ groups = [], profile = {}, classes = [], tutorFeedbacks = [] } = {}) {
+  return vi.spyOn(globalThis, "fetch").mockImplementation((input, init = {}) => {
     const url = String(input);
+    const method = (init?.method || "GET").toUpperCase();
 
     if (url.endsWith("/api/users/me")) {
       return mockJsonResponse(profile);
@@ -49,6 +50,10 @@ function mockDashboardFetch({ groups = [], profile = {}, classes = [] } = {}) {
 
     if (url.endsWith("/api/tutoring/classes")) {
       return mockJsonResponse(classes);
+    }
+
+    if (method === "GET" && /\/api\/tutoring\/classes\/[^/]+\/feedback$/.test(url)) {
+      return mockJsonResponse(tutorFeedbacks);
     }
 
     return mockJsonResponse({});
@@ -180,5 +185,116 @@ describe("Home page", () => {
     expect(screen.getByText(/math revision sprint/i)).toBeInTheDocument();
     expect(screen.getByText(/jamie tan/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^join$/i })).toBeInTheDocument();
+  });
+
+  it("lets tutors open submitted feedbacks and inspect a selected entry", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("accessToken", makeAccessToken());
+    mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [
+        {
+          id: 7,
+          title: "Math Revision Sprint",
+          moduleCode: "MA1521",
+          topic: "Calculus",
+          mode: "online",
+          enrolledCount: 2,
+          maxStudents: 6,
+          isTutor: true,
+        },
+      ],
+      tutorFeedbacks: [
+        {
+          id: 101,
+          sessionId: 7,
+          revieweeId: "tutor-1",
+          revieweeName: "Jamie Tan",
+          reviewerName: "Alex Lee",
+          reviewerEmail: "alex@u.nus.edu",
+          overallRating: 5,
+          preparedness: 4,
+          communication: 5,
+          helpfulness: 5,
+          reliability: 4,
+          strengths: "Clear explanations",
+          improvements: "Could share more practice questions",
+          submittedAt: "2026-03-23T10:00:00.000Z",
+        },
+      ],
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    render(<Home />);
+
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /view feedbacks/i }));
+
+    expect(await screen.findByRole("heading", { name: /submitted feedbacks/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /alex lee/i }));
+
+    expect(screen.getByText(/clear explanations/i)).toBeInTheDocument();
+    expect(screen.getByText(/could share more practice questions/i)).toBeInTheDocument();
+    expect(screen.getByText(/overall rating/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/5\/5/i).length).toBeGreaterThan(0);
+  });
+
+  it("hides reviewer identity for anonymous feedback", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("accessToken", makeAccessToken());
+    mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [
+        {
+          id: 8,
+          title: "Physics Drill",
+          moduleCode: "PC1141",
+          topic: "Mechanics",
+          mode: "online",
+          enrolledCount: 1,
+          maxStudents: 6,
+          isTutor: true,
+        },
+      ],
+      tutorFeedbacks: [
+        {
+          id: 102,
+          sessionId: 8,
+          revieweeId: "tutor-2",
+          revieweeName: "Tutor User",
+          reviewerName: "Hidden Student",
+          reviewerEmail: "hidden@u.nus.edu",
+          overallRating: 4,
+          preparedness: 4,
+          communication: 4,
+          helpfulness: 4,
+          reliability: 4,
+          strengths: "Helpful session",
+          improvements: "None",
+          anonymousToPeer: true,
+          submittedAt: "2026-03-23T10:00:00.000Z",
+        },
+      ],
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    render(<Home />);
+
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /view feedbacks/i }));
+
+    expect((await screen.findAllByText(/^anonymous$/i)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/submitted anonymously/i)).toBeInTheDocument();
+    expect(screen.queryByText(/hidden student/i)).not.toBeInTheDocument();
   });
 });

@@ -10,6 +10,99 @@ import supportSystemImg from "../assets/images/support-system.jpg";
 import "../styles/pages/Dashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+function createFeedbackForm() {
+  return {
+    revieweeId: "",
+    overallRating: 0,
+    preparedness: 0,
+    communication: 0,
+    helpfulness: 0,
+    reliability: 0,
+    strengths: "",
+    improvements: "",
+    anonymousToPeer: false,
+  };
+}
+
+function getNamePartsLabel(firstName, lastName, fallback = "") {
+  const fullName = [firstName, lastName]
+    .map(cleanDisplayText)
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return fullName || fallback;
+}
+
+function cleanDisplayText(value) {
+  if (typeof value !== "string") return value;
+  const cleaned = value
+    .split(/\s+/)
+    .filter((part) => part && part !== "null" && part !== "undefined")
+    .join(" ")
+    .trim();
+  return cleaned || "";
+}
+
+function getFeedbackReviewerLabel(entry, fallback = "Anonymous") {
+  return (
+    cleanDisplayText(entry?.reviewerName) ||
+    getNamePartsLabel(entry?.reviewerFirstName, entry?.reviewerLastName, "") ||
+    cleanDisplayText(entry?.reviewer?.name) ||
+    getNamePartsLabel(entry?.reviewer?.firstName, entry?.reviewer?.lastName, "") ||
+    cleanDisplayText(entry?.submittedByName) ||
+    cleanDisplayText(entry?.createdByName) ||
+    cleanDisplayText(entry?.authorName) ||
+    cleanDisplayText(entry?.reviewerEmail) ||
+    cleanDisplayText(entry?.submittedByEmail) ||
+    fallback
+  );
+}
+
+function normalizeFeedbackEntry(entry, index = 0) {
+  const anonymousToPeer = !!entry?.anonymousToPeer;
+  const reviewerLabel = anonymousToPeer ? "Anonymous" : getFeedbackReviewerLabel(entry);
+  return {
+    id: entry?.id || entry?._id || entry?.feedbackId || `${reviewerLabel}-${entry?.submittedAt || entry?.savedAt || index}`,
+    reviewerLabel,
+    reviewerEmail: anonymousToPeer
+      ? ""
+      : cleanDisplayText(entry?.reviewerEmail) || cleanDisplayText(entry?.submittedByEmail) || cleanDisplayText(entry?.reviewer?.email) || "",
+    revieweeLabel:
+      cleanDisplayText(entry?.revieweeLabel) ||
+      cleanDisplayText(entry?.revieweeName) ||
+      getNamePartsLabel(entry?.revieweeFirstName, entry?.revieweeLastName, "") ||
+      cleanDisplayText(entry?.reviewee?.name) ||
+      cleanDisplayText(entry?.revieweeEmail) ||
+      cleanDisplayText(entry?.revieweeId) ||
+      "Tutor",
+    overallRating: Number(entry?.overallRating || 0),
+    preparedness: Number(entry?.preparedness || 0),
+    communication: Number(entry?.communication || 0),
+    helpfulness: Number(entry?.helpfulness || 0),
+    reliability: Number(entry?.reliability || 0),
+    strengths: entry?.strengths || "",
+    improvements: entry?.improvements || "",
+    anonymousToPeer,
+    submittedAt: entry?.submittedAt || entry?.createdAt || entry?.savedAt || "",
+    syncStatus: entry?.syncStatus || "",
+  };
+}
+
+function normalizeFeedbackCollection(payload) {
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.feedback)
+      ? payload.feedback
+      : Array.isArray(payload?.feedbacks)
+        ? payload.feedbacks
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.records)
+            ? payload.records
+            : [];
+
+  return rawItems.map((item, index) => normalizeFeedbackEntry(item, index));
+}
 
 /* ──────────────────── helpers ──────────────────── */
 function authHeaders() {
@@ -98,7 +191,7 @@ function LandingHome() {
 
 /* ──────────────────── Peer Tutoring Components ──────────────────── */
 
-function TutorDashboard({ onClassCreated }) {
+function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -190,7 +283,10 @@ function TutorDashboard({ onClassCreated }) {
             {c.schedule && <p className="groupTopic">Schedule: {c.schedule}</p>}
             <div className="groupFooter">
               <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-              <button className="groupJoinBtn ptDeleteBtn" onClick={() => handleDelete(c.id)}>Delete</button>
+              <div className="groupActions">
+                <button className="groupManageBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
+                <button className="groupJoinBtn ptDeleteBtn" onClick={() => handleDelete(c.id)}>Delete</button>
+              </div>
             </div>
           </div>
         ))}
@@ -252,7 +348,7 @@ function TutorDashboard({ onClassCreated }) {
   );
 }
 
-function TuteeDashboard({ excludeIds = new Set() }) {
+function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -270,6 +366,7 @@ function TuteeDashboard({ excludeIds = new Set() }) {
         .finally(() => { if (!cancelled) setLoading(false); });
     }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -345,15 +442,20 @@ function TuteeDashboard({ excludeIds = new Set() }) {
             {c.schedule && <p className="groupTopic">Schedule: {c.schedule}</p>}
             <div className="groupFooter">
               <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-              <button
-                className="groupJoinBtn"
-                onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
-                disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
-              >
-                {enrollingId === c.id
-                  ? (c.enrolled ? "Leaving…" : "Joining…")
-                  : (c.enrolled ? "Leave" : "Join")}
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                {c.enrolled && onGiveFeedback && (
+                  <button className="groupManageBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
+                )}
+                <button
+                  className="groupJoinBtn"
+                  onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
+                  disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
+                >
+                  {enrollingId === c.id
+                    ? (c.enrolled ? "Leaving…" : "Joining…")
+                    : (c.enrolled ? "Leave" : "Join")}
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -362,7 +464,7 @@ function TuteeDashboard({ excludeIds = new Set() }) {
   );
 }
 
-function PeerTutoringSection() {
+function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
   const [role, setRole] = useState(null);
   const [myClassIds, setMyClassIds] = useState(new Set());
 
@@ -396,8 +498,25 @@ function PeerTutoringSection() {
         </div>
       )}
 
-      {role === "tutor" && <TutorDashboard onClassCreated={handleClassCreated} />}
-      {role === "tutee" && <TuteeDashboard excludeIds={myClassIds} />}
+      {role === "tutor" && <TutorDashboard onClassCreated={handleClassCreated} onViewFeedbacks={onViewTutorFeedbacks} />}
+      {role === "tutee" && <TuteeDashboard excludeIds={myClassIds} onGiveFeedback={onGiveFeedback} />}
+    </div>
+  );
+}
+
+function StarRating({ value, onChange }) {
+  return (
+    <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => onChange(star)}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: star <= value ? "#f59e0b" : "#d1d5db", padding: "0 2px" }}
+        >
+          {star <= value ? "★" : "☆"}
+        </button>
+      ))}
     </div>
   );
 }
@@ -466,6 +585,22 @@ function DashboardHome() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [showFeedbackPicker, setShowFeedbackPicker] = useState(false);
+  const [feedbackOptions, setFeedbackOptions] = useState([]);
+  const [selectedFeedbackGroupId, setSelectedFeedbackGroupId] = useState("");
+  const [selectedFeedbackSessionId, setSelectedFeedbackSessionId] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackSession, setFeedbackSession] = useState(null);
+  const [feedbackForm, setFeedbackForm] = useState(createFeedbackForm);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState({ type: "", message: "" });
+  const [feedbackApiPath, setFeedbackApiPath] = useState("");
+  const [showTutorFeedbacks, setShowTutorFeedbacks] = useState(false);
+  const [tutorFeedbackClass, setTutorFeedbackClass] = useState(null);
+  const [tutorFeedbackLoading, setTutorFeedbackLoading] = useState(false);
+  const [tutorFeedbackError, setTutorFeedbackError] = useState("");
+  const [tutorFeedbackItems, setTutorFeedbackItems] = useState([]);
+  const [selectedTutorFeedback, setSelectedTutorFeedback] = useState(null);
 
   function showToast(message, type = "success") {
     clearTimeout(toastTimer.current);
@@ -503,6 +638,7 @@ function DashboardHome() {
       }
     }).catch(() => { });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* fetch groups */
@@ -609,6 +745,172 @@ function DashboardHome() {
     setSelectedGroup(null);
     setSelectedMembers([]);
     setSelectedSessions([]);
+  }
+
+  const closeFeedbackPicker = useCallback(() => {
+    setShowFeedbackPicker(false);
+    setFeedbackOptions([]);
+    setSelectedFeedbackGroupId("");
+    setSelectedFeedbackSessionId("");
+  }, []);
+
+  function openFeedback(session, membersOverride) {
+    const members = membersOverride ?? selectedMembers;
+    const approvedMembers = members.filter(
+      (m) => m.membershipStatus === "approved" && m.email !== userEmail
+    );
+    setFeedbackSession(session);
+    setFeedbackForm({ ...createFeedbackForm(), revieweeId: approvedMembers[0]?.userId || approvedMembers[0]?.email || "" });
+    setFeedbackStatus({ type: "", message: "" });
+    setShowFeedback(true);
+  }
+
+  async function handleOpenPeerTutoring() {
+    setManageLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
+      const data = await res.json().catch(() => []);
+      const enrolledClasses = Array.isArray(data) ? data.filter((c) => c.enrolled && !c.isTutor) : [];
+      if (enrolledClasses.length === 0) return;
+      const nextOptions = enrolledClasses.map((c) => ({
+        group: { id: c.id, name: c.title, moduleCode: c.moduleCode },
+        members: [{
+          userId: c.tutorId || c.tutorEmail || "tutor",
+          email: c.tutorEmail || "",
+          firstName: c.tutorName?.split(" ")[0] || "Tutor",
+          lastName: c.tutorName?.split(" ").slice(1).join(" ") || "",
+          membershipStatus: "approved",
+        }],
+        sessions: [{ id: c.id, title: c.title }],
+      }));
+      setFeedbackOptions(nextOptions);
+      setSelectedFeedbackGroupId(nextOptions[0].group.id);
+      setSelectedFeedbackSessionId(nextOptions[0].sessions[0].id);
+      setShowFeedbackPicker(true);
+    } catch {
+      // silent
+    } finally {
+      setManageLoading(false);
+    }
+  }
+
+  function handleSelectFeedbackGroup(groupId) {
+    setSelectedFeedbackGroupId(groupId);
+    const opt = feedbackOptions.find((o) => o.group.id === groupId);
+    setSelectedFeedbackSessionId(opt?.sessions[0]?.id || "");
+  }
+
+  function handleLaunchFeedback() {
+    const opt = feedbackOptions.find((o) => o.group.id === selectedFeedbackGroupId);
+    const session = opt?.sessions.find((s) => s.id === selectedFeedbackSessionId);
+    if (!opt || !session) return;
+    setSelectedGroup(opt.group);
+    setSelectedMembers(opt.members);
+    setSelectedSessions(opt.sessions);
+    setFeedbackApiPath(`${API_BASE}/api/tutoring/classes/${opt.group.id}/feedback`);
+    closeFeedbackPicker();
+    openFeedback(session, opt.members);
+  }
+
+  function handleTutoringFeedback(classObj) {
+    setFeedbackApiPath(`${API_BASE}/api/tutoring/classes/${classObj.id}/feedback`);
+    setFeedbackSession({ id: classObj.id, title: classObj.title });
+    setSelectedGroup({ id: classObj.id, name: classObj.title });
+    setSelectedMembers([{
+      userId: classObj.tutorId || classObj.tutorEmail || "tutor",
+      email: classObj.tutorEmail || "",
+      firstName: classObj.tutorName?.split(" ")[0] || "Tutor",
+      lastName: classObj.tutorName?.split(" ").slice(1).join(" ") || "",
+      membershipStatus: "approved",
+    }]);
+    setFeedbackForm({ ...createFeedbackForm(), revieweeId: classObj.tutorId || classObj.tutorEmail || "tutor" });
+    setFeedbackStatus({ type: "", message: "" });
+    setShowFeedback(true);
+  }
+
+  function closeTutorFeedbacks() {
+    setShowTutorFeedbacks(false);
+    setTutorFeedbackClass(null);
+    setTutorFeedbackLoading(false);
+    setTutorFeedbackError("");
+    setTutorFeedbackItems([]);
+    setSelectedTutorFeedback(null);
+  }
+
+  async function handleViewTutorFeedbacks(classObj) {
+    setTutorFeedbackClass(classObj);
+    setTutorFeedbackLoading(true);
+    setTutorFeedbackError("");
+    setTutorFeedbackItems([]);
+    setSelectedTutorFeedback(null);
+    setShowTutorFeedbacks(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes/${classObj.id}/feedback`, {
+        headers: authHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `Failed to load feedbacks (${res.status})`);
+      }
+
+      const nextItems = normalizeFeedbackCollection(data).sort(
+        (a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime()
+      );
+      setTutorFeedbackItems(nextItems);
+      setSelectedTutorFeedback(nextItems[0] || null);
+    } catch (err) {
+      setTutorFeedbackError(err.message || "Unable to load feedbacks.");
+    } finally {
+      setTutorFeedbackLoading(false);
+    }
+  }
+
+  function closeFeedback() {
+    setShowFeedback(false);
+    setFeedbackSession(null);
+    setFeedbackForm(createFeedbackForm());
+    setFeedbackStatus({ type: "", message: "" });
+    setFeedbackApiPath("");
+  }
+
+  async function handleSubmitFeedback(e) {
+    e.preventDefault();
+    if (!selectedGroup?.id || !feedbackSession?.id || !feedbackForm.revieweeId) return;
+    const payload = {
+      sessionId: feedbackSession.id,
+      groupId: selectedGroup.id,
+      revieweeId: feedbackForm.revieweeId,
+      overallRating: feedbackForm.overallRating,
+      preparedness: feedbackForm.preparedness,
+      communication: feedbackForm.communication,
+      helpfulness: feedbackForm.helpfulness,
+      reliability: feedbackForm.reliability,
+      strengths: feedbackForm.strengths.trim() || null,
+      improvements: feedbackForm.improvements.trim() || null,
+      anonymousToPeer: feedbackForm.anonymousToPeer,
+      reviewerName: userName,
+      reviewerEmail: userEmail,
+    };
+    setFeedbackSubmitting(true);
+    setFeedbackStatus({ type: "", message: "" });
+    try {
+      const endpoint = feedbackApiPath || `${API_BASE}/api/groups/${selectedGroup.id}/sessions/${feedbackSession.id}/feedback`;
+      const res = await fetch(endpoint, {
+        method: "POST", headers: authHeaders(), credentials: "include", body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFeedbackStatus({ type: "warning", message: data?.error || `Submission failed (${res.status})` });
+        return;
+      }
+      setFeedbackStatus({ type: "success", message: "Feedback submitted successfully." });
+    } catch (err) {
+      setFeedbackStatus({ type: "warning", message: err.message || "Feedback submission failed." });
+    } finally {
+      setFeedbackSubmitting(false);
+    }
   }
 
   async function refreshSelectedGroup() {
@@ -899,6 +1201,11 @@ function DashboardHome() {
   const userEmail = account?.username || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
+  const reviewableMembers = selectedMembers.filter(
+    (m) => m.membershipStatus === "approved" && m.email !== userEmail
+  );
+  const selectedFeedbackGroup = feedbackOptions.find((o) => o.group.id === selectedFeedbackGroupId) || null;
+
   return (
     <div className="dashPage">
       {/* mobile top bar */}
@@ -1001,7 +1308,24 @@ function DashboardHome() {
           </>
         )}
 
-        {activeModule === "peerTutoring" && <PeerTutoringSection />}
+        {activeModule === "peerTutoring" && (
+          <>
+            <div className="dashHeader">
+              <div className="dashHeaderTop">
+                <div>
+                  <h1 className="dashTitle">Peer Tutoring</h1>
+                  <p className="dashSubtitle">Connect with tutors or offer your expertise</p>
+                </div>
+                <div className="dashHeaderBtns">
+                  <button className="dashCreateBtn" onClick={handleOpenPeerTutoring} disabled={manageLoading}>
+                    {manageLoading ? "Loading…" : "Give Peer Feedback"}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <PeerTutoringSection onGiveFeedback={handleTutoringFeedback} onViewTutorFeedbacks={handleViewTutorFeedbacks} />
+          </>
+        )}
         {activeModule === "restrictedMembers" && <RestrictedMemberSection />}
       </section>
 
@@ -1215,6 +1539,181 @@ function DashboardHome() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {showFeedbackPicker && (
+        <div className="modalOverlay" onClick={closeFeedbackPicker}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modalTitle">Give Peer Feedback</h2>
+            <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
+            <label className="modalLabel">Study Group
+              <select className="modalInput" value={selectedFeedbackGroupId} onChange={(e) => handleSelectFeedbackGroup(e.target.value)}>
+                {feedbackOptions.map((o) => (
+                  <option key={o.group.id} value={o.group.id}>{o.group.name}</option>
+                ))}
+              </select>
+            </label>
+            {selectedFeedbackGroup && (
+              <label className="modalLabel">Session
+                <select className="modalInput" value={selectedFeedbackSessionId} onChange={(e) => setSelectedFeedbackSessionId(e.target.value)}>
+                  {selectedFeedbackGroup.sessions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title || s.startsAt || s.id}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <div className="modalActions">
+              <button type="button" className="modalCancel" onClick={closeFeedbackPicker}>Cancel</button>
+              <button type="button" className="modalSubmit" onClick={handleLaunchFeedback} disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}>Next →</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFeedback && (
+        <div className="modalOverlay" onClick={closeFeedback}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modalTitle">Peer Feedback — {feedbackSession?.title || "Session"}</h2>
+            <form className="modalForm" onSubmit={handleSubmitFeedback}>
+              <label className="modalLabel">Reviewing
+                <select className="modalInput" value={feedbackForm.revieweeId} onChange={(e) => setFeedbackForm({ ...feedbackForm, revieweeId: e.target.value })}>
+                  <option value="">Select peer</option>
+                  {reviewableMembers.map((m) => (
+                  <option key={m.userId || m.email} value={m.userId || m.email}>
+                      {getNamePartsLabel(m.firstName, m.lastName, m.email || m.userId || "Unknown")}
+                  </option>
+                ))}
+                </select>
+              </label>
+              {[
+                { key: "overallRating", label: "Overall Rating" },
+                { key: "preparedness", label: "Preparedness" },
+                { key: "communication", label: "Communication" },
+                { key: "helpfulness", label: "Helpfulness" },
+                { key: "reliability", label: "Reliability" },
+              ].map(({ key, label }) => (
+                <label key={key} className="modalLabel">{label}
+                  <StarRating value={feedbackForm[key]} onChange={(v) => setFeedbackForm({ ...feedbackForm, [key]: v })} />
+                </label>
+              ))}
+              <label className="modalLabel">Strengths
+                <textarea className="modalInput modalTextarea" rows={2} value={feedbackForm.strengths} onChange={(e) => setFeedbackForm({ ...feedbackForm, strengths: e.target.value })} />
+              </label>
+              <label className="modalLabel">Areas for Improvement
+                <textarea className="modalInput modalTextarea" rows={2} value={feedbackForm.improvements} onChange={(e) => setFeedbackForm({ ...feedbackForm, improvements: e.target.value })} />
+              </label>
+              <label className="modalLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={feedbackForm.anonymousToPeer} onChange={(e) => setFeedbackForm({ ...feedbackForm, anonymousToPeer: e.target.checked })} />
+                Submit anonymously
+              </label>
+              {feedbackStatus.message && (
+                <p style={{ color: feedbackStatus.type === "success" ? "#16a34a" : "#d97706", fontSize: 14 }}>{feedbackStatus.message}</p>
+              )}
+              <div className="modalActions">
+                <button type="button" className="modalCancel" onClick={closeFeedback}>Cancel</button>
+                <button type="submit" className="modalSubmit" disabled={feedbackSubmitting || !feedbackForm.revieweeId || !feedbackForm.overallRating}>
+                  {feedbackSubmitting ? "Submitting…" : "Submit Feedback"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showTutorFeedbacks && (
+        <div className="modalOverlay" onClick={closeTutorFeedbacks}>
+          <div className="modalCard tutorFeedbackModal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modalTitle">Submitted Feedbacks{tutorFeedbackClass?.title ? ` - ${tutorFeedbackClass.title}` : ""}</h2>
+            <p className="tutorFeedbackIntro">
+              Select a student name to view the feedback they submitted for this tutoring class.
+            </p>
+
+            {tutorFeedbackLoading && <p className="dashMsg">Loading feedbacksâ€¦</p>}
+            {!tutorFeedbackLoading && tutorFeedbackError && <p className="dashMsg dashError">{tutorFeedbackError}</p>}
+            {!tutorFeedbackLoading && !tutorFeedbackError && tutorFeedbackItems.length === 0 && (
+              <div className="dashEmpty tutorFeedbackEmpty">
+                <TutoringIcon />
+                <p>No feedbacks have been submitted for this class yet.</p>
+              </div>
+            )}
+
+            {!tutorFeedbackLoading && tutorFeedbackItems.length > 0 && (
+              <div className="tutorFeedbackLayout">
+                <div className="tutorFeedbackList" role="list" aria-label="Submitted feedback names">
+                  {tutorFeedbackItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`tutorFeedbackListItem ${selectedTutorFeedback?.id === item.id ? "active" : ""}`}
+                      onClick={() => setSelectedTutorFeedback(item)}
+                    >
+                      <span className="tutorFeedbackReviewer">{item.reviewerLabel}</span>
+                      <span className="tutorFeedbackMeta">
+                        {item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "Submission time unavailable"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="tutorFeedbackDetail">
+                  {selectedTutorFeedback ? (
+                    <>
+                      <div className="tutorFeedbackDetailHeader">
+                        <h3>{selectedTutorFeedback.reviewerLabel}</h3>
+                        <p>
+                          {selectedTutorFeedback.submittedAt
+                            ? `Submitted on ${new Date(selectedTutorFeedback.submittedAt).toLocaleString()}`
+                            : "Submission time unavailable"}
+                        </p>
+                        {selectedTutorFeedback.anonymousToPeer && (
+                          <p className="tutorFeedbackAnonNote">This feedback was submitted anonymously.</p>
+                        )}
+                      </div>
+
+                      <div className="tutorFeedbackRatings">
+                        {[
+                          { key: "overallRating", label: "Overall Rating" },
+                          { key: "preparedness", label: "Preparedness" },
+                          { key: "communication", label: "Communication" },
+                          { key: "helpfulness", label: "Helpfulness" },
+                          { key: "reliability", label: "Reliability" },
+                        ].map(({ key, label }) => (
+                          <div key={key} className="tutorFeedbackRatingRow">
+                            <span>{label}</span>
+                            <strong>{selectedTutorFeedback[key] || 0}/5</strong>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="tutorFeedbackSection">
+                        <h4>About</h4>
+                        <p>{selectedTutorFeedback.revieweeLabel}</p>
+                      </div>
+
+                      <div className="tutorFeedbackSection">
+                        <h4>Strengths</h4>
+                        <p>{selectedTutorFeedback.strengths || "No strengths provided."}</p>
+                      </div>
+
+                      <div className="tutorFeedbackSection">
+                        <h4>Areas for Improvement</h4>
+                        <p>{selectedTutorFeedback.improvements || "No improvement notes provided."}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="dashEmpty tutorFeedbackEmpty">
+                      <p>Select a name from the left to view the full feedback.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="modalActions">
+              <button type="button" className="modalCancel" onClick={closeTutorFeedbacks}>Close</button>
+            </div>
           </div>
         </div>
       )}
