@@ -111,24 +111,12 @@ function DashboardHome() {
   const [profileName, setProfileName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [showManage, setShowManage] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [selectedMembers, setSelectedMembers] = useState([]);
-  const [selectedSessions, setSelectedSessions] = useState([]);
-  const [manageLoading, setManageLoading] = useState(false);
   const [membershipActionId, setMembershipActionId] = useState(null);
   const [newGroup, setNewGroup] = useState({
     name: "", moduleCode: "", topic: "", studyMode: "online",
     location: "", meetingLink: "", scheduleDate: "", scheduleTime: "", maxMembers: 10,
     description: "", approvalRequired: false,
   });
-  const [sessionForm, setSessionForm] = useState({
-    title: "", startsAt: "", endsAt: "", location: "", meetingLink: "", notes: "",
-  });
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [transferOwnerId, setTransferOwnerId] = useState("");
-  const [manageScheduleDate, setManageScheduleDate] = useState("");
-  const [manageScheduleTime, setManageScheduleTime] = useState("");
   const [creating, setCreating] = useState(false);
   const [myGroupsOnly, setMyGroupsOnly] = useState(false);
   const [toast, setToast] = useState(null);
@@ -239,224 +227,6 @@ function DashboardHome() {
       });
     } catch (err) { showToast(err.message, "error"); }
     finally { setCreating(false); }
-  }
-
-  async function openManage(groupId) {
-    setManageLoading(true);
-    setShowManage(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${groupId}`, {
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Failed to load group details (${res.status})`);
-      setSelectedGroup({
-        ...data,
-        moduleCode: data.moduleCode || data.courseCode || "",
-      });
-      setSelectedMembers(Array.isArray(data.members) ? data.members : []);
-      setSelectedSessions(Array.isArray(data.sessions) ? data.sessions : []);
-      setTransferOwnerId("");
-      setInviteEmail("");
-      const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
-      const parts = ps.split(/[T ]/);
-      setManageScheduleDate(parts[0] || "");
-      setManageScheduleTime(parts[1] ? parts[1].substring(0, 5) : "");
-      setSessionForm({ title: "", startsAt: "", endsAt: "", location: data.location || "", meetingLink: data.meetingLink || "", notes: "" });
-    } catch (err) {
-      showToast(err.message, "error");
-      setShowManage(false);
-    } finally {
-      setManageLoading(false);
-    }
-  }
-
-  function closeManage() {
-    setShowManage(false);
-    setSelectedGroup(null);
-    setSelectedMembers([]);
-    setSelectedSessions([]);
-  }
-
-  async function refreshSelectedGroup() {
-    if (!selectedGroup?.id) return;
-    const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}`, {
-      headers: authHeaders(),
-      credentials: "include",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || `Failed to refresh group details (${res.status})`);
-    setSelectedGroup({ ...data, moduleCode: data.moduleCode || data.courseCode || "" });
-    setSelectedMembers(Array.isArray(data.members) ? data.members : []);
-    setSelectedSessions(Array.isArray(data.sessions) ? data.sessions : []);
-    setGroups((prev) => prev.map((g) => (g.id === data.id ? { ...g, ...data } : g)));
-  }
-
-  async function handleUpdateGroup(e) {
-    e.preventDefault();
-    if (!selectedGroup?.id) return;
-    try {
-      const payload = {
-        name: selectedGroup.name,
-        moduleCode: selectedGroup.moduleCode,
-        topic: selectedGroup.topic,
-        description: selectedGroup.description,
-        studyMode: selectedGroup.studyMode,
-        location: selectedGroup.location,
-        meetingLink: selectedGroup.meetingLink,
-        preferredSchedule: [manageScheduleDate, manageScheduleTime].filter(Boolean).join("T"),
-        maxMembers: Number(selectedGroup.maxMembers),
-        approvalRequired: !!selectedGroup.approvalRequired,
-      };
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}`, {
-        method: "PUT",
-        headers: authHeaders(),
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Update failed (${res.status})`);
-      setGroups((prev) => prev.map((g) => (g.id === data.id ? { ...g, ...data } : g)));
-      setSelectedGroup((prev) => ({ ...prev, ...data }));
-      showToast("Group updated successfully!");
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleCreateSession(e) {
-    e.preventDefault();
-    if (!selectedGroup?.id) return;
-    try {
-      const payload = {
-        title: sessionForm.title,
-        startsAt: sessionForm.startsAt,
-        endsAt: sessionForm.endsAt || null,
-        location: sessionForm.location,
-        meetingLink: sessionForm.meetingLink,
-        notes: sessionForm.notes,
-      };
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/sessions`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Create session failed (${res.status})`);
-      setSessionForm({ ...sessionForm, title: "", startsAt: "", endsAt: "", notes: "" });
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleDeleteSession(sessionId) {
-    if (!selectedGroup?.id) return;
-    if (!window.confirm("Delete this session?")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/sessions/${sessionId}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Delete session failed (${res.status})`);
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleInviteMember(e) {
-    e.preventDefault();
-    if (!selectedGroup?.id || !inviteEmail.trim()) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/members/invite`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-        body: JSON.stringify({ email: inviteEmail.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Invite failed (${res.status})`);
-      setInviteEmail("");
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleApproveMember(userId) {
-    if (!selectedGroup?.id) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/members/${userId}/approve`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Approve failed (${res.status})`);
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleRemoveMember(userId) {
-    if (!selectedGroup?.id) return;
-    if (!window.confirm("Remove this member from group?")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/members/${userId}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Remove failed (${res.status})`);
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleTransferOwnership() {
-    if (!selectedGroup?.id || !transferOwnerId) return;
-    if (!window.confirm("Transfer ownership to selected member?")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/transfer-ownership`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-        body: JSON.stringify({ newOwnerUserId: transferOwnerId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Transfer failed (${res.status})`);
-      showToast("Ownership transferred successfully!");
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleDissolveGroup() {
-    if (!selectedGroup?.id) return;
-    if (!window.confirm("Dissolve this group? This will set status to dissolved.")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/dissolve`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Dissolve failed (${res.status})`);
-      setGroups((prev) => prev.filter((g) => g.id !== selectedGroup.id));
-      closeManage();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
   }
 
   async function handleLogout() {
@@ -658,8 +428,11 @@ function DashboardHome() {
                         : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
                     </button>
                   )}
+                  {!g.isAdmin && (
+                    <button className="groupManageBtn" onClick={() => nav(`/group/${g.id}`)}>Info</button>
+                  )}
                   {g.isAdmin && (
-                    <button className="groupManageBtn" onClick={() => openManage(g.id)}>Manage</button>
+                    <button className="groupManageBtn" onClick={() => nav(`/group/${g.id}`)}>Manage</button>
                   )}
                 </div>
               </div>
@@ -674,11 +447,11 @@ function DashboardHome() {
             <h2 className="modalTitle">Create Study Group</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               <label className="modalLabel">Group Name *
-                <input className="modalInput" required value={newGroup.name} onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })} />
+                <input className="modalInput" required style={{ textTransform: "uppercase" }} value={newGroup.name} onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value.toUpperCase() })} />
               </label>
               <div className="modalRow">
                 <label className="modalLabel">Module / Subject *
-                  <input className="modalInput" required placeholder="e.g. CS2030" value={newGroup.moduleCode} onChange={(e) => setNewGroup({ ...newGroup, moduleCode: e.target.value })} />
+                  <input className="modalInput" required placeholder="e.g. CS2030" style={{ textTransform: "uppercase" }} value={newGroup.moduleCode} onChange={(e) => setNewGroup({ ...newGroup, moduleCode: e.target.value.toUpperCase() })} />
                 </label>
                 <label className="modalLabel">Topic
                   <input className="modalInput" placeholder="e.g. Data Structures" value={newGroup.topic} onChange={(e) => setNewGroup({ ...newGroup, topic: e.target.value })} />
@@ -708,14 +481,14 @@ function DashboardHome() {
               )}
               <label className="modalLabel">Preferred Schedule *
                 <div className="modalRow">
-                  <input className="modalInput" type="date" required value={newGroup.scheduleDate} onChange={(e) => setNewGroup({ ...newGroup, scheduleDate: e.target.value })} />
+                  <input className="modalInput" type="date" required min={new Date().toISOString().split("T")[0]} value={newGroup.scheduleDate} onChange={(e) => setNewGroup({ ...newGroup, scheduleDate: e.target.value })} />
                   <input className="modalInput" type="time" required value={newGroup.scheduleTime} onChange={(e) => setNewGroup({ ...newGroup, scheduleTime: e.target.value })} />
                 </div>
               </label>
               <label className="modalLabel">Description
                 <textarea className="modalInput modalTextarea" required rows={3} value={newGroup.description} onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })} />
               </label>
-              <label className="modalLabel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <label className="modalLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <input type="checkbox" checked={newGroup.approvalRequired} onChange={(e) => setNewGroup({ ...newGroup, approvalRequired: e.target.checked })} />
                 Require admin approval for join requests
               </label>
@@ -724,160 +497,6 @@ function DashboardHome() {
                 <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Group"}</button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {showManage && (
-        <div className="modalOverlay" onClick={closeManage}>
-          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
-            {!selectedGroup || manageLoading ? (
-              <p>Loading group details…</p>
-            ) : (
-              <>
-                <h2 className="modalTitle">Manage Group: {selectedGroup.name}</h2>
-                <form className="modalForm" onSubmit={handleUpdateGroup}>
-                  <label className="modalLabel">Group Name *
-                    <input className="modalInput" required value={selectedGroup.name || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, name: e.target.value })} />
-                  </label>
-                  <div className="modalRow">
-                    <label className="modalLabel">Module / Subject *
-                      <input className="modalInput" required value={selectedGroup.moduleCode || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, moduleCode: e.target.value })} />
-                    </label>
-                    <label className="modalLabel">Topic
-                      <input className="modalInput" value={selectedGroup.topic || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, topic: e.target.value })} />
-                    </label>
-                  </div>
-                  <div className="modalRow">
-                    <label className="modalLabel">Study Mode
-                      <select className="modalInput" value={selectedGroup.studyMode || "online"} onChange={(e) => setSelectedGroup({ ...selectedGroup, studyMode: e.target.value })}>
-                        <option value="online">Online</option>
-                        <option value="in-person">In-Person</option>
-                        <option value="hybrid">Hybrid</option>
-                      </select>
-                    </label>
-                    <label className="modalLabel">Max Members
-                      <input className="modalInput" type="number" min={2} max={100} value={selectedGroup.maxMembers || 10} onChange={(e) => setSelectedGroup({ ...selectedGroup, maxMembers: Number(e.target.value) })} />
-                    </label>
-                  </div>
-                  <label className="modalLabel">Location
-                    <input className="modalInput" value={selectedGroup.location || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, location: e.target.value })} />
-                  </label>
-                  <label className="modalLabel">Meeting Link
-                    <input className="modalInput" value={selectedGroup.meetingLink || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, meetingLink: e.target.value })} />
-                  </label>
-                  <label className="modalLabel">Preferred Schedule *
-                    <div className="modalRow">
-                      <input className="modalInput" type="date" required value={manageScheduleDate} onChange={(e) => setManageScheduleDate(e.target.value)} />
-                      <input className="modalInput" type="time" required value={manageScheduleTime} onChange={(e) => setManageScheduleTime(e.target.value)} />
-                    </div>
-                  </label>
-                  <label className="modalLabel">Description *
-                    <textarea className="modalInput modalTextarea" required rows={3} value={selectedGroup.description || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, description: e.target.value })} />
-                  </label>
-                  <label className="modalLabel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="checkbox" checked={!!selectedGroup.approvalRequired} onChange={(e) => setSelectedGroup({ ...selectedGroup, approvalRequired: e.target.checked })} />
-                    Require admin approval for join requests
-                  </label>
-                  <div className="modalActions">
-                    <button type="submit" className="modalSubmit">Save Group</button>
-                  </div>
-                </form>
-
-                <hr />
-                <h3>Members</h3>
-                <form className="modalRow" onSubmit={handleInviteMember}>
-                  <label className="modalLabel">Invite by email
-                    <input className="modalInput" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="student@u.nus.edu" />
-                  </label>
-                  <div className="modalActions" style={{ alignSelf: "end" }}>
-                    <button type="submit" className="modalSubmit">Invite</button>
-                  </div>
-                </form>
-                <div>
-                  {selectedMembers.map((m) => (
-                    <div key={`${m.userId}-${m.role}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #eee" }}>
-                      <div>
-                        <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || m.userId}</strong>
-                        <div>{m.email} · {m.role} · {m.membershipStatus}</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {(m.membershipStatus === "pending" || m.membershipStatus === "invited") && (
-                          <button className="groupJoinBtn" onClick={() => handleApproveMember(m.userId)}>Approve</button>
-                        )}
-                        {selectedGroup.createdBy !== m.userId && (
-                          <button className="groupJoinBtn" onClick={() => handleRemoveMember(m.userId)}>Remove</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="modalRow" style={{ marginTop: 12 }}>
-                  <label className="modalLabel">Transfer Ownership
-                    <select className="modalInput" value={transferOwnerId} onChange={(e) => setTransferOwnerId(e.target.value)}>
-                      <option value="">Select approved member</option>
-                      {selectedMembers
-                        .filter((m) => m.membershipStatus === "approved" && m.userId !== selectedGroup.createdBy)
-                        .map((m) => (
-                          <option key={m.userId} value={m.userId}>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || m.userId}</option>
-                        ))}
-                    </select>
-                  </label>
-                  <div className="modalActions" style={{ alignSelf: "end" }}>
-                    <button className="modalSubmit" onClick={handleTransferOwnership} type="button">Transfer</button>
-                  </div>
-                </div>
-
-                <hr />
-                <h3>Scheduled Sessions</h3>
-                <form className="modalForm" onSubmit={handleCreateSession}>
-                  <label className="modalLabel">Session Title *
-                    <input className="modalInput" required value={sessionForm.title} onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })} />
-                  </label>
-                  <div className="modalRow">
-                    <label className="modalLabel">Starts At (ISO) *
-                      <input className="modalInput" required placeholder="2026-03-15T19:00:00" value={sessionForm.startsAt} onChange={(e) => setSessionForm({ ...sessionForm, startsAt: e.target.value })} />
-                    </label>
-                    <label className="modalLabel">Ends At (ISO)
-                      <input className="modalInput" placeholder="2026-03-15T21:00:00" value={sessionForm.endsAt} onChange={(e) => setSessionForm({ ...sessionForm, endsAt: e.target.value })} />
-                    </label>
-                  </div>
-                  <div className="modalRow">
-                    <label className="modalLabel">Location
-                      <input className="modalInput" value={sessionForm.location} onChange={(e) => setSessionForm({ ...sessionForm, location: e.target.value })} />
-                    </label>
-                    <label className="modalLabel">Meeting Link
-                      <input className="modalInput" value={sessionForm.meetingLink} onChange={(e) => setSessionForm({ ...sessionForm, meetingLink: e.target.value })} />
-                    </label>
-                  </div>
-                  <label className="modalLabel">Notes
-                    <textarea className="modalInput modalTextarea" rows={2} value={sessionForm.notes} onChange={(e) => setSessionForm({ ...sessionForm, notes: e.target.value })} />
-                  </label>
-                  <div className="modalActions">
-                    <button type="submit" className="modalSubmit">Create Session</button>
-                  </div>
-                </form>
-
-                <div>
-                  {selectedSessions.map((s) => (
-                    <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #eee" }}>
-                      <div>
-                        <strong>{s.title}</strong>
-                        <div>{s.startsAt} {s.endsAt ? `→ ${s.endsAt}` : ""}</div>
-                        <div>{s.location || s.meetingLink || "No location/link"}</div>
-                      </div>
-                      <button className="groupJoinBtn" onClick={() => handleDeleteSession(s.id)}>Delete</button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="modalActions" style={{ marginTop: 16, justifyContent: "space-between" }}>
-                  <button type="button" className="modalCancel" onClick={closeManage}>Close</button>
-                  <button type="button" className="modalCancel" onClick={handleDissolveGroup}>Dissolve Group</button>
-                </div>
-              </>
-            )}
           </div>
         </div>
       )}

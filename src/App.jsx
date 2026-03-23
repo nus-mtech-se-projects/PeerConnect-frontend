@@ -12,6 +12,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
 import RestrictUser from "./pages/RestrictUser";
+import GroupDetail from "./pages/GroupDetail";
 import PrivateRoute from "./components/PrivateRoute"
 import PublicRoute from "./components/PublicRoute";
 
@@ -91,6 +92,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <RestrictUser />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/group/:groupId"
+            element={
+              <PrivateRoute>
+                <GroupDetail />
               </PrivateRoute>
             }
           />

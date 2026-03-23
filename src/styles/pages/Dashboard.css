@@ -463,6 +463,40 @@
   transform: translateY(-1px);
 }
 
+.memberApproveBtn {
+  padding: 8px 20px;
+  border-radius: 15px;
+  border: none;
+  background: #059669;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms ease, transform 120ms ease;
+}
+.memberApproveBtn:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.memberRejectBtn {
+  padding: 8px 20px;
+  border-radius: 15px;
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms ease, transform 120ms ease;
+}
+.memberRejectBtn:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
 .groupManageBtn {
   padding: 8px 20px;
   border-radius: 15px;
@@ -624,6 +658,22 @@
 }
 .confirmBtnGreen:hover {
   background: #047857;
+  transform: translateY(-1px);
+}
+.confirmBtnRed {
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms ease, transform 120ms ease;
+}
+.confirmBtnRed:hover {
+  background: #b91c1c;
   transform: translateY(-1px);
 }
 .confirmBtnOutline {
