@@ -1316,11 +1316,6 @@ function DashboardHome() {
                   <h1 className="dashTitle">Peer Tutoring</h1>
                   <p className="dashSubtitle">Connect with tutors or offer your expertise</p>
                 </div>
-                <div className="dashHeaderBtns">
-                  <button className="dashCreateBtn" onClick={handleOpenPeerTutoring} disabled={manageLoading}>
-                    {manageLoading ? "Loading…" : "Give Peer Feedback"}
-                  </button>
-                </div>
               </div>
             </div>
             <PeerTutoringSection onGiveFeedback={handleTutoringFeedback} onViewTutorFeedbacks={handleViewTutorFeedbacks} />
