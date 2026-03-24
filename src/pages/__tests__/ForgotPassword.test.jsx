@@ -37,7 +37,7 @@ describe("ForgotPassword page", () => {
   // ── Step 1 Validation ──────────────────────────────────────────────────────
 
   it("shows error when submitting with empty identifier", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><ForgotPassword /></MemoryRouter>);
     await user.click(screen.getByRole("button", { name: /send verification code/i }));
     expect(await screen.findByText(/please enter your email or nus student id/i)).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("ForgotPassword page", () => {
   // ── Step 1 Loading ─────────────────────────────────────────────────────────
 
   it("shows loading state while sending code", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     let resolve;
     vi.spyOn(globalThis, "fetch").mockReturnValueOnce(
       new Promise((r) => { resolve = r; })
@@ -64,7 +64,7 @@ describe("ForgotPassword page", () => {
   // ── Step 1 Success → Step 2 ────────────────────────────────────────────────
 
   it("advances to step 2 on successful code request", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
       text: async () => "",
@@ -81,7 +81,7 @@ describe("ForgotPassword page", () => {
   // ── Step 1 Failure ─────────────────────────────────────────────────────────
 
   it("shows error message when code request fails", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: false,
       status: 404,
@@ -102,7 +102,7 @@ describe("ForgotPassword page", () => {
       ok: true,
       text: async () => "",
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><ForgotPassword /></MemoryRouter>);
     await user.type(screen.getByPlaceholderText(/johntan@u\.nus\.edu or A1234567X/i), "test@u.nus.edu");
     await user.click(screen.getByRole("button", { name: /send verification code/i }));

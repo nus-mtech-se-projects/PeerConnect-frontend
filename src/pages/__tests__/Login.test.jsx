@@ -51,7 +51,7 @@ describe("Login page", () => {
   // ── Validation ─────────────────────────────────────────────────────────────
 
   it("shows error when submitting with empty fields", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Login /></MemoryRouter>);
     await user.click(screen.getByRole("button", { name: /^login$/i }));
     expect(await screen.findByText(/please enter your email/i)).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("Login page", () => {
   // ── Successful login ───────────────────────────────────────────────────────
 
   it("stores accessToken and navigates to / on success", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
@@ -83,7 +83,7 @@ describe("Login page", () => {
   // ── Failed login ───────────────────────────────────────────────────────────
 
   it("shows error message on 401 response", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: false,
@@ -101,7 +101,7 @@ describe("Login page", () => {
   });
 
   it("shows loading state while submitting", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     let resolve;
     vi.spyOn(globalThis, "fetch").mockReturnValueOnce(
@@ -128,7 +128,7 @@ describe("Login page", () => {
     })),
   }));
   it("OAuth buttons are clickable without throwing", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const mockLoginRedirect = vi.fn().mockResolvedValue(undefined);
 
     useMsal.mockReturnValue({

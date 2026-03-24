@@ -504,13 +504,14 @@ function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
   );
 }
 
-function StarRating({ value, onChange }) {
+function StarRating({ value, onChange, label }) {
   return (
-    <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+    <div role="group" aria-label={label} style={{ display: "flex", gap: 4, marginTop: 4 }}>
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type="button"
+          aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
           onClick={() => onChange(star)}
           style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: star <= value ? "#f59e0b" : "#d1d5db", padding: "0 2px" }}
         >
@@ -1590,7 +1591,7 @@ function DashboardHome() {
                 { key: "reliability", label: "Reliability" },
               ].map(({ key, label }) => (
                 <label key={key} className="modalLabel">{label}
-                  <StarRating value={feedbackForm[key]} onChange={(v) => setFeedbackForm({ ...feedbackForm, [key]: v })} />
+                  <StarRating label={label} value={feedbackForm[key]} onChange={(v) => setFeedbackForm({ ...feedbackForm, [key]: v })} />
                 </label>
               ))}
               <label className="modalLabel">Strengths
