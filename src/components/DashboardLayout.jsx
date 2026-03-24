@@ -94,10 +94,10 @@ export default function DashboardLayout({ activeNav, children }) {
         </div>
       </div>
 
-      {sidebarOpen && <div className="dashOverlay" onClick={closeSidebar} />}
+      {sidebarOpen && <div className="dashOverlay" onClick={closeSidebar} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") closeSidebar(); }} role="button" tabIndex={0} aria-label="Close sidebar" />}
 
       <aside className={`dashSidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="dashUserCard" onClick={() => { nav("/profile"); closeSidebar(); }}>
+        <div className="dashUserCard" onClick={() => { nav("/profile"); closeSidebar(); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { nav("/profile"); closeSidebar(); } }} role="button" tabIndex={0}>
           <div className="dashAvatar">
             {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
           </div>
@@ -135,8 +135,8 @@ export default function DashboardLayout({ activeNav, children }) {
         : children}
 
       {confirmDialog && (
-        <div className="modalOverlay" onClick={() => setConfirmDialog(null)}>
-          <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => { if (e.key === "Escape") setConfirmDialog(null); }} role="presentation">
+          <div className="confirmDialog" onClick={(e) => e.stopPropagation()} role="dialog">
             <p className="confirmMsg">{confirmDialog.message}</p>
             <div className="confirmActions">
               <button className={confirmDialog.cancelBtnClass || "confirmBtnOutline"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
@@ -147,7 +147,7 @@ export default function DashboardLayout({ activeNav, children }) {
       )}
 
       {toast && (
-        <div className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`} onClick={() => setToast(null)}>
+        <div className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`} onClick={() => setToast(null)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setToast(null); }} role="button" tabIndex={0}>
           {toast.message}
         </div>
       )}
