@@ -1,16 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE, authHeaders } from "../utils/auth";
 import "../styles/pages/Auth.css";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-function authHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
 
 export default function ChangePassword() {
   const navigate = useNavigate();
@@ -24,36 +15,26 @@ export default function ChangePassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  /* ── Shared: send/resend verification code ────────────── */
+  async function requestCode() {
+    const res = await fetch(`${API_BASE}/api/auth/change-password/request`, {
+      method: "POST",
+      headers: authHeaders(),
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `Failed to send code (${res.status})`);
+    }
+  }
+
   /* ── On mount: immediately send the verification code ── */
   useEffect(() => {
     let cancelled = false;
-
-    async function sendCode() {
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/change-password/request`, {
-          method: "POST",
-          headers: authHeaders(),
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(text || `Failed to send code (${res.status})`);
-        }
-
-        if (!cancelled) {
-          setSuccess("A verification code has been sent to your email.");
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err?.message || "Failed to send verification code. Please try again.");
-        }
-      } finally {
-        if (!cancelled) setSendingCode(false);
-      }
-    }
-
-    sendCode();
+    requestCode()
+      .then(() => { if (!cancelled) setSuccess("A verification code has been sent to your email."); })
+      .catch((err) => { if (!cancelled) setError(err?.message || "Failed to send verification code. Please try again."); })
+      .finally(() => { if (!cancelled) setSendingCode(false); });
     return () => { cancelled = true; };
   }, []);
 
@@ -62,19 +43,8 @@ export default function ChangePassword() {
     setError("");
     setSuccess("");
     setSendingCode(true);
-
     try {
-      const res = await fetch(`${API_BASE}/api/auth/change-password/request`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(text || `Failed to resend code (${res.status})`);
-      }
-
+      await requestCode();
       setSuccess("A new verification code has been sent to your email.");
     } catch (err) {
       setError(err?.message || "Failed to resend code. Please try again.");

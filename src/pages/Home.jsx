@@ -252,7 +252,7 @@ function DashboardHome() {
 
             {showCreate && (
               <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => { if (e.key === "Escape") setShowCreate(false); }} role="presentation">
-                <div className="modalCard" onClick={(e) => e.stopPropagation()} role="dialog">
+                <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog">
                   <h2 className="modalTitle">Create Study Group</h2>
                   <form className="modalForm" onSubmit={handleCreate}>
                     <label className="modalLabel">Group Name *

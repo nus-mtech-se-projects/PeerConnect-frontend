@@ -666,7 +666,7 @@ export default function GroupDetail() {
 
       {confirmDialog && (
         <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => { if (e.key === "Escape") setConfirmDialog(null); }} role="presentation">
-          <div className="confirmDialog" onClick={(e) => e.stopPropagation()} role="dialog">
+          <div className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog">
             <p className="confirmMsg">{confirmDialog.message}</p>
             <div className="confirmActions">
               <button className={confirmDialog.cancelBtnClass || "gdCancelBtn"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
