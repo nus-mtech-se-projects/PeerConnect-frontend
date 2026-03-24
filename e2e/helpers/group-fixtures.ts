@@ -125,3 +125,41 @@ export async function setupGroupPreviewMocks(page: Page, groupData: object, grou
     mockUserEndpoints(page),
   ]);
 }
+
+// ── Page-action helpers (reduce duplication across specs) ─────────────────────
+
+export async function gotoGroup(page: Page, groupId = GROUP_ID) {
+  await page.goto(`/group/${groupId}`);
+}
+
+export async function setupAndGoto(page: Page, groupData: object, groupId = GROUP_ID) {
+  await setupGroupMocks(page, groupData, groupId);
+  await gotoGroup(page, groupId);
+}
+
+export async function setupPreviewAndGoto(page: Page, groupData: object, groupId = GROUP_ID) {
+  await setupGroupPreviewMocks(page, groupData, groupId);
+  await gotoGroup(page, groupId);
+}
+
+export function mockRoute(page: Page, urlPattern: string, method: string, status: number, body: object) {
+  return page.route(urlPattern, (route) => {
+    if (route.request().method() === method) {
+      route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    } else { route.fallback(); }
+  });
+}
+
+export async function clickAndConfirm(page: Page, triggerLocator: ReturnType<Page['locator']>, confirmLabel: string) {
+  await triggerLocator.click();
+  const confirmBtn = page.locator('.confirmDialog').getByRole('button', { name: confirmLabel });
+  await confirmBtn.waitFor({ state: 'visible', timeout: 2000 });
+  await confirmBtn.click();
+}
+
+export async function fillSessionForm(page: Page, data: { title: string; date: string; time: string }) {
+  const section = page.locator('.gdSection').filter({ hasText: /scheduled sessions/i });
+  await section.locator('.gdForm input.gdInput[required]').first().fill(data.title);
+  await section.locator('input[type="date"]').first().fill(data.date);
+  await section.locator('input[type="time"]').first().fill(data.time);
+}
