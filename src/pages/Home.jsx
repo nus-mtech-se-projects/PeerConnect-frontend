@@ -293,8 +293,8 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
       </div>
 
       {showCreate && (
-        <div className="modalOverlay" onClick={() => setShowCreate(false)}>
-          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
+          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2 className="modalTitle">Create Tutoring Class</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               <label className="modalLabel">Class Title *
@@ -1298,8 +1298,8 @@ function DashboardHome() {
       </section>
 
       {showCreate && (
-        <div className="modalOverlay" onClick={() => setShowCreate(false)}>
-          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
+          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2 className="modalTitle">Create Study Group</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               <label className="modalLabel">Group Name *
@@ -1512,8 +1512,8 @@ function DashboardHome() {
       )}
 
       {showFeedbackPicker && (
-        <div className="modalOverlay" onClick={closeFeedbackPicker}>
-          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={closeFeedbackPicker} onKeyDown={(e) => e.key === "Escape" && closeFeedbackPicker()} role="presentation">
+          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2 className="modalTitle">Give Peer Feedback</h2>
             <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
             <label className="modalLabel">Study Group
@@ -1541,8 +1541,8 @@ function DashboardHome() {
       )}
 
       {showFeedback && (
-        <div className="modalOverlay" onClick={closeFeedback}>
-          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={closeFeedback} onKeyDown={(e) => e.key === "Escape" && closeFeedback()} role="presentation">
+          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2 className="modalTitle">Peer Feedback — {feedbackSession?.title || "Session"}</h2>
             <form className="modalForm" onSubmit={handleSubmitFeedback}>
               <label className="modalLabel">Reviewing
@@ -1591,8 +1591,8 @@ function DashboardHome() {
       )}
 
       {showTutorFeedbacks && (
-        <div className="modalOverlay" onClick={closeTutorFeedbacks}>
-          <div className="modalCard tutorFeedbackModal" onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={closeTutorFeedbacks} onKeyDown={(e) => e.key === "Escape" && closeTutorFeedbacks()} role="presentation">
+          <div className="modalCard tutorFeedbackModal" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2 className="modalTitle">Submitted Feedbacks{tutorFeedbackClass?.title ? ` - ${tutorFeedbackClass.title}` : ""}</h2>
             <p className="tutorFeedbackIntro">
               Select a student name to view the feedback they submitted for this tutoring class.
