@@ -420,7 +420,7 @@ describe("Home page", () => {
       for (const combobox of comboboxes) {
         try {
           await user.selectOptions(combobox, "Jamie Tan");
-        } catch (e) {
+        } catch {
           // ignore
         }
       }

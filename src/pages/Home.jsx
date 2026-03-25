@@ -766,34 +766,6 @@ function DashboardHome() {
     setShowFeedback(true);
   }
 
-  async function handleOpenPeerTutoring() {
-    setManageLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
-      const data = await res.json().catch(() => []);
-      const enrolledClasses = Array.isArray(data) ? data.filter((c) => c.enrolled && !c.isTutor) : [];
-      if (enrolledClasses.length === 0) return;
-      const nextOptions = enrolledClasses.map((c) => ({
-        group: { id: c.id, name: c.title, moduleCode: c.moduleCode },
-        members: [{
-          userId: c.tutorId || c.tutorEmail || "tutor",
-          email: c.tutorEmail || "",
-          firstName: c.tutorName?.split(" ")[0] || "Tutor",
-          lastName: c.tutorName?.split(" ").slice(1).join(" ") || "",
-          membershipStatus: "approved",
-        }],
-        sessions: [{ id: c.id, title: c.title }],
-      }));
-      setFeedbackOptions(nextOptions);
-      setSelectedFeedbackGroupId(nextOptions[0].group.id);
-      setSelectedFeedbackSessionId(nextOptions[0].sessions[0].id);
-      setShowFeedbackPicker(true);
-    } catch {
-      // silent
-    } finally {
-      setManageLoading(false);
-    }
-  }
 
   function handleSelectFeedbackGroup(groupId) {
     setSelectedFeedbackGroupId(groupId);
