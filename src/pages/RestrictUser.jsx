@@ -1,16 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/pages/Dashboard.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-function authHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
 
 export default function RestrictUser() {
   const nav = useNavigate();

@@ -10,6 +10,99 @@ import supportSystemImg from "../assets/images/support-system.jpg";
 import "../styles/pages/Dashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+function createFeedbackForm() {
+  return {
+    revieweeId: "",
+    overallRating: 0,
+    preparedness: 0,
+    communication: 0,
+    helpfulness: 0,
+    reliability: 0,
+    strengths: "",
+    improvements: "",
+    anonymousToPeer: false,
+  };
+}
+
+function getNamePartsLabel(firstName, lastName, fallback = "") {
+  const fullName = [firstName, lastName]
+    .map(cleanDisplayText)
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return fullName || fallback;
+}
+
+function cleanDisplayText(value) {
+  if (typeof value !== "string") return value;
+  const cleaned = value
+    .split(/\s+/)
+    .filter((part) => part && part !== "null" && part !== "undefined")
+    .join(" ")
+    .trim();
+  return cleaned || "";
+}
+
+function getFeedbackReviewerLabel(entry, fallback = "Anonymous") {
+  return (
+    cleanDisplayText(entry?.reviewerName) ||
+    getNamePartsLabel(entry?.reviewerFirstName, entry?.reviewerLastName, "") ||
+    cleanDisplayText(entry?.reviewer?.name) ||
+    getNamePartsLabel(entry?.reviewer?.firstName, entry?.reviewer?.lastName, "") ||
+    cleanDisplayText(entry?.submittedByName) ||
+    cleanDisplayText(entry?.createdByName) ||
+    cleanDisplayText(entry?.authorName) ||
+    cleanDisplayText(entry?.reviewerEmail) ||
+    cleanDisplayText(entry?.submittedByEmail) ||
+    fallback
+  );
+}
+
+function normalizeFeedbackEntry(entry, index = 0) {
+  const anonymousToPeer = !!entry?.anonymousToPeer;
+  const reviewerLabel = anonymousToPeer ? "Anonymous" : getFeedbackReviewerLabel(entry);
+  return {
+    id: entry?.id || entry?._id || entry?.feedbackId || `${reviewerLabel}-${entry?.submittedAt || entry?.savedAt || index}`,
+    reviewerLabel,
+    reviewerEmail: anonymousToPeer
+      ? ""
+      : cleanDisplayText(entry?.reviewerEmail) || cleanDisplayText(entry?.submittedByEmail) || cleanDisplayText(entry?.reviewer?.email) || "",
+    revieweeLabel:
+      cleanDisplayText(entry?.revieweeLabel) ||
+      cleanDisplayText(entry?.revieweeName) ||
+      getNamePartsLabel(entry?.revieweeFirstName, entry?.revieweeLastName, "") ||
+      cleanDisplayText(entry?.reviewee?.name) ||
+      cleanDisplayText(entry?.revieweeEmail) ||
+      cleanDisplayText(entry?.revieweeId) ||
+      "Tutor",
+    overallRating: Number(entry?.overallRating || 0),
+    preparedness: Number(entry?.preparedness || 0),
+    communication: Number(entry?.communication || 0),
+    helpfulness: Number(entry?.helpfulness || 0),
+    reliability: Number(entry?.reliability || 0),
+    strengths: entry?.strengths || "",
+    improvements: entry?.improvements || "",
+    anonymousToPeer,
+    submittedAt: entry?.submittedAt || entry?.createdAt || entry?.savedAt || "",
+    syncStatus: entry?.syncStatus || "",
+  };
+}
+
+function normalizeFeedbackCollection(payload) {
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.feedback)
+      ? payload.feedback
+      : Array.isArray(payload?.feedbacks)
+        ? payload.feedbacks
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.records)
+            ? payload.records
+            : [];
+
+  return rawItems.map((item, index) => normalizeFeedbackEntry(item, index));
+}
 
 /* ──────────────────── helpers ──────────────────── */
 function authHeaders() {
@@ -39,31 +132,31 @@ function waitForToken(timeoutMs = 8000) {
 
 /* ──────── SVG icons ──────── */
 const MenuIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
 );
 const CloseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
 );
 const GroupsIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
 );
 const TutoringIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
 );
 const AiIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M12 12h.01" /><path d="M17 12h.01" /><path d="M7 12h.01" /></svg>
 );
 const SupportIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
 );
 const RestrictIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="4"/><line x1="17" y1="9" x2="21" y2="13"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><circle cx="19" cy="11" r="4" /><line x1="17" y1="9" x2="21" y2="13" /></svg>
 );
 const SearchIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
 );
 const PlusIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
 );
 
 /* ═══════════════════════════════════════════════════
@@ -92,6 +185,364 @@ function LandingHome() {
           <FeatureCard key={f.title} title={f.title} description={f.desc} />
         ))}
       </section>
+    </div>
+  );
+}
+
+/* ──────────────────── Peer Tutoring Components ──────────────────── */
+
+function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newClass, setNewClass] = useState({
+    title: "", moduleCode: "", topic: "", description: "",
+    schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    waitForToken().then(() => {
+      fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
+        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`Failed to load (${r.status})`)))
+        .then((data) => {
+          if (!cancelled) {
+            const myClasses = Array.isArray(data) ? data.filter((c) => c.isTutor) : [];
+            setClasses(myClasses);
+          }
+        })
+        .catch((err) => { if (!cancelled) setError(err.message); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes`, {
+        method: "POST", headers: authHeaders(), credentials: "include",
+        body: JSON.stringify(newClass),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Create failed (${res.status})`);
+      setClasses((prev) => [data, ...prev]);
+      onClassCreated?.(data);
+      setShowCreate(false);
+      setNewClass({ title: "", moduleCode: "", topic: "", description: "", schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5 });
+    } catch (err) { alert(err.message); }
+    finally { setCreating(false); }
+  }
+
+  async function handleDelete(classId) {
+    if (!window.confirm("Delete this tutoring class?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}`, {
+        method: "DELETE", headers: authHeaders(), credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Delete failed (${res.status})`);
+      }
+      setClasses((prev) => prev.filter((c) => c.id !== classId));
+    } catch (err) { alert(err.message); }
+  }
+
+  return (
+    <div>
+      <div className="dashHeader">
+        <div className="dashHeaderTop">
+          <div>
+            <h1 className="dashTitle">Tutor Dashboard</h1>
+            <p className="dashSubtitle">Create and manage your tutoring classes</p>
+          </div>
+          <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Class</button>
+        </div>
+      </div>
+
+      {loading && <p className="dashMsg">Loading classes…</p>}
+      {error && <p className="dashMsg dashError">{error}</p>}
+      {!loading && !error && classes.length === 0 && (
+        <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
+      )}
+
+      <div className="dashGrid">
+        {classes.map((c) => (
+          <div className="groupCard" key={c.id}>
+            <div className="groupCardHeader">
+              <span className="groupCourse">{c.moduleCode || "General"}</span>
+              <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
+            </div>
+            <h3 className="groupName">{c.title}</h3>
+            <p className="groupTopic">{c.topic || "No topic specified"}</p>
+            {c.description && <p className="groupDesc">{c.description}</p>}
+            {c.schedule && <p className="groupTopic">Schedule: {c.schedule}</p>}
+            <div className="groupFooter">
+              <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
+              <div className="groupActions">
+                <button className="groupManageBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
+                <button className="groupJoinBtn ptDeleteBtn" onClick={() => handleDelete(c.id)}>Delete</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showCreate && (
+        <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
+          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h2 className="modalTitle">Create Tutoring Class</h2>
+            <form className="modalForm" onSubmit={handleCreate}>
+              <label className="modalLabel">Class Title *
+                <input className="modalInput" required value={newClass.title} onChange={(e) => setNewClass({ ...newClass, title: e.target.value })} placeholder="e.g. CS2030 Weekly Tutoring" />
+              </label>
+              <div className="modalRow">
+                <label className="modalLabel">Module Code *
+                  <input className="modalInput" required value={newClass.moduleCode} onChange={(e) => setNewClass({ ...newClass, moduleCode: e.target.value })} placeholder="e.g. CS2030" />
+                </label>
+                <label className="modalLabel">Topic
+                  <input className="modalInput" value={newClass.topic} onChange={(e) => setNewClass({ ...newClass, topic: e.target.value })} placeholder="e.g. OOP & Streams" />
+                </label>
+              </div>
+              <div className="modalRow">
+                <label className="modalLabel">Mode
+                  <select className="modalInput" value={newClass.mode} onChange={(e) => setNewClass({ ...newClass, mode: e.target.value })}>
+                    <option value="online">Online</option>
+                    <option value="in-person">In-Person</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </label>
+                <label className="modalLabel">Max Students
+                  <input className="modalInput" type="number" min={1} max={20} value={newClass.maxStudents} onChange={(e) => setNewClass({ ...newClass, maxStudents: Number(e.target.value) })} />
+                </label>
+              </div>
+              {(newClass.mode === "in-person" || newClass.mode === "hybrid") && (
+                <label className="modalLabel">Location *
+                  <input className="modalInput" required value={newClass.location} onChange={(e) => setNewClass({ ...newClass, location: e.target.value })} placeholder="e.g. COM1 Level 2" />
+                </label>
+              )}
+              {(newClass.mode === "online" || newClass.mode === "hybrid") && (
+                <label className="modalLabel">Meeting Link *
+                  <input className="modalInput" required value={newClass.meetingLink} onChange={(e) => setNewClass({ ...newClass, meetingLink: e.target.value })} placeholder="e.g. https://zoom.us/j/..." />
+                </label>
+              )}
+              <label className="modalLabel">Schedule *
+                <input className="modalInput" required value={newClass.schedule} onChange={(e) => setNewClass({ ...newClass, schedule: e.target.value })} placeholder="e.g. Every Sat 2–4pm" />
+              </label>
+              <label className="modalLabel">Description
+                <textarea className="modalInput modalTextarea" rows={3} value={newClass.description} onChange={(e) => setNewClass({ ...newClass, description: e.target.value })} />
+              </label>
+              <div className="modalActions">
+                <button type="button" className="modalCancel" onClick={() => setShowCreate(false)}>Cancel</button>
+                <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Class"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [enrollingId, setEnrollingId] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    waitForToken().then(() => {
+      fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
+        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`Failed to load (${r.status})`)))
+        .then((data) => { if (!cancelled) setClasses(Array.isArray(data) ? data.filter((c) => !c.isTutor && !excludeIds.has(c.id)) : []); })
+        .catch((err) => { if (!cancelled) setError(err.message); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = useMemo(() => {
+    const visible = classes.filter((c) => !excludeIds.has(c.id));
+    const q = search.toLowerCase().trim();
+    if (!q) return visible;
+    return visible.filter((c) =>
+      c.title?.toLowerCase().includes(q) ||
+      c.moduleCode?.toLowerCase().includes(q) ||
+      c.topic?.toLowerCase().includes(q) ||
+      c.tutorName?.toLowerCase().includes(q)
+    );
+  }, [classes, search, excludeIds]);
+
+  async function handleEnroll(classId) {
+    setEnrollingId(classId);
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}/enroll`, {
+        method: "POST", headers: authHeaders(), credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Enroll failed (${res.status})`);
+      setClasses((prev) => prev.map((c) => c.id === classId ? { ...c, enrolled: true, enrolledCount: (c.enrolledCount ?? 0) + 1 } : c));
+    } catch (err) { alert(err.message); }
+    finally { setEnrollingId(null); }
+  }
+
+  async function handleLeaveClass(classId) {
+    setEnrollingId(classId);
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}/leave`, {
+        method: "POST", headers: authHeaders(), credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Leave failed (${res.status})`);
+      setClasses((prev) => prev.map((c) => c.id === classId ? { ...c, enrolled: false, enrolledCount: Math.max(0, (c.enrolledCount ?? 1) - 1) } : c));
+    } catch (err) { alert(err.message); }
+    finally { setEnrollingId(null); }
+  }
+
+  return (
+    <div>
+      <div className="dashHeader">
+        <div className="dashHeaderTop">
+          <div>
+            <h1 className="dashTitle">Tutee Dashboard</h1>
+            <p className="dashSubtitle">Find and join tutoring classes</p>
+          </div>
+        </div>
+        <div className="dashSearchWrap">
+          <SearchIcon />
+          <input className="dashSearch" type="text" placeholder="Search by module, topic, or tutor…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+      </div>
+
+      {loading && <p className="dashMsg">Loading classes…</p>}
+      {error && <p className="dashMsg dashError">{error}</p>}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
+      )}
+
+      <div className="dashGrid">
+        {filtered.map((c) => (
+          <div className="groupCard" key={c.id}>
+            <div className="groupCardHeader">
+              <span className="groupCourse">{c.moduleCode || "General"}</span>
+              <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
+            </div>
+            <h3 className="groupName">{c.title}</h3>
+            {c.tutorName && <p className="groupTopic">Tutor: <strong>{c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ")}</strong></p>}
+            <p className="groupTopic">{c.topic || "No topic specified"}</p>
+            {c.description && <p className="groupDesc">{c.description}</p>}
+            {c.schedule && <p className="groupTopic">Schedule: {c.schedule}</p>}
+            <div className="groupFooter">
+              <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {c.enrolled && onGiveFeedback && (
+                  <button className="groupManageBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
+                )}
+                <button
+                  className="groupJoinBtn"
+                  onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
+                  disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
+                >
+                  {enrollingId === c.id
+                    ? (c.enrolled ? "Leaving…" : "Joining…")
+                    : (c.enrolled ? "Leave" : "Join")}
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
+  const [role, setRole] = useState(null);
+  const [myClassIds, setMyClassIds] = useState(new Set());
+
+  function handleClassCreated(classData) {
+    if (classData?.id) {
+      setMyClassIds((prev) => new Set([...prev, classData.id]));
+    }
+  }
+
+  return (
+    <div>
+      <div className="ptRoleNav">
+        <button
+          className={`ptRoleBtn ${role === "tutor" ? "active" : ""}`}
+          onClick={() => setRole("tutor")}
+        >
+          <TutoringIcon /> I&apos;m a Tutor
+        </button>
+        <button
+          className={`ptRoleBtn ${role === "tutee" ? "active" : ""}`}
+          onClick={() => setRole("tutee")}
+        >
+          <GroupsIcon /> I&apos;m a Tutee
+        </button>
+      </div>
+
+      {!role && (
+        <div className="dashEmpty" style={{ marginTop: 40 }}>
+          <TutoringIcon />
+          <p>Select your role above to get started with peer tutoring.</p>
+        </div>
+      )}
+
+      {role === "tutor" && <TutorDashboard onClassCreated={handleClassCreated} onViewFeedbacks={onViewTutorFeedbacks} />}
+      {role === "tutee" && <TuteeDashboard excludeIds={myClassIds} onGiveFeedback={onGiveFeedback} />}
+    </div>
+  );
+}
+
+function StarRating({ value, onChange, label }) {
+  return (
+    <div role="group" aria-label={label} style={{ display: "flex", gap: 4, marginTop: 4 }}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
+          onClick={() => onChange(star)}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: star <= value ? "#f59e0b" : "#d1d5db", padding: "0 2px" }}
+        >
+          {star <= value ? "★" : "☆"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function RestrictedMemberSection() {
+  return (
+    <div>
+      <div className="dashHeader">
+        <div className="dashHeaderTop">
+          <div>
+            <h1 className="dashTitle">Restricted Member</h1>
+            <p className="dashSubtitle">
+              Manage members who have participated in your groups or tutoring sessions.
+              Select a member to restrict them from joining your future groups or tutoring sessions.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="dashEmpty">
+        <RestrictIcon />
+        <p>This feature is coming soon.</p>
+        <p style={{ fontSize: 13, color: "#b0b0b0", marginTop: 4 }}>
+          You will be able to view all members from your groups and tutoring sessions, and restrict specific members from future participation.
+        </p>
+      </div>
     </div>
   );
 }
@@ -130,10 +581,27 @@ function DashboardHome() {
   const [manageScheduleDate, setManageScheduleDate] = useState("");
   const [manageScheduleTime, setManageScheduleTime] = useState("");
   const [creating, setCreating] = useState(false);
+  const [activeModule, setActiveModule] = useState("studyGroups");
   const [myGroupsOnly, setMyGroupsOnly] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [showFeedbackPicker, setShowFeedbackPicker] = useState(false);
+  const [feedbackOptions, setFeedbackOptions] = useState([]);
+  const [selectedFeedbackGroupId, setSelectedFeedbackGroupId] = useState("");
+  const [selectedFeedbackSessionId, setSelectedFeedbackSessionId] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackSession, setFeedbackSession] = useState(null);
+  const [feedbackForm, setFeedbackForm] = useState(createFeedbackForm);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState({ type: "", message: "" });
+  const [feedbackApiPath, setFeedbackApiPath] = useState("");
+  const [showTutorFeedbacks, setShowTutorFeedbacks] = useState(false);
+  const [tutorFeedbackClass, setTutorFeedbackClass] = useState(null);
+  const [tutorFeedbackLoading, setTutorFeedbackLoading] = useState(false);
+  const [tutorFeedbackError, setTutorFeedbackError] = useState("");
+  const [tutorFeedbackItems, setTutorFeedbackItems] = useState([]);
+  const [selectedTutorFeedback, setSelectedTutorFeedback] = useState(null);
 
   function showToast(message, type = "success") {
     clearTimeout(toastTimer.current);
@@ -169,8 +637,9 @@ function DashboardHome() {
           if (nameFound && avatarUrl) break;
         } catch { /* try next */ }
       }
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* fetch groups */
@@ -277,6 +746,144 @@ function DashboardHome() {
     setSelectedGroup(null);
     setSelectedMembers([]);
     setSelectedSessions([]);
+  }
+
+  const closeFeedbackPicker = useCallback(() => {
+    setShowFeedbackPicker(false);
+    setFeedbackOptions([]);
+    setSelectedFeedbackGroupId("");
+    setSelectedFeedbackSessionId("");
+  }, []);
+
+  function openFeedback(session, membersOverride) {
+    const members = membersOverride ?? selectedMembers;
+    const approvedMembers = members.filter(
+      (m) => m.membershipStatus === "approved" && m.email !== userEmail
+    );
+    setFeedbackSession(session);
+    setFeedbackForm({ ...createFeedbackForm(), revieweeId: approvedMembers[0]?.userId || approvedMembers[0]?.email || "" });
+    setFeedbackStatus({ type: "", message: "" });
+    setShowFeedback(true);
+  }
+
+
+  function handleSelectFeedbackGroup(groupId) {
+    setSelectedFeedbackGroupId(groupId);
+    const opt = feedbackOptions.find((o) => o.group.id === groupId);
+    setSelectedFeedbackSessionId(opt?.sessions[0]?.id || "");
+  }
+
+  function handleLaunchFeedback() {
+    const opt = feedbackOptions.find((o) => o.group.id === selectedFeedbackGroupId);
+    const session = opt?.sessions.find((s) => s.id === selectedFeedbackSessionId);
+    if (!opt || !session) return;
+    setSelectedGroup(opt.group);
+    setSelectedMembers(opt.members);
+    setSelectedSessions(opt.sessions);
+    setFeedbackApiPath(`${API_BASE}/api/tutoring/classes/${opt.group.id}/feedback`);
+    closeFeedbackPicker();
+    openFeedback(session, opt.members);
+  }
+
+  function handleTutoringFeedback(classObj) {
+    setFeedbackApiPath(`${API_BASE}/api/tutoring/classes/${classObj.id}/feedback`);
+    setFeedbackSession({ id: classObj.id, title: classObj.title });
+    setSelectedGroup({ id: classObj.id, name: classObj.title });
+    setSelectedMembers([{
+      userId: classObj.tutorId || classObj.tutorEmail || "tutor",
+      email: classObj.tutorEmail || "",
+      firstName: classObj.tutorName?.split(" ")[0] || "Tutor",
+      lastName: classObj.tutorName?.split(" ").slice(1).join(" ") || "",
+      membershipStatus: "approved",
+    }]);
+    setFeedbackForm({ ...createFeedbackForm(), revieweeId: classObj.tutorId || classObj.tutorEmail || "tutor" });
+    setFeedbackStatus({ type: "", message: "" });
+    setShowFeedback(true);
+  }
+
+  function closeTutorFeedbacks() {
+    setShowTutorFeedbacks(false);
+    setTutorFeedbackClass(null);
+    setTutorFeedbackLoading(false);
+    setTutorFeedbackError("");
+    setTutorFeedbackItems([]);
+    setSelectedTutorFeedback(null);
+  }
+
+  async function handleViewTutorFeedbacks(classObj) {
+    setTutorFeedbackClass(classObj);
+    setTutorFeedbackLoading(true);
+    setTutorFeedbackError("");
+    setTutorFeedbackItems([]);
+    setSelectedTutorFeedback(null);
+    setShowTutorFeedbacks(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/tutoring/classes/${classObj.id}/feedback`, {
+        headers: authHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `Failed to load feedbacks (${res.status})`);
+      }
+
+      const nextItems = normalizeFeedbackCollection(data).sort(
+        (a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime()
+      );
+      setTutorFeedbackItems(nextItems);
+      setSelectedTutorFeedback(nextItems[0] || null);
+    } catch (err) {
+      setTutorFeedbackError(err.message || "Unable to load feedbacks.");
+    } finally {
+      setTutorFeedbackLoading(false);
+    }
+  }
+
+  function closeFeedback() {
+    setShowFeedback(false);
+    setFeedbackSession(null);
+    setFeedbackForm(createFeedbackForm());
+    setFeedbackStatus({ type: "", message: "" });
+    setFeedbackApiPath("");
+  }
+
+  async function handleSubmitFeedback(e) {
+    e.preventDefault();
+    if (!selectedGroup?.id || !feedbackSession?.id || !feedbackForm.revieweeId) return;
+    const payload = {
+      sessionId: feedbackSession.id,
+      groupId: selectedGroup.id,
+      revieweeId: feedbackForm.revieweeId,
+      overallRating: feedbackForm.overallRating,
+      preparedness: feedbackForm.preparedness,
+      communication: feedbackForm.communication,
+      helpfulness: feedbackForm.helpfulness,
+      reliability: feedbackForm.reliability,
+      strengths: feedbackForm.strengths.trim() || null,
+      improvements: feedbackForm.improvements.trim() || null,
+      anonymousToPeer: feedbackForm.anonymousToPeer,
+      reviewerName: userName,
+      reviewerEmail: userEmail,
+    };
+    setFeedbackSubmitting(true);
+    setFeedbackStatus({ type: "", message: "" });
+    try {
+      const endpoint = feedbackApiPath || `${API_BASE}/api/groups/${selectedGroup.id}/sessions/${feedbackSession.id}/feedback`;
+      const res = await fetch(endpoint, {
+        method: "POST", headers: authHeaders(), credentials: "include", body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFeedbackStatus({ type: "warning", message: data?.error || `Submission failed (${res.status})` });
+        return;
+      }
+      setFeedbackStatus({ type: "success", message: "Feedback submitted successfully." });
+    } catch (err) {
+      setFeedbackStatus({ type: "warning", message: err.message || "Feedback submission failed." });
+    } finally {
+      setFeedbackSubmitting(false);
+    }
   }
 
   async function refreshSelectedGroup() {
@@ -567,6 +1174,11 @@ function DashboardHome() {
   const userEmail = account?.username || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
+  const reviewableMembers = selectedMembers.filter(
+    (m) => m.membershipStatus === "approved" && m.email !== userEmail
+  );
+  const selectedFeedbackGroup = feedbackOptions.find((o) => o.group.id === selectedFeedbackGroupId) || null;
+
   return (
     <div className="dashPage">
       {/* mobile top bar */}
@@ -596,9 +1208,9 @@ function DashboardHome() {
 
         <nav className="dashNav">
           <span className="dashNavLabel">MODULES</span>
-          <button className="dashNavItem active" onClick={closeSidebar}><GroupsIcon /> Study Groups</button>
-          <button className="dashNavItem" disabled><TutoringIcon /> Peer Tutoring</button>
-          <button className="dashNavItem" onClick={() => { nav("/restrict-user"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
+          <button className={`dashNavItem ${activeModule === "studyGroups" ? "active" : ""}`} onClick={() => { setActiveModule("studyGroups"); closeSidebar(); }}><GroupsIcon /> Study Groups</button>
+          <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
+          <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
           <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
         </nav>
@@ -609,68 +1221,85 @@ function DashboardHome() {
       </aside>
 
       <section className="dashMain">
-        <div className="dashHeader">
-          <div className="dashHeaderTop">
-            <div>
-              <h1 className="dashTitle">Study Groups</h1>
-              <p className="dashSubtitle">Discover, create, and join study groups</p>
+        {activeModule === "studyGroups" && (
+          <>
+            <div className="dashHeader">
+              <div className="dashHeaderTop">
+                <div>
+                  <h1 className="dashTitle">Study Groups</h1>
+                  <p className="dashSubtitle">Discover, create, and join study groups</p>
+                </div>
+                <div className="dashHeaderBtns">
+                  <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
+                  <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
+                </div>
+              </div>
+              <div className="dashSearchWrap">
+                <SearchIcon />
+                <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
             </div>
-            <div className="dashHeaderBtns">
-              <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
-              <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
-            </div>
-          </div>
-          <div className="dashSearchWrap">
-            <SearchIcon />
-            <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        </div>
 
-        {loading && <p className="dashMsg">Loading groups…</p>}
-        {error && <p className="dashMsg dashError">{error}</p>}
-        {!loading && !error && filtered.length === 0 && (
-          <div className="dashEmpty"><GroupsIcon /><p>No groups found. Create one to get started!</p></div>
+            {loading && <p className="dashMsg">Loading groups…</p>}
+            {error && <p className="dashMsg dashError">{error}</p>}
+            {!loading && !error && filtered.length === 0 && (
+              <div className="dashEmpty"><GroupsIcon /><p>No groups found. Create one to get started!</p></div>
+            )}
+
+            <div className="dashGrid">
+              {filtered.map((g) => (
+                <div className="groupCard" key={g.id || g.name}>
+                  <div className="groupCardHeader">
+                    <span className="groupCourse">{g.moduleCode || g.courseCode || "General"}</span>
+                    <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : "In-Person"}</span>
+                  </div>
+                  <h3 className="groupName">{g.name || "Study Group"}</h3>
+                  <p className="groupTopic">{g.topic || "No topic specified"}</p>
+                  {g.description && <p className="groupDesc">{g.description}</p>}
+                  {g.preferredSchedule && <p className="groupTopic">Schedule: {g.preferredSchedule}</p>}
+                  {g.status && <p className="groupTopic">Status: {g.status}</p>}
+                  <div className="groupFooter">
+                    <span className="groupMembers">{g.memberCount ?? "?"}/{g.maxMembers ?? "∞"} members</span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        className="groupJoinBtn"
+                        onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
+                        disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
+                      >
+                        {membershipActionId === g.id
+                          ? (g.joined ? "Leaving…" : "Joining…")
+                          : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
+                      </button>
+                      {g.isAdmin && (
+                        <button className="groupJoinBtn" onClick={() => openManage(g.id)}>Manage</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
-        <div className="dashGrid">
-          {filtered.map((g) => (
-            <div className="groupCard" key={g.id || g.name}>
-              <div className="groupCardHeader">
-                <span className="groupCourse">{g.moduleCode || g.courseCode || "General"}</span>
-                <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : g.studyMode === "hybrid" ? "Hybrid" : "In-Person"}</span>
-              </div>
-              <h3 className="groupName">{g.name || "Study Group"}</h3>
-              <p className="groupTopic">{g.topic || "No topic specified"}</p>
-              {g.description && <p className="groupDesc">{g.description}</p>}
-              {g.preferredSchedule && <p className="groupTopic">Schedule: {g.preferredSchedule}</p>}
-              {g.status && <p className="groupTopic">Status: {g.status}</p>}
-              <div className="groupFooter">
-                <span className="groupMembers">{g.memberCount ?? "?"}/{g.maxMembers ?? "∞"} members</span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {!g.isAdmin && (
-                    <button
-                      className={g.joined ? "groupLeaveBtn" : "groupJoinBtn"}
-                      onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
-                      disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
-                    >
-                      {membershipActionId === g.id
-                        ? (g.joined ? "Leaving…" : "Joining…")
-                        : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
-                    </button>
-                  )}
-                  {g.isAdmin && (
-                    <button className="groupManageBtn" onClick={() => openManage(g.id)}>Manage</button>
-                  )}
+        {activeModule === "peerTutoring" && (
+          <>
+            <div className="dashHeader">
+              <div className="dashHeaderTop">
+                <div>
+                  <h1 className="dashTitle">Peer Tutoring</h1>
+                  <p className="dashSubtitle">Connect with tutors or offer your expertise</p>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+            <PeerTutoringSection onGiveFeedback={handleTutoringFeedback} onViewTutorFeedbacks={handleViewTutorFeedbacks} />
+          </>
+        )}
+        {activeModule === "restrictedMembers" && <RestrictedMemberSection />}
       </section>
 
       {showCreate && (
-        <div className="modalOverlay" onClick={() => setShowCreate(false)}>
-          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
+          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2 className="modalTitle">Create Study Group</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               <label className="modalLabel">Group Name *
@@ -878,6 +1507,181 @@ function DashboardHome() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {showFeedbackPicker && (
+        <div className="modalOverlay" onClick={closeFeedbackPicker} onKeyDown={(e) => e.key === "Escape" && closeFeedbackPicker()} role="presentation">
+          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h2 className="modalTitle">Give Peer Feedback</h2>
+            <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
+            <label className="modalLabel">Study Group
+              <select className="modalInput" value={selectedFeedbackGroupId} onChange={(e) => handleSelectFeedbackGroup(e.target.value)}>
+                {feedbackOptions.map((o) => (
+                  <option key={o.group.id} value={o.group.id}>{o.group.name}</option>
+                ))}
+              </select>
+            </label>
+            {selectedFeedbackGroup && (
+              <label className="modalLabel">Session
+                <select className="modalInput" value={selectedFeedbackSessionId} onChange={(e) => setSelectedFeedbackSessionId(e.target.value)}>
+                  {selectedFeedbackGroup.sessions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title || s.startsAt || s.id}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <div className="modalActions">
+              <button type="button" className="modalCancel" onClick={closeFeedbackPicker}>Cancel</button>
+              <button type="button" className="modalSubmit" onClick={handleLaunchFeedback} disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}>Next →</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFeedback && (
+        <div className="modalOverlay" onClick={closeFeedback} onKeyDown={(e) => e.key === "Escape" && closeFeedback()} role="presentation">
+          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h2 className="modalTitle">Peer Feedback — {feedbackSession?.title || "Session"}</h2>
+            <form className="modalForm" onSubmit={handleSubmitFeedback}>
+              <label className="modalLabel">Reviewing
+                <select className="modalInput" value={feedbackForm.revieweeId} onChange={(e) => setFeedbackForm({ ...feedbackForm, revieweeId: e.target.value })}>
+                  <option value="">Select peer</option>
+                  {reviewableMembers.map((m) => (
+                  <option key={m.userId || m.email} value={m.userId || m.email}>
+                      {getNamePartsLabel(m.firstName, m.lastName, m.email || m.userId || "Unknown")}
+                  </option>
+                ))}
+                </select>
+              </label>
+              {[
+                { key: "overallRating", label: "Overall Rating" },
+                { key: "preparedness", label: "Preparedness" },
+                { key: "communication", label: "Communication" },
+                { key: "helpfulness", label: "Helpfulness" },
+                { key: "reliability", label: "Reliability" },
+              ].map(({ key, label }) => (
+                <label key={key} className="modalLabel">{label}
+                  <StarRating label={label} value={feedbackForm[key]} onChange={(v) => setFeedbackForm({ ...feedbackForm, [key]: v })} />
+                </label>
+              ))}
+              <label className="modalLabel">Strengths
+                <textarea className="modalInput modalTextarea" rows={2} value={feedbackForm.strengths} onChange={(e) => setFeedbackForm({ ...feedbackForm, strengths: e.target.value })} />
+              </label>
+              <label className="modalLabel">Areas for Improvement
+                <textarea className="modalInput modalTextarea" rows={2} value={feedbackForm.improvements} onChange={(e) => setFeedbackForm({ ...feedbackForm, improvements: e.target.value })} />
+              </label>
+              <label className="modalLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={feedbackForm.anonymousToPeer} onChange={(e) => setFeedbackForm({ ...feedbackForm, anonymousToPeer: e.target.checked })} />
+                Submit anonymously
+              </label>
+              {feedbackStatus.message && (
+                <p style={{ color: feedbackStatus.type === "success" ? "#16a34a" : "#d97706", fontSize: 14 }}>{feedbackStatus.message}</p>
+              )}
+              <div className="modalActions">
+                <button type="button" className="modalCancel" onClick={closeFeedback}>Cancel</button>
+                <button type="submit" className="modalSubmit" disabled={feedbackSubmitting || !feedbackForm.revieweeId || !feedbackForm.overallRating}>
+                  {feedbackSubmitting ? "Submitting…" : "Submit Feedback"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showTutorFeedbacks && (
+        <div className="modalOverlay" onClick={closeTutorFeedbacks} onKeyDown={(e) => e.key === "Escape" && closeTutorFeedbacks()} role="presentation">
+          <div className="modalCard tutorFeedbackModal" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h2 className="modalTitle">Submitted Feedbacks{tutorFeedbackClass?.title ? ` - ${tutorFeedbackClass.title}` : ""}</h2>
+            <p className="tutorFeedbackIntro">
+              Select a student name to view the feedback they submitted for this tutoring class.
+            </p>
+
+            {tutorFeedbackLoading && <p className="dashMsg">Loading feedbacksâ€¦</p>}
+            {!tutorFeedbackLoading && tutorFeedbackError && <p className="dashMsg dashError">{tutorFeedbackError}</p>}
+            {!tutorFeedbackLoading && !tutorFeedbackError && tutorFeedbackItems.length === 0 && (
+              <div className="dashEmpty tutorFeedbackEmpty">
+                <TutoringIcon />
+                <p>No feedbacks have been submitted for this class yet.</p>
+              </div>
+            )}
+
+            {!tutorFeedbackLoading && tutorFeedbackItems.length > 0 && (
+              <div className="tutorFeedbackLayout">
+                <div className="tutorFeedbackList" role="list" aria-label="Submitted feedback names">
+                  {tutorFeedbackItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`tutorFeedbackListItem ${selectedTutorFeedback?.id === item.id ? "active" : ""}`}
+                      onClick={() => setSelectedTutorFeedback(item)}
+                    >
+                      <span className="tutorFeedbackReviewer">{item.reviewerLabel}</span>
+                      <span className="tutorFeedbackMeta">
+                        {item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "Submission time unavailable"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="tutorFeedbackDetail">
+                  {selectedTutorFeedback ? (
+                    <>
+                      <div className="tutorFeedbackDetailHeader">
+                        <h3>{selectedTutorFeedback.reviewerLabel}</h3>
+                        <p>
+                          {selectedTutorFeedback.submittedAt
+                            ? `Submitted on ${new Date(selectedTutorFeedback.submittedAt).toLocaleString()}`
+                            : "Submission time unavailable"}
+                        </p>
+                        {selectedTutorFeedback.anonymousToPeer && (
+                          <p className="tutorFeedbackAnonNote">This feedback was submitted anonymously.</p>
+                        )}
+                      </div>
+
+                      <div className="tutorFeedbackRatings">
+                        {[
+                          { key: "overallRating", label: "Overall Rating" },
+                          { key: "preparedness", label: "Preparedness" },
+                          { key: "communication", label: "Communication" },
+                          { key: "helpfulness", label: "Helpfulness" },
+                          { key: "reliability", label: "Reliability" },
+                        ].map(({ key, label }) => (
+                          <div key={key} className="tutorFeedbackRatingRow">
+                            <span>{label}</span>
+                            <strong>{selectedTutorFeedback[key] || 0}/5</strong>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="tutorFeedbackSection">
+                        <h4>About</h4>
+                        <p>{selectedTutorFeedback.revieweeLabel}</p>
+                      </div>
+
+                      <div className="tutorFeedbackSection">
+                        <h4>Strengths</h4>
+                        <p>{selectedTutorFeedback.strengths || "No strengths provided."}</p>
+                      </div>
+
+                      <div className="tutorFeedbackSection">
+                        <h4>Areas for Improvement</h4>
+                        <p>{selectedTutorFeedback.improvements || "No improvement notes provided."}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="dashEmpty tutorFeedbackEmpty">
+                      <p>Select a name from the left to view the full feedback.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="modalActions">
+              <button type="button" className="modalCancel" onClick={closeTutorFeedbacks}>Close</button>
+            </div>
           </div>
         </div>
       )}

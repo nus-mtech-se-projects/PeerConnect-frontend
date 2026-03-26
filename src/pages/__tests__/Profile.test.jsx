@@ -93,7 +93,7 @@ describe("Profile page", () => {
 
   it("major select is enabled after selecting a faculty", async () => {
     mockFetchProfile();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Profile /></MemoryRouter>);
 
     const facultySelect = await screen.findByRole("combobox", { name: /faculty/i });
@@ -104,7 +104,7 @@ describe("Profile page", () => {
 
   it("changing faculty resets the major selection", async () => {
     mockFetchProfile({ faculty: "School of Computing", major: "Computer Science" });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Profile /></MemoryRouter>);
 
     await screen.findByDisplayValue("Computer Science");
@@ -121,7 +121,7 @@ describe("Profile page", () => {
     mockFetchProfile();
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: true });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Profile /></MemoryRouter>);
 
     await screen.findByRole("button", { name: /save profile/i });
@@ -137,7 +137,7 @@ describe("Profile page", () => {
       status: 500,
     });
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Profile /></MemoryRouter>);
 
     await screen.findByRole("button", { name: /save profile/i });
@@ -154,7 +154,7 @@ describe("Profile page", () => {
       new Promise((r) => { resolve = r; })
     );
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Profile /></MemoryRouter>);
 
     await screen.findByRole("button", { name: /save profile/i });
@@ -198,7 +198,7 @@ describe("Profile page", () => {
 
   it("navigates to /change-password when Change Password is clicked", async () => {
     mockFetchProfile();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Profile /></MemoryRouter>);
 
     await screen.findByRole("button", { name: /change password/i });
