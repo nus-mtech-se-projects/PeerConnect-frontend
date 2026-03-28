@@ -18,7 +18,7 @@ import "./styles/pages/Dashboard.css";
 import "./styles/pages/Profile.css";
 
 async function bootstrap() {
-  await msalInstance.initialize();
+  await msalInstance.initialize().catch((err) => console.error("MSAL init failed:", err));
 
   ReactDOM.createRoot(document.getElementById("root")).render(
     <React.StrictMode>

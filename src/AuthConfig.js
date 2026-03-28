@@ -15,7 +15,7 @@ const msalConfig = {
   },
   cache: {
     cacheLocation: "localStorage",
-    storeAuthStateInCookie: false,
+    storeAuthStateInCookie: true,
   },
   system: {
     loggerOptions: {

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
@@ -55,7 +56,13 @@ export default function App() {
           }
         })
         .catch((err) => console.error("Microsoft token exchange failed:", err));
-    }).catch((err) => console.error("acquireTokenSilent failed:", err));
+    }).catch((err) => {
+      if (err instanceof InteractionRequiredAuthError) {
+        instance.acquireTokenRedirect({ scopes: ["User.Read"], account: accounts[0] });
+      } else {
+        console.error("acquireTokenSilent failed:", err);
+      }
+    });
   }, [accounts, instance, nav]);
 
   return (
