@@ -50,7 +50,10 @@ export default defineConfig([
   {
     files: ['e2e/**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
     },
   },
 ])
