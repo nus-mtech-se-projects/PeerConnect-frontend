@@ -51,7 +51,7 @@ describe("Signup page", () => {
   // ── Validation ─────────────────────────────────────────────────────────────
 
   it("shows error when submitting with empty fields", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Signup /></MemoryRouter>);
     await user.click(screen.getByRole("button", { name: /create account/i }));
     expect(await screen.findByText(/please fill in all fields/i)).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("Signup page", () => {
   // ── Successful registration ────────────────────────────────────────────────
 
   it("navigates to /login on successful registration", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
@@ -86,7 +86,7 @@ describe("Signup page", () => {
   // ── Failed registration ────────────────────────────────────────────────────
 
   it("shows error on 409 duplicate email", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: false,
@@ -108,7 +108,7 @@ describe("Signup page", () => {
   });
 
   it("shows loading state while submitting", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     let resolve;
     vi.spyOn(globalThis, "fetch").mockReturnValueOnce(

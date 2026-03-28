@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
+import { getMicrosoftLoginErrorMessage, loginRequest } from "../AuthConfig";
 // Shared auth page styles (login + signup)
 import "../styles/pages/Auth.css";
 
@@ -89,10 +90,10 @@ export default function Signup() {
             className="socialBtn"
             onClick={async () => {
               try {
-                await instance.loginRedirect({ scopes: ["User.Read"] });
+                await instance.loginRedirect(loginRequest);
               } catch (err) {
                 if (err.errorCode !== "interaction_in_progress") {
-                  setError("Microsoft signup failed. Please try again.");
+                  setError(getMicrosoftLoginErrorMessage(err));
                 }
               }
             }}

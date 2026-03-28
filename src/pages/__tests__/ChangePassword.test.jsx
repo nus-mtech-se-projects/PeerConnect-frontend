@@ -57,7 +57,7 @@ describe("ChangePassword page", () => {
 
   async function renderWithForm() {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: true, text: async () => "" });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><ChangePassword /></MemoryRouter>);
     await screen.findByPlaceholderText(/enter 6-digit code/i);
     return user;
