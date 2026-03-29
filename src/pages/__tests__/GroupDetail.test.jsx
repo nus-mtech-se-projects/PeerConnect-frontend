@@ -839,8 +839,8 @@ describe("GroupDetail – keyboard accessibility", () => {
     await initMemberView();
     fireEvent.click(screen.getByText("Leave This Group"));
     expect(screen.getByText(/are you sure you want to leave/i)).toBeInTheDocument();
-    const overlay = document.querySelector(".modalOverlay");
-    fireEvent.keyDown(overlay, { key: "Escape" });
+    const dialog = document.querySelector(".confirmDialog");
+    fireEvent.keyDown(dialog, { key: "Escape" });
     expect(screen.queryByText(/are you sure you want to leave/i)).not.toBeInTheDocument();
   });
 
@@ -862,13 +862,13 @@ describe("GroupDetail – keyboard accessibility", () => {
     expect(screen.queryByText("Group updated successfully!")).not.toBeInTheDocument();
   });
 
-  it("keyDown on confirm dialog inner box does not propagate to overlay", async () => {
+  it("Escape key on confirm dialog closes it", async () => {
     await initMemberView();
     fireEvent.click(screen.getByText("Leave This Group"));
     const dialog = document.querySelector(".confirmDialog");
     fireEvent.keyDown(dialog, { key: "Escape" });
-    // Dialog should still be open (inner box blocks propagation)
-    expect(screen.getByText(/are you sure you want to leave/i)).toBeInTheDocument();
+    // Dialog should be closed (dialog handles Escape)
+    expect(screen.queryByText(/are you sure you want to leave/i)).not.toBeInTheDocument();
   });
 });
 

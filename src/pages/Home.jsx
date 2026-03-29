@@ -270,8 +270,9 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
       </div>
 
       {showCreate && (
-        <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
-          <dialog open className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
+        <>
+          <div className="modalOverlay" aria-hidden="true" onClick={() => setShowCreate(false)} />
+          <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)}>
             <h2 className="modalTitle">Create Tutoring Class</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               <label className="modalLabel">Class Title *
@@ -319,7 +320,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
               </div>
             </form>
           </dialog>
-        </div>
+        </>
       )}
     </div>
   );
@@ -1075,8 +1076,9 @@ function DashboardHome() {
       </section>
 
       {showCreate && (
-        <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
-          <dialog open className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
+        <>
+          <div className="modalOverlay" aria-hidden="true" onClick={() => setShowCreate(false)} />
+          <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)}>
             <h2 className="modalTitle">Create Study Group</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               <label className="modalLabel">Group Name *
@@ -1131,12 +1133,13 @@ function DashboardHome() {
               </div>
             </form>
           </dialog>
-        </div>
+        </>
       )}
 
       {showFeedbackPicker && (
-        <div className="modalOverlay" onClick={closeFeedbackPicker} onKeyDown={(e) => e.key === "Escape" && closeFeedbackPicker()} role="presentation">
-          <dialog open className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
+        <>
+          <div className="modalOverlay" aria-hidden="true" onClick={closeFeedbackPicker} />
+          <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeFeedbackPicker()}>
             <h2 className="modalTitle">Give Peer Feedback</h2>
             <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
             <label className="modalLabel">Study Group
@@ -1160,12 +1163,13 @@ function DashboardHome() {
               <button type="button" className="modalSubmit" onClick={handleLaunchFeedback} disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}>Next →</button>
             </div>
           </dialog>
-        </div>
+        </>
       )}
 
       {showFeedback && (
-        <div className="modalOverlay" onClick={closeFeedback} onKeyDown={(e) => e.key === "Escape" && closeFeedback()} role="presentation">
-          <dialog open className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
+        <>
+          <div className="modalOverlay" aria-hidden="true" onClick={closeFeedback} />
+          <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeFeedback()}>
             <h2 className="modalTitle">Peer Feedback — {feedbackSession?.title || "Session"}</h2>
             <form className="modalForm" onSubmit={handleSubmitFeedback}>
               <label className="modalLabel">Reviewing
@@ -1210,12 +1214,13 @@ function DashboardHome() {
               </div>
             </form>
           </dialog>
-        </div>
+        </>
       )}
 
       {showTutorFeedbacks && (
-        <div className="modalOverlay" onClick={closeTutorFeedbacks} onKeyDown={(e) => e.key === "Escape" && closeTutorFeedbacks()} role="presentation">
-          <dialog open className="modalCard tutorFeedbackModal" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
+        <>
+          <div className="modalOverlay" aria-hidden="true" onClick={closeTutorFeedbacks} />
+          <dialog open className="modalCard tutorFeedbackModal" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeTutorFeedbacks()}>
             <h2 className="modalTitle">Submitted Feedbacks{tutorFeedbackClass?.title ? ` - ${tutorFeedbackClass.title}` : ""}</h2>
             <p className="tutorFeedbackIntro">
               Select a student name to view the feedback they submitted for this tutoring class.
@@ -1306,7 +1311,7 @@ function DashboardHome() {
               <button type="button" className="modalCancel" onClick={closeTutorFeedbacks}>Close</button>
             </div>
           </dialog>
-        </div>
+        </>
       )}
 
       <ConfirmDialog dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
