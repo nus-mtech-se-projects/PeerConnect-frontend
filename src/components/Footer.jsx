@@ -27,14 +27,14 @@ export default function Footer() {
             <div className="footerColTitle">Company</div>
             <Link className="footerLink" to="/contact">About</Link>
             <Link className="footerLink" to="/contact">Contact</Link>
-            <button type="button" className="footerLink" onClick={() => {}}>Careers</button>
+            <Link className="footerLink" to="/careers">Careers</Link>
           </div>
 
           <div className="footerCol">
             <div className="footerColTitle">Support</div>
-            <button type="button" className="footerLink" onClick={() => {}}>Help Center</button>
-            <button type="button" className="footerLink" onClick={() => {}}>Terms</button>
-            <button type="button" className="footerLink" onClick={() => {}}>Privacy</button>
+            <Link className="footerLink" to="/help-center">Help Center</Link>
+            <Link className="footerLink" to="/terms">Terms</Link>
+            <Link className="footerLink" to="/privacy">Privacy</Link>
           </div>
 
           <div className="footerCol">
@@ -67,9 +67,9 @@ export default function Footer() {
         <div className="footerBottom">
           <div>© {new Date().getFullYear()} PeerConnect. All rights reserved.</div>
           <div className="footerBottomLinks">
-            <button type="button" onClick={() => {}}>Security</button>
-            <button type="button" onClick={() => {}}>Status</button>
-            <button type="button" onClick={() => {}}>Sitemap</button>
+            <Link className="footerLink" to="/security">Security</Link>
+            <Link className="footerLink" to="/status">Status</Link>
+            <Link className="footerLink" to="/sitemap">Sitemap</Link>
           </div>
         </div>
       </div>
