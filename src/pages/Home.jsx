@@ -91,16 +91,50 @@ function normalizeFeedbackEntry(entry, index = 0) {
 }
 
 function normalizeFeedbackCollection(payload) {
-  function extractItems(p) {
+  const extractItems = (p) => {
     if (Array.isArray(p)) return p;
     if (Array.isArray(p?.feedback)) return p.feedback;
     if (Array.isArray(p?.feedbacks)) return p.feedbacks;
     if (Array.isArray(p?.items)) return p.items;
     if (Array.isArray(p?.records)) return p.records;
     return [];
-  }
+  };
   const rawItems = extractItems(payload);
   return rawItems.map((item, index) => normalizeFeedbackEntry(item, index));
+}
+
+function getTutoringActionLabel(course, enrollingId) {
+  if (enrollingId === course.id) {
+    return course.enrolled ? "Leaving…" : "Joining…";
+  }
+  return course.enrolled ? "Leave" : "Join";
+}
+
+function getGroupMembershipButtonLabel(group, membershipActionId) {
+  if (membershipActionId === group.id) {
+    return group.joined ? "Leaving…" : "Joining…";
+  }
+  if (group.joined) return "Leave";
+  return group.membershipStatus === "pending" ? "Pending" : "Join";
+}
+
+function getProfileDisplayName(profileData) {
+  const fullName = [profileData?.firstName, profileData?.lastName].filter(Boolean).join(" ");
+  return fullName || profileData?.name || "";
+}
+
+async function fetchFirstAvailableProfile() {
+  const headers = authHeaders();
+  for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
+    try {
+      const res = await fetch(url, { headers, credentials: "include" });
+      if (!res.ok) continue;
+      return await res.json();
+    } catch {
+      // Try next endpoint.
+    }
+  }
+  return null;
 }
 
 /* ──────── SVG icons ──────── */
@@ -181,19 +215,26 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    waitForToken().then(() => {
-      fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
-        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`Failed to load (${r.status})`)))
-        .then((data) => {
-          if (!cancelled) {
-            const myClasses = Array.isArray(data) ? data.filter((c) => c.isTutor) : [];
-            setClasses(myClasses);
-          }
-        })
-        .catch((err) => { if (!cancelled) setError(err.message); })
-        .finally(() => { if (!cancelled) setLoading(false); });
-    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    const loadTutorClasses = async () => {
+      setLoading(true);
+      try {
+        await waitForToken();
+        const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
+        if (!res.ok) throw new Error(`Failed to load (${res.status})`);
+        const data = await res.json();
+        if (cancelled) return;
+        const myClasses = Array.isArray(data) ? data.filter((c) => c.isTutor) : [];
+        setClasses(myClasses);
+      } catch (err) {
+        if (!cancelled) {
+          const message = err?.message === "Authentication timeout" ? err.message : (err?.message || "Authentication timeout");
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadTutorClasses();
     return () => { cancelled = true; };
   }, []);
 
@@ -339,14 +380,28 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    waitForToken().then(() => {
-      fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
-        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`Failed to load (${r.status})`)))
-        .then((data) => { if (!cancelled) setClasses(Array.isArray(data) ? data.filter((c) => !c.isTutor && !excludeIds.has(c.id)) : []); })
-        .catch((err) => { if (!cancelled) setError(err.message); })
-        .finally(() => { if (!cancelled) setLoading(false); });
-    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    const loadTuteeClasses = async () => {
+      setLoading(true);
+      try {
+        await waitForToken();
+        const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
+        if (!res.ok) throw new Error(`Failed to load (${res.status})`);
+        const data = await res.json();
+        if (cancelled) return;
+        const visibleClasses = Array.isArray(data)
+          ? data.filter((c) => !c.isTutor && !excludeIds.has(c.id))
+          : [];
+        setClasses(visibleClasses);
+      } catch (err) {
+        if (!cancelled) {
+          const message = err?.message === "Authentication timeout" ? err.message : (err?.message || "Authentication timeout");
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadTuteeClasses();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -433,10 +488,7 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
                   onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
                   disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
                 >
-                  {/* eslint-disable-next-line no-nested-ternary */}
-                  {enrollingId === c.id
-                    ? (c.enrolled ? "Leaving…" : "Joining…")
-                    : (c.enrolled ? "Leave" : "Join")}
+                  {getTutoringActionLabel(c, enrollingId)}
                 </button>
               </div>
             </div>
@@ -504,7 +556,7 @@ function StarRating({ value, onChange, label }) {
         <button
           key={star}
           type="button"
-          aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
+          aria-label={`Rate ${star} star${star === 1 ? "" : "s"}`}
           onClick={() => onChange(star)}
           style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: star <= value ? "#f59e0b" : "#d1d5db", padding: "0 2px" }}
         >
@@ -537,6 +589,115 @@ function RestrictedMemberSection() {
         </p>
       </div>
     </div>
+  );
+}
+
+StudyGroupCard.propTypes = {
+  group: PropTypes.object.isRequired,
+  membershipActionId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onJoin: PropTypes.func.isRequired,
+  onLeave: PropTypes.func.isRequired,
+  onOpenGroup: PropTypes.func.isRequired,
+};
+function StudyGroupCard({ group, membershipActionId, onJoin, onLeave, onOpenGroup }) {
+  return (
+    <div className="groupCard" key={group.id || group.name}>
+      <div className="groupCardHeader">
+        <span className="groupCourse">{group.moduleCode || group.courseCode || "General"}</span>
+        <span className={`groupMode ${group.studyMode}`}>{group.studyMode === "online" ? "Online" : "In-Person"}</span>
+      </div>
+      <h3 className="groupName">{group.name || "Study Group"}</h3>
+      <p className="groupTopic">{group.topic || "No topic specified"}</p>
+      {group.description && <p className="groupDesc">{group.description}</p>}
+      {group.preferredSchedule && <p className="groupTopic">Schedule: {group.preferredSchedule}</p>}
+      {group.status && <p className="groupTopic">Status: {group.status}</p>}
+      <div className="groupFooter">
+        <span className="groupMembers">{group.memberCount ?? "?"}/{group.maxMembers ?? "∞"} members</span>
+        <div style={{ display: "flex", gap: 8 }}>
+          {!group.isAdmin && (
+            <button
+              className={group.joined ? "groupLeaveBtn" : "groupJoinBtn"}
+              onClick={() => (group.joined ? onLeave(group.id) : onJoin(group.id))}
+              disabled={!group.id || membershipActionId === group.id || group.status === "dissolved" || (!group.joined && group.status === "full")}
+            >
+              {getGroupMembershipButtonLabel(group, membershipActionId)}
+            </button>
+          )}
+          <button className="groupManageBtn" onClick={() => onOpenGroup(group.id)}>
+            {group.isAdmin ? "Manage" : "Info"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+StudyGroupsModule.propTypes = {
+  myGroupsOnly: PropTypes.bool.isRequired,
+  setMyGroupsOnly: PropTypes.func.isRequired,
+  setShowCreate: PropTypes.func.isRequired,
+  search: PropTypes.string.isRequired,
+  setSearch: PropTypes.func.isRequired,
+  loading: PropTypes.bool.isRequired,
+  error: PropTypes.string.isRequired,
+  filtered: PropTypes.array.isRequired,
+  membershipActionId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onJoin: PropTypes.func.isRequired,
+  onLeave: PropTypes.func.isRequired,
+  onOpenGroup: PropTypes.func.isRequired,
+};
+function StudyGroupsModule({
+  myGroupsOnly,
+  setMyGroupsOnly,
+  setShowCreate,
+  search,
+  setSearch,
+  loading,
+  error,
+  filtered,
+  membershipActionId,
+  onJoin,
+  onLeave,
+  onOpenGroup,
+}) {
+  return (
+    <>
+      <div className="dashHeader">
+        <div className="dashHeaderTop">
+          <div>
+            <h1 className="dashTitle">Study Groups</h1>
+            <p className="dashSubtitle">Discover, create, and join study groups</p>
+          </div>
+          <div className="dashHeaderBtns">
+            <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
+            <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
+          </div>
+        </div>
+        <div className="dashSearchWrap">
+          <SearchIcon />
+          <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+      </div>
+
+      {loading && <p className="dashMsg">Loading groups…</p>}
+      {error && <p className="dashMsg dashError">{error}</p>}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="dashEmpty"><GroupsIcon /><p>No groups found. Create one to get started!</p></div>
+      )}
+
+      <div className="dashGrid">
+        {filtered.map((g) => (
+          <StudyGroupCard
+            key={g.id || g.name}
+            group={g}
+            membershipActionId={membershipActionId}
+            onJoin={onJoin}
+            onLeave={onLeave}
+            onOpenGroup={onOpenGroup}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -598,30 +759,20 @@ function DashboardHome() {
   /* fetch user name + avatar */
   useEffect(() => {
     let cancelled = false;
-    waitForToken().then(async () => {
-      if (cancelled) return;
-      const h = authHeaders();
-      let nameFound = false;
-
-      for (const url of [
-        `${API_BASE}/api/users/me`,
-        `${API_BASE}/api/profile`,
-      ]) {
-        try {
-          const res = await fetch(url, { headers: h, credentials: "include" });
-          if (!res.ok) continue;
-          const data = await res.json();
-          if (cancelled) return;
-          if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
-          if (!nameFound) {
-            const full = [data.firstName, data.lastName].filter(Boolean).join(" ");
-            if (full) { setProfileName(full); nameFound = true; }
-            else if (data.name) { setProfileName(data.name); nameFound = true; }
-          }
-          if (nameFound && avatarUrl) break;
-        } catch { /* try next */ }
+    const loadProfile = async () => {
+      try {
+        await waitForToken();
+        if (cancelled) return;
+        const profileData = await fetchFirstAvailableProfile();
+        if (cancelled || !profileData) return;
+        if (profileData.avatarUrl) setAvatarUrl(profileData.avatarUrl);
+        const displayName = getProfileDisplayName(profileData);
+        if (displayName) setProfileName(displayName);
+      } catch {
+        // Best effort profile enrichment.
       }
-    }).catch(() => { });
+    };
+    loadProfile();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -652,20 +803,17 @@ function DashboardHome() {
   }, [nav]);
 
   const filtered = useMemo(() => {
-    let result = groups;
-    if (myGroupsOnly) {
-      result = result.filter((g) => g.isAdmin);
-    }
     const q = search.toLowerCase().trim();
-    if (q) {
-      result = result.filter((g) =>
+    return groups.filter((g) => {
+      const matchesAdminFilter = !myGroupsOnly || g.isAdmin;
+      const matchesSearch =
+        !q ||
         g.name?.toLowerCase().includes(q) ||
         g.moduleCode?.toLowerCase().includes(q) ||
         g.courseCode?.toLowerCase().includes(q) ||
-        g.topic?.toLowerCase().includes(q)
-      );
-    }
-    return result;
+        g.topic?.toLowerCase().includes(q);
+      return matchesAdminFilter && matchesSearch;
+    });
   }, [groups, search, myGroupsOnly]);
 
   async function handleCreate(e) {
@@ -995,68 +1143,20 @@ function DashboardHome() {
 
       <section className="dashMain">
         {activeModule === "studyGroups" && (
-          <>
-            <div className="dashHeader">
-              <div className="dashHeaderTop">
-                <div>
-                  <h1 className="dashTitle">Study Groups</h1>
-                  <p className="dashSubtitle">Discover, create, and join study groups</p>
-                </div>
-                <div className="dashHeaderBtns">
-                  <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
-                  <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
-                </div>
-              </div>
-              <div className="dashSearchWrap">
-                <SearchIcon />
-                <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-            </div>
-
-            {loading && <p className="dashMsg">Loading groups…</p>}
-            {error && <p className="dashMsg dashError">{error}</p>}
-            {!loading && !error && filtered.length === 0 && (
-              <div className="dashEmpty"><GroupsIcon /><p>No groups found. Create one to get started!</p></div>
-            )}
-
-            <div className="dashGrid">
-              {filtered.map((g) => (
-                <div className="groupCard" key={g.id || g.name}>
-                  <div className="groupCardHeader">
-                    <span className="groupCourse">{g.moduleCode || g.courseCode || "General"}</span>
-                    <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : "In-Person"}</span>
-                  </div>
-                  <h3 className="groupName">{g.name || "Study Group"}</h3>
-                  <p className="groupTopic">{g.topic || "No topic specified"}</p>
-                  {g.description && <p className="groupDesc">{g.description}</p>}
-                  {g.preferredSchedule && <p className="groupTopic">Schedule: {g.preferredSchedule}</p>}
-                  {g.status && <p className="groupTopic">Status: {g.status}</p>}
-                  <div className="groupFooter">
-                    <span className="groupMembers">{g.memberCount ?? "?"}/{g.maxMembers ?? "∞"} members</span>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {!g.isAdmin && (
-                        <button
-                          className={g.joined ? "groupLeaveBtn" : "groupJoinBtn"}
-                          onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
-                          disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
-                        >
-                          {membershipActionId === g.id
-                            ? (g.joined ? "Leaving…" : "Joining…")
-                            : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
-                        </button>
-                      )}
-                      {!g.isAdmin && (
-                        <button className="groupManageBtn" onClick={() => nav(`/group/${g.id}`)}>Info</button>
-                      )}
-                      {g.isAdmin && (
-                        <button className="groupManageBtn" onClick={() => nav(`/group/${g.id}`)}>Manage</button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <StudyGroupsModule
+            myGroupsOnly={myGroupsOnly}
+            setMyGroupsOnly={setMyGroupsOnly}
+            setShowCreate={setShowCreate}
+            search={search}
+            setSearch={setSearch}
+            loading={loading}
+            error={error}
+            filtered={filtered}
+            membershipActionId={membershipActionId}
+            onJoin={handleJoin}
+            onLeave={handleLeave}
+            onOpenGroup={(groupId) => nav(`/group/${groupId}`)}
+          />
         )}
 
         {activeModule === "peerTutoring" && (
