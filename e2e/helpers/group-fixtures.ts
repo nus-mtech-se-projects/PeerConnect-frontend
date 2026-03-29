@@ -157,6 +157,33 @@ export async function clickAndConfirm(page: Page, triggerLocator: ReturnType<Pag
   await confirmBtn.click();
 }
 
+export function getTransferDropdown(page: Page) {
+  return page.locator('select.gdInput').filter({ hasText: /select approved member/i });
+}
+
+export async function openTransferDialog(page: Page, memberId: string) {
+  const dropdown = getTransferDropdown(page);
+  await dropdown.selectOption(memberId);
+  await page.getByRole('button', { name: /transfer/i }).first().click();
+  return page.locator('.confirmDialog');
+}
+
+export async function triggerInviteMember(page: Page, email: string) {
+  await page.getByPlaceholder('student@u.nus.edu').fill(email);
+  await page.getByRole('button', { name: /invite/i }).click();
+}
+
+export async function approveFirstPendingMember(page: Page) {
+  await page.locator('.memberApproveBtn').first().click();
+}
+
+export async function rejectFirstPendingMember(page: Page) {
+  await page.locator('.memberRejectBtn').first().click();
+  const confirmBtn = page.locator('.confirmBtnRed');
+  await confirmBtn.waitFor({ state: 'visible', timeout: 2000 });
+  await confirmBtn.click();
+}
+
 export async function fillSessionForm(page: Page, data: { title: string; date: string; time: string }) {
   const section = page.locator('.gdSection').filter({ hasText: /scheduled sessions/i });
   await section.locator('.gdForm input.gdInput[required]').first().fill(data.title);

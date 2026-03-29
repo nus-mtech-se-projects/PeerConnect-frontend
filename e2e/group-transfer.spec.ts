@@ -7,6 +7,8 @@ import {
   GROUP_ID,
   OWNER_USER_ID,
   MEMBER_USER_ID,
+  getTransferDropdown,
+  openTransferDialog,
 } from './helpers/group-fixtures';
 
 const MOCK_GROUP = createGroupData({
@@ -24,7 +26,7 @@ test.describe('Transfer Ownership', () => {
 
   test('shows approved members in transfer dropdown', async ({ page }) => {
     await setupAndGoto(page, MOCK_GROUP);
-    const dropdown = page.locator('select.gdInput').filter({ hasText: /select approved member/i });
+    const dropdown = getTransferDropdown(page);
     await expect(dropdown).toBeVisible();
     await expect(dropdown.locator('option', { hasText: 'Alice Tan' })).toBeAttached();
   });
@@ -39,11 +41,7 @@ test.describe('Transfer Ownership', () => {
     await setupAndGoto(page, MOCK_GROUP);
     await mockRoute(page, `**/api/groups/${GROUP_ID}/transfer-ownership`, 'POST', 200, { message: 'Ownership transferred' });
 
-    const dropdown = page.locator('select.gdInput').filter({ hasText: /select approved member/i });
-    await dropdown.selectOption(MEMBER_USER_ID);
-    await page.getByRole('button', { name: /transfer/i }).first().click();
-
-    const confirmDialog = page.locator('.confirmDialog');
+    const confirmDialog = await openTransferDialog(page, MEMBER_USER_ID);
     await expect(confirmDialog).toBeVisible({ timeout: 2000 });
     await expect(confirmDialog).toContainText(/transfer ownership/i);
 
@@ -54,11 +52,7 @@ test.describe('Transfer Ownership', () => {
   test('cancel in transfer dialog dismisses it without calling API', async ({ page }) => {
     await setupAndGoto(page, MOCK_GROUP);
 
-    const dropdown = page.locator('select.gdInput').filter({ hasText: /select approved member/i });
-    await dropdown.selectOption(MEMBER_USER_ID);
-    await page.getByRole('button', { name: /transfer/i }).first().click();
-
-    const confirmDialog = page.locator('.confirmDialog');
+    const confirmDialog = await openTransferDialog(page, MEMBER_USER_ID);
     await expect(confirmDialog).toBeVisible({ timeout: 2000 });
 
     await confirmDialog.getByRole('button', { name: /cancel/i }).click();
@@ -69,11 +63,7 @@ test.describe('Transfer Ownership', () => {
     await setupAndGoto(page, MOCK_GROUP);
     await mockRoute(page, `**/api/groups/${GROUP_ID}/transfer-ownership`, 'POST', 400, { error: 'Transfer not allowed' });
 
-    const dropdown = page.locator('select.gdInput').filter({ hasText: /select approved member/i });
-    await dropdown.selectOption(MEMBER_USER_ID);
-    await page.getByRole('button', { name: /transfer/i }).first().click();
-
-    const confirmDialog = page.locator('.confirmDialog');
+    const confirmDialog = await openTransferDialog(page, MEMBER_USER_ID);
     await expect(confirmDialog).toBeVisible({ timeout: 2000 });
     await confirmDialog.getByRole('button', { name: /transfer/i }).click();
 
@@ -82,7 +72,7 @@ test.describe('Transfer Ownership', () => {
 
   test('owner does not appear in transfer dropdown', async ({ page }) => {
     await setupAndGoto(page, MOCK_GROUP);
-    const dropdown = page.locator('select.gdInput').filter({ hasText: /select approved member/i });
+    const dropdown = getTransferDropdown(page);
     await expect(dropdown.locator(`option[value="${OWNER_USER_ID}"]`)).not.toBeAttached();
   });
 });

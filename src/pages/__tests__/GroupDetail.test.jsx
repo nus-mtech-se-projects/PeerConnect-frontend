@@ -177,20 +177,14 @@ describe("GroupDetail – preview (non-member)", () => {
     expect(badge).toHaveTextContent("Online");
   });
 
-  it("shows hybrid mode", async () => {
-    mockPreviewFetch({ ...baseGroup, studyMode: "hybrid" });
+  it.each([
+    ["hybrid", "Hybrid"],
+    ["in-person", "In-Person"],
+  ])("shows %s mode", async (studyMode, label) => {
+    mockPreviewFetch({ ...baseGroup, studyMode });
     renderAtGroup();
     await screen.findByText("Algo Study");
-    const badge = document.querySelector(".gdMode");
-    expect(badge).toHaveTextContent("Hybrid");
-  });
-
-  it("shows in-person mode", async () => {
-    mockPreviewFetch({ ...baseGroup, studyMode: "in-person" });
-    renderAtGroup();
-    await screen.findByText("Algo Study");
-    const badge = document.querySelector(".gdMode");
-    expect(badge).toHaveTextContent("In-Person");
+    expect(document.querySelector(".gdMode")).toHaveTextContent(label);
   });
 
   it("shows Owner section instead of Members", async () => {
