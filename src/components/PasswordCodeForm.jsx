@@ -14,9 +14,10 @@ export default function PasswordCodeForm({
   return (
     <form className="authForm" onSubmit={onSubmit}>
       <div className="authField">
-        <label className="authLabel">
+        <label className="authLabel" htmlFor="pcf-code">
           Verification code
           <input
+            id="pcf-code"
             className="authInput"
             value={code}
             onChange={onCodeChange}
@@ -27,9 +28,10 @@ export default function PasswordCodeForm({
       </div>
 
       <div className="authField">
-        <label className="authLabel">
+        <label className="authLabel" htmlFor="pcf-password">
           New password
           <input
+            id="pcf-password"
             className="authInput"
             value={password}
             onChange={onPasswordChange}
@@ -41,9 +43,10 @@ export default function PasswordCodeForm({
       </div>
 
       <div className="authField">
-        <label className="authLabel">
+        <label className="authLabel" htmlFor="pcf-retype">
           Retype password
           <input
+            id="pcf-retype"
             className="authInput"
             value={retypePassword}
             onChange={onRetypeChange}

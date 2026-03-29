@@ -7,6 +7,7 @@ import tutoringImg from "../assets/images/tutoring.jpg";
 import studyGroupImg from "../assets/images/study-group.jpg";
 import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
+import PropTypes from "prop-types";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import "../styles/pages/Dashboard.css";
 function createFeedbackForm() {
@@ -161,6 +162,10 @@ function LandingHome() {
 
 /* ──────────────────── Peer Tutoring Components ──────────────────── */
 
+TutorDashboard.propTypes = {
+  onClassCreated: PropTypes.func,
+  onViewFeedbacks: PropTypes.func,
+};
 function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -264,7 +269,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
 
       {showCreate && (
         <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
-          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+          <dialog open className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
             <h2 className="modalTitle">Create Tutoring Class</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               <label className="modalLabel">Class Title *
@@ -311,13 +316,17 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
                 <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Class"}</button>
               </div>
             </form>
-          </div>
+          </dialog>
         </div>
       )}
     </div>
   );
 }
 
+TuteeDashboard.propTypes = {
+  excludeIds: PropTypes.instanceOf(Set),
+  onGiveFeedback: PropTypes.func,
+};
 function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -421,6 +430,7 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
                   onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
                   disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
                 >
+                  {/* eslint-disable-next-line no-nested-ternary */}
                   {enrollingId === c.id
                     ? (c.enrolled ? "Leaving…" : "Joining…")
                     : (c.enrolled ? "Leave" : "Join")}
@@ -434,6 +444,10 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
   );
 }
 
+PeerTutoringSection.propTypes = {
+  onGiveFeedback: PropTypes.func,
+  onViewTutorFeedbacks: PropTypes.func,
+};
 function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
   const [role, setRole] = useState(null);
   const [myClassIds, setMyClassIds] = useState(new Set());
@@ -474,9 +488,15 @@ function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
   );
 }
 
+StarRating.propTypes = {
+  value: PropTypes.number,
+  onChange: PropTypes.func,
+  label: PropTypes.string,
+};
 function StarRating({ value, onChange, label }) {
   return (
-    <div role="group" aria-label={label} style={{ display: "flex", gap: 4, marginTop: 4 }}>
+    <fieldset style={{ display: "flex", gap: 4, marginTop: 4, border: "none", padding: 0, margin: 0 }}>
+      {label && <legend className="sr-only">{label}</legend>}
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
@@ -488,7 +508,7 @@ function StarRating({ value, onChange, label }) {
           {star <= value ? "★" : "☆"}
         </button>
       ))}
-    </div>
+    </fieldset>
   );
 }
 
@@ -935,24 +955,25 @@ function DashboardHome() {
         </div>
       </div>
 
-      {sidebarOpen && <div className="dashOverlay" onClick={closeSidebar} onKeyDown={(e) => e.key === "Escape" && closeSidebar()} role="presentation" />}
+      {sidebarOpen && <button type="button" className="dashOverlay" onClick={closeSidebar} aria-label="Close menu" />}
 
       <aside className={`dashSidebar ${sidebarOpen ? "open" : ""}`}>
-        <div
-          className="dashUserCard"
-          onClick={() => { nav("/profile"); closeSidebar(); }}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (() => { nav("/profile"); closeSidebar(); })()}
-          role="button"
-          tabIndex={0}
-        >
-          <div className="dashAvatar">
-            {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
-          </div>
-          <div className="dashUserInfo">
-            <h3 className="dashUserName">{userName}</h3>
-            <p className="dashUserEmail">{userEmail}</p>
-          </div>
-          <button className="dashCloseBtn" onClick={(e) => { e.stopPropagation(); closeSidebar(); }} aria-label="Close menu"><CloseIcon /></button>
+        <div className="dashUserCard">
+          <button
+            type="button"
+            className="dashUserCardBtn"
+            onClick={() => { nav("/profile"); closeSidebar(); }}
+            aria-label="Go to profile"
+          >
+            <div className="dashAvatar">
+              {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
+            </div>
+            <div className="dashUserInfo">
+              <h3 className="dashUserName">{userName}</h3>
+              <p className="dashUserEmail">{userEmail}</p>
+            </div>
+          </button>
+          <button className="dashCloseBtn" onClick={closeSidebar} aria-label="Close menu"><CloseIcon /></button>
         </div>
 
         <nav className="dashNav">
@@ -1053,7 +1074,7 @@ function DashboardHome() {
 
       {showCreate && (
         <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
-          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+          <dialog open className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
             <h2 className="modalTitle">Create Study Group</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               <label className="modalLabel">Group Name *
@@ -1107,13 +1128,13 @@ function DashboardHome() {
                 <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Group"}</button>
               </div>
             </form>
-          </div>
+          </dialog>
         </div>
       )}
 
       {showFeedbackPicker && (
         <div className="modalOverlay" onClick={closeFeedbackPicker} onKeyDown={(e) => e.key === "Escape" && closeFeedbackPicker()} role="presentation">
-          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+          <dialog open className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
             <h2 className="modalTitle">Give Peer Feedback</h2>
             <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
             <label className="modalLabel">Study Group
@@ -1136,13 +1157,13 @@ function DashboardHome() {
               <button type="button" className="modalCancel" onClick={closeFeedbackPicker}>Cancel</button>
               <button type="button" className="modalSubmit" onClick={handleLaunchFeedback} disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}>Next →</button>
             </div>
-          </div>
+          </dialog>
         </div>
       )}
 
       {showFeedback && (
         <div className="modalOverlay" onClick={closeFeedback} onKeyDown={(e) => e.key === "Escape" && closeFeedback()} role="presentation">
-          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+          <dialog open className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
             <h2 className="modalTitle">Peer Feedback — {feedbackSession?.title || "Session"}</h2>
             <form className="modalForm" onSubmit={handleSubmitFeedback}>
               <label className="modalLabel">Reviewing
@@ -1186,13 +1207,13 @@ function DashboardHome() {
                 </button>
               </div>
             </form>
-          </div>
+          </dialog>
         </div>
       )}
 
       {showTutorFeedbacks && (
         <div className="modalOverlay" onClick={closeTutorFeedbacks} onKeyDown={(e) => e.key === "Escape" && closeTutorFeedbacks()} role="presentation">
-          <div className="modalCard tutorFeedbackModal" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+          <dialog open className="modalCard tutorFeedbackModal" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
             <h2 className="modalTitle">Submitted Feedbacks{tutorFeedbackClass?.title ? ` - ${tutorFeedbackClass.title}` : ""}</h2>
             <p className="tutorFeedbackIntro">
               Select a student name to view the feedback they submitted for this tutoring class.
@@ -1282,19 +1303,19 @@ function DashboardHome() {
             <div className="modalActions">
               <button type="button" className="modalCancel" onClick={closeTutorFeedbacks}>Close</button>
             </div>
-          </div>
+          </dialog>
         </div>
       )}
 
       {confirmDialog && (
         <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => e.key === "Escape" && setConfirmDialog(null)} role="presentation">
-          <div className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabIndex={-1}>
+          <dialog open className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
             <p className="confirmMsg">{confirmDialog.message}</p>
             <div className="confirmActions">
               <button className={confirmDialog.cancelBtnClass || "modalCancel"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
               <button className={confirmDialog.confirmBtnClass || "modalSubmit"} onClick={confirmDialog.onConfirm}>{confirmDialog.confirmLabel || "Yes"}</button>
             </div>
-          </div>
+          </dialog>
         </div>
       )}
 

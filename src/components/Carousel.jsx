@@ -70,9 +70,9 @@ export default function Carousel({ slides = [], autoPlayMs = 0 }) {
           </button>
 
           <div className="dotsRow" aria-label="Carousel pagination">
-            {safeSlides.map((_, i) => (
+            {safeSlides.map((slide, i) => (
               <button
-                key={`dot-${i}`}
+                key={`dot-${slide?.title ?? slide?.imageAlt ?? i}`}
                 className={`dot2 ${i === idx ? "active" : ""}`}
                 onClick={() => setIdx(i)}
                 aria-label={`Go to slide ${i + 1}`}

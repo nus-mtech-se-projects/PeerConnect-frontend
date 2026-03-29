@@ -50,11 +50,11 @@ export default function Navbar() {
 
         {/* Overlay backdrop */}
         {menuOpen && (
-          <div
+          <button
+            type="button"
             className="navOverlay"
             onClick={() => setMenuOpen(false)}
-            onKeyDown={(e) => e.key === "Escape" && setMenuOpen(false)}
-            role="presentation"
+            aria-label="Close menu"
           />
         )}
 
@@ -121,13 +121,13 @@ export default function Navbar() {
 
     {confirmDialog && (
       <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => { if (e.key === "Escape") setConfirmDialog(null); }} role="presentation">
-        <div className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabIndex={-1}>
+        <dialog open className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
           <p className="confirmMsg">{confirmDialog.message}</p>
           <div className="confirmActions">
             <button className="confirmBtnOutline" onClick={confirmDialog.onCancel}>Cancel</button>
             <button className="confirmBtnGreen" onClick={confirmDialog.onConfirm}>OK</button>
           </div>
-        </div>
+        </dialog>
       </div>
     )}
     </>

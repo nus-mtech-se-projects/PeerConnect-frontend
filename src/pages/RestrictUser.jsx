@@ -51,24 +51,42 @@ export default function RestrictUser() {
     return () => clearTimeout(searchTimer.current);
   }, [searchQuery]);
 
+  async function executeRestrict(userId, showToast) {
+    try {
+      const res = await fetch(`${API_BASE}/api/restricted-users`, {
+        method: "POST", headers: authHeaders(), credentials: "include",
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Restrict failed (${res.status})`);
+      showToast("User restricted successfully!");
+      await loadRestricted(showToast);
+      updateSearchRestricted(userId, true);
+    } catch (err) { showToast(err.message, "error"); }
+    finally { setActionId(null); }
+  }
+
+  async function executeAllow(userId, showToast) {
+    try {
+      const res = await fetch(`${API_BASE}/api/restricted-users/${userId}`, {
+        method: "DELETE", headers: authHeaders(), credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Allow failed (${res.status})`);
+      showToast("User allowed successfully!");
+      await loadRestricted(showToast);
+      updateSearchRestricted(userId, false);
+    } catch (err) { showToast(err.message, "error"); }
+    finally { setActionId(null); }
+  }
+
   return (
     <DashboardLayout activeNav="restrict">
       {({ showToast, setConfirmDialog }) => {
 
-        async function handleRestrict(userId) {
+        function handleRestrict(userId) {
           setActionId(userId);
-          try {
-            const res = await fetch(`${API_BASE}/api/restricted-users`, {
-              method: "POST", headers: authHeaders(), credentials: "include",
-              body: JSON.stringify({ userId }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data?.error || `Restrict failed (${res.status})`);
-            showToast("User restricted successfully!");
-            await loadRestricted(showToast);
-            updateSearchRestricted(userId, true);
-          } catch (err) { showToast(err.message, "error"); }
-          finally { setActionId(null); }
+          executeRestrict(userId, showToast);
         }
 
         function handleAllow(userId) {
@@ -76,24 +94,9 @@ export default function RestrictUser() {
             message: "Are you sure you want to allow this user? They will be able to join your groups again.",
             confirmBtnClass: "confirmBtnGreen", cancelBtnClass: "confirmBtnOutline",
             confirmLabel: "Allow", cancelLabel: "Cancel",
-            onConfirm: () => { setConfirmDialog(null); executeAllow(userId); },
+            onConfirm: () => { setConfirmDialog(null); executeAllow(userId, showToast); },
             onCancel: () => setConfirmDialog(null),
           });
-        }
-
-        async function executeAllow(userId) {
-          setActionId(userId);
-          try {
-            const res = await fetch(`${API_BASE}/api/restricted-users/${userId}`, {
-              method: "DELETE", headers: authHeaders(), credentials: "include",
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data?.error || `Allow failed (${res.status})`);
-            showToast("User allowed successfully!");
-            await loadRestricted(showToast);
-            updateSearchRestricted(userId, false);
-          } catch (err) { showToast(err.message, "error"); }
-          finally { setActionId(null); }
         }
 
         return (
