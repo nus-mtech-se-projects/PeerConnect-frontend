@@ -1,8 +1,91 @@
 import { useState, useEffect, useRef } from "react";
+import PropTypes from "prop-types";
 import DashboardLayout from "../components/DashboardLayout";
 import { RestrictIcon, SearchIcon } from "../components/Icons";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import "../styles/pages/RestrictUser.css";
+
+function formatUserName(user) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ") || "—";
+}
+
+function RestrictionActionButton({ userId, restricted, actionId, onRestrict, onAllow }) {
+  const busy = actionId === userId;
+  if (restricted) {
+    return (
+      <button className="ruAllowBtn" disabled={busy} onClick={() => onAllow(userId)}>
+        {busy ? "…" : "Allow"}
+      </button>
+    );
+  }
+
+  return (
+    <button className="ruRestrictBtn" disabled={busy} onClick={() => onRestrict(userId)}>
+      {busy ? "…" : "Restrict"}
+    </button>
+  );
+}
+
+RestrictionActionButton.propTypes = {
+  userId: PropTypes.string.isRequired,
+  restricted: PropTypes.bool.isRequired,
+  actionId: PropTypes.string,
+  onRestrict: PropTypes.func.isRequired,
+  onAllow: PropTypes.func.isRequired,
+};
+
+function RestrictUsersTable({ rows, actionId, onRestrict, onAllow, showRestrictedOn = false }) {
+  return (
+    <div className="ruTableWrap">
+      <table className="ruTable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            {showRestrictedOn && <th>Restricted On</th>}
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((user) => {
+            const userId = user.userId || user.restrictedUserId;
+            return (
+              <tr key={userId}>
+                <td>{formatUserName(user)}</td>
+                {showRestrictedOn && (
+                  <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}</td>
+                )}
+                <td>
+                  <RestrictionActionButton
+                    userId={userId}
+                    restricted={showRestrictedOn || !!user.restricted}
+                    actionId={actionId}
+                    onRestrict={onRestrict}
+                    onAllow={onAllow}
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+RestrictUsersTable.propTypes = {
+  rows: PropTypes.arrayOf(PropTypes.shape({
+    userId: PropTypes.string,
+    restrictedUserId: PropTypes.string,
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    createdAt: PropTypes.string,
+    restricted: PropTypes.bool,
+  })).isRequired,
+  actionId: PropTypes.string,
+  onRestrict: PropTypes.func.isRequired,
+  onAllow: PropTypes.func.isRequired,
+  showRestrictedOn: PropTypes.bool,
+};
 
 export default function RestrictUser() {
   const [restrictedList, setRestrictedList] = useState([]);
@@ -126,34 +209,12 @@ export default function RestrictUser() {
                 {searching && <p className="dashMsg">Searching…</p>}
                 {!searching && searchResults.length === 0 && <p className="dashMsg">No users found.</p>}
                 {!searching && searchResults.length > 0 && (
-                  <div className="ruTableWrap">
-                    <table className="ruTable">
-                      <thead>
-                        <tr>
-                          <th>Name</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {searchResults.map((u) => (
-                          <tr key={u.userId}>
-                            <td>{[u.firstName, u.lastName].filter(Boolean).join(" ") || "—"}</td>
-                            <td>
-                              {u.restricted ? (
-                                <button className="ruAllowBtn" disabled={actionId === u.userId} onClick={() => handleAllow(u.userId)}>
-                                  {actionId === u.userId ? "…" : "Allow"}
-                                </button>
-                              ) : (
-                                <button className="ruRestrictBtn" disabled={actionId === u.userId} onClick={() => handleRestrict(u.userId)}>
-                                  {actionId === u.userId ? "…" : "Restrict"}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <RestrictUsersTable
+                    rows={searchResults}
+                    actionId={actionId}
+                    onRestrict={handleRestrict}
+                    onAllow={handleAllow}
+                  />
                 )}
               </div>
             )}
@@ -168,30 +229,13 @@ export default function RestrictUser() {
                 </div>
               )}
               {!loading && restrictedList.length > 0 && (
-                <div className="ruTableWrap">
-                  <table className="ruTable">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Restricted On</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {restrictedList.map((r) => (
-                        <tr key={r.restrictedUserId}>
-                          <td>{[r.firstName, r.lastName].filter(Boolean).join(" ") || "—"}</td>
-                          <td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—"}</td>
-                          <td>
-                            <button className="ruAllowBtn" disabled={actionId === r.restrictedUserId} onClick={() => handleAllow(r.restrictedUserId)}>
-                              {actionId === r.restrictedUserId ? "…" : "Allow"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <RestrictUsersTable
+                  rows={restrictedList}
+                  actionId={actionId}
+                  onRestrict={handleRestrict}
+                  onAllow={handleAllow}
+                  showRestrictedOn
+                />
               )}
             </div>
           </section>
