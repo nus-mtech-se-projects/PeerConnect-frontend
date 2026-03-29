@@ -28,7 +28,7 @@ AvatarContent.propTypes = {
 function SidebarUserCard({ avatarUrl, userInitial, userName, userEmail, onProfileClick, onClose }) {
   return (
     <div className="dashUserCard">
-      <button type="button" className="dashUserCardBtn" onClick={onProfileClick} aria-label="Go to profile">
+      <button type="button" className="dashUserCardBtn" onClick={onProfileClick} aria-label="Go to profile" style={{ background: "transparent", border: "none" }}>
         <div className="dashAvatar">
           <AvatarContent avatarUrl={avatarUrl} userInitial={userInitial} />
         </div>
