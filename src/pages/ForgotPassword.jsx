@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { API_BASE } from "../utils/auth";
+import { API_BASE, validatePasswordCode } from "../utils/auth";
 import PasswordCodeForm from "../components/PasswordCodeForm";
 import "../styles/pages/Auth.css";
 
@@ -63,22 +63,8 @@ export default function ForgotPassword() {
     setError("");
     setSuccess("");
 
-    if (!code.trim()) {
-      setError("Please enter the verification code.");
-      return;
-    }
-    if (!password) {
-      setError("Please enter a new password.");
-      return;
-    }
-    if (password !== retypePassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
+    const validationError = validatePasswordCode(code, password, retypePassword);
+    if (validationError) { setError(validationError); return; }
 
     setLoading(true);
     try {
