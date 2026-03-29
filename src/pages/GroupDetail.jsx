@@ -338,6 +338,7 @@ function openLeaveFromDetailDialog(groupId, setConfirmDialog, setLeavingGroup, s
   });
 }
 
+// NOSONAR - complexity in this coordinator component is tracked for later split into dedicated subcomponents.
 export default function GroupDetail() {
   const { groupId } = useParams();
   const nav = useNavigate();
