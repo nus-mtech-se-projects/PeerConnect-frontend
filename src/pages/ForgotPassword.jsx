@@ -112,15 +112,16 @@ export default function ForgotPassword() {
         {step === 1 && (
           <form className="authForm" onSubmit={onRequestCode}>
             <div className="authField">
-              <label className="authLabel" htmlFor="fp-identifier">Email or NUS Student ID</label>
-              <input
-                id="fp-identifier"
-                className="authInput"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="e.g. johntan@u.nus.edu or A1234567X"
-                autoComplete="username"
-              />
+              <label className="authLabel">
+                Email or NUS Student ID
+                <input
+                  className="authInput"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="e.g. johntan@u.nus.edu or A1234567X"
+                  autoComplete="username"
+                />
+              </label>
             </div>
 
             {error && <div className="authError">{error}</div>}
