@@ -271,7 +271,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
 
       {showCreate && (
         <>
-          <div className="modalOverlay" aria-hidden="true" onClick={() => setShowCreate(false)} />
+          <button type="button" className="modalOverlay" aria-label="Close create tutoring class modal" onClick={() => setShowCreate(false)} />
           <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)}>
             <h2 className="modalTitle">Create Tutoring Class</h2>
             <form className="modalForm" onSubmit={handleCreate}>
@@ -1077,7 +1077,7 @@ function DashboardHome() {
 
       {showCreate && (
         <>
-          <div className="modalOverlay" aria-hidden="true" onClick={() => setShowCreate(false)} />
+          <button type="button" className="modalOverlay" aria-label="Close create study group modal" onClick={() => setShowCreate(false)} />
           <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)}>
             <h2 className="modalTitle">Create Study Group</h2>
             <form className="modalForm" onSubmit={handleCreate}>
@@ -1138,7 +1138,7 @@ function DashboardHome() {
 
       {showFeedbackPicker && (
         <>
-          <div className="modalOverlay" aria-hidden="true" onClick={closeFeedbackPicker} />
+          <button type="button" className="modalOverlay" aria-label="Close feedback picker modal" onClick={closeFeedbackPicker} />
           <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeFeedbackPicker()}>
             <h2 className="modalTitle">Give Peer Feedback</h2>
             <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
@@ -1168,7 +1168,7 @@ function DashboardHome() {
 
       {showFeedback && (
         <>
-          <div className="modalOverlay" aria-hidden="true" onClick={closeFeedback} />
+          <button type="button" className="modalOverlay" aria-label="Close peer feedback modal" onClick={closeFeedback} />
           <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeFeedback()}>
             <h2 className="modalTitle">Peer Feedback — {feedbackSession?.title || "Session"}</h2>
             <form className="modalForm" onSubmit={handleSubmitFeedback}>
@@ -1219,7 +1219,7 @@ function DashboardHome() {
 
       {showTutorFeedbacks && (
         <>
-          <div className="modalOverlay" aria-hidden="true" onClick={closeTutorFeedbacks} />
+          <button type="button" className="modalOverlay" aria-label="Close submitted feedback modal" onClick={closeTutorFeedbacks} />
           <dialog open className="modalCard tutorFeedbackModal" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeTutorFeedbacks()}>
             <h2 className="modalTitle">Submitted Feedbacks{tutorFeedbackClass?.title ? ` - ${tutorFeedbackClass.title}` : ""}</h2>
             <p className="tutorFeedbackIntro">
