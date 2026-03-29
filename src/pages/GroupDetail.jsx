@@ -8,7 +8,7 @@ import "../styles/pages/GroupDetail.css";
 function formatDateTime(iso) {
   if (!iso) return "";
   const d = new Date(iso);
-  if (isNaN(d)) return iso;
+  if (Number.isNaN(d.getTime())) return iso;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const dd = String(d.getDate()).padStart(2, "0");
   const mon = months[d.getMonth()];
@@ -90,9 +90,10 @@ async function doLoadGroup(groupId, setters) {
   }
 }
 
-function showToast(message, type = "success", setToast, toastTimerRef) {
+function showToast(message, type, setToast, toastTimerRef) {
+  const toastType = type || "success";
   clearTimeout(toastTimerRef.current);
-  setToast({ message, type });
+  setToast({ message, type: toastType });
   toastTimerRef.current = setTimeout(() => setToast(null), 3500);
 }
 
@@ -178,6 +179,165 @@ async function executeLeaveFromDetail(groupId, setLeavingGroup, setToast, toastT
   finally { setLeavingGroup(false); }
 }
 
+async function executeUpdateGroupAction(group, scheduleDate, scheduleTime, setSendingEmail, setToast, toastTimerRef, loadGroup) {
+  if (!group?.id) return;
+  setSendingEmail(true);
+  try {
+    const payload = {
+      name: group.name, moduleCode: group.moduleCode, topic: group.topic,
+      description: group.description, studyMode: group.studyMode,
+      location: group.location, meetingLink: group.meetingLink,
+      preferredSchedule: [scheduleDate, scheduleTime].filter(Boolean).join("T"),
+      maxMembers: Number(group.maxMembers),
+      approvalRequired: !!group.approvalRequired,
+    };
+    const res = await fetch(`${API_BASE}/api/groups/${group.id}`, {
+      method: "PUT", headers: authHeaders(), credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Update failed (${res.status})`);
+    showToast("Group updated successfully!", "success", setToast, toastTimerRef);
+    await loadGroup();
+  } catch (err) {
+    showToast(err.message, "error", setToast, toastTimerRef);
+  } finally {
+    setSendingEmail(false);
+  }
+}
+
+async function executeCreateSessionAction(groupId, sessionForm, setSessionForm, setSendingEmail, setToast, toastTimerRef, loadGroup) {
+  if (!groupId) return;
+  setSendingEmail(true);
+  try {
+    const payload = {
+      title: sessionForm.title,
+      startsAt: [sessionForm.startsAtDate, sessionForm.startsAtTime].filter(Boolean).join("T"),
+      endsAt: sessionForm.endsAtDate ? [sessionForm.endsAtDate, sessionForm.endsAtTime].filter(Boolean).join("T") : null,
+      location: sessionForm.location,
+      meetingLink: sessionForm.meetingLink,
+      notes: sessionForm.notes,
+    };
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/sessions`, {
+      method: "POST", headers: authHeaders(), credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Create session failed (${res.status})`);
+    setSessionForm({ ...sessionForm, title: "", startsAtDate: "", startsAtTime: "", endsAtDate: "", endsAtTime: "", notes: "" });
+    showToast("Session created! Notifying members by email…", "success", setToast, toastTimerRef);
+    await loadGroup();
+  } catch (err) {
+    showToast(err.message, "error", setToast, toastTimerRef);
+  } finally {
+    setSendingEmail(false);
+  }
+}
+
+async function executeInviteMemberAction(groupId, inviteEmail, setInviteEmail, setSendingEmail, setToast, toastTimerRef, loadGroup) {
+  if (!groupId || !inviteEmail.trim()) return;
+  setSendingEmail(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/members/invite`, {
+      method: "POST", headers: authHeaders(), credentials: "include",
+      body: JSON.stringify({ email: inviteEmail.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Invite failed (${res.status})`);
+
+    setInviteEmail("");
+    showToast("Invitation sent successfully!", "success", setToast, toastTimerRef);
+    await loadGroup();
+  } catch (err) {
+    showToast(err.message, "error", setToast, toastTimerRef);
+  } finally {
+    setSendingEmail(false);
+  }
+}
+
+async function executeApproveMemberAction(groupId, userId, setSendingEmail, setToast, toastTimerRef, loadGroup) {
+  if (!groupId) return;
+  setSendingEmail(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/members/${userId}/approve`, {
+      method: "POST", headers: authHeaders(), credentials: "include",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Approve failed (${res.status})`);
+    await loadGroup();
+  } catch (err) {
+    showToast(err.message, "error", setToast, toastTimerRef);
+  } finally {
+    setSendingEmail(false);
+  }
+}
+
+function openDeleteSessionDialog(sessionId, groupId, setConfirmDialog, setToast, toastTimerRef, loadGroup) {
+  if (!groupId) return;
+  setConfirmDialog({
+    message: "Are you sure you want to delete this session?",
+    confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
+    confirmLabel: "Delete", cancelLabel: "Cancel",
+    onConfirm: () => { setConfirmDialog(null); executeDeleteSession(sessionId, groupId, setToast, toastTimerRef, loadGroup); },
+    onCancel: () => setConfirmDialog(null),
+  });
+}
+
+function openRemoveMemberDialog(userId, groupId, setConfirmDialog, setSendingEmail, setToast, toastTimerRef, loadGroup) {
+  if (!groupId) return;
+  setConfirmDialog({
+    message: "Are you sure you want to reject this member from the group?",
+    confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
+    confirmLabel: "Reject", cancelLabel: "Cancel",
+    onConfirm: () => { setConfirmDialog(null); executeRemoveMember(userId, groupId, setSendingEmail, setToast, toastTimerRef, loadGroup); },
+    onCancel: () => setConfirmDialog(null),
+  });
+}
+
+function openTransferOwnershipDialog(groupId, transferOwnerId, setConfirmDialog, setSendingEmail, setToast, toastTimerRef, loadGroup) {
+  if (!groupId || !transferOwnerId) return;
+  setConfirmDialog({
+    message: "Transfer ownership to selected member?",
+    confirmBtnClass: "confirmBtnGreen", cancelBtnClass: "confirmBtnOutline",
+    confirmLabel: "Transfer", cancelLabel: "Cancel",
+    onConfirm: () => { setConfirmDialog(null); executeTransferOwnership(groupId, transferOwnerId, setSendingEmail, setToast, toastTimerRef, loadGroup); },
+    onCancel: () => setConfirmDialog(null),
+  });
+}
+
+function openDissolveGroupDialog(groupId, setConfirmDialog, setSendingEmail, setToast, toastTimerRef, nav) {
+  if (!groupId) return;
+  setConfirmDialog({
+    message: "Are you sure you want to dissolve this group? This action will set the group status to dissolved and cannot be undone.",
+    confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
+    confirmLabel: "Dissolve", cancelLabel: "Cancel",
+    onConfirm: () => { setConfirmDialog(null); executeDissolveGroup(groupId, setSendingEmail, setToast, toastTimerRef, nav); },
+    onCancel: () => setConfirmDialog(null),
+  });
+}
+
+function openJoinFromDetailDialog(groupId, setConfirmDialog, setJoiningGroup, setToast, toastTimerRef, loadGroup) {
+  if (!groupId) return;
+  setConfirmDialog({
+    message: "Are you sure you want to join this group?",
+    confirmBtnClass: "gdSubmitBtn", cancelBtnClass: "gdCancelBtn",
+    confirmLabel: "Join", cancelLabel: "Cancel",
+    onConfirm: () => { setConfirmDialog(null); executeJoinFromDetail(groupId, setJoiningGroup, setToast, toastTimerRef, loadGroup); },
+    onCancel: () => setConfirmDialog(null),
+  });
+}
+
+function openLeaveFromDetailDialog(groupId, setConfirmDialog, setLeavingGroup, setToast, toastTimerRef, loadGroup) {
+  if (!groupId) return;
+  setConfirmDialog({
+    message: "Are you sure you want to leave this group?",
+    confirmBtnClass: "gdLeaveBtn", cancelBtnClass: "gdCancelBtn",
+    confirmLabel: "Leave", cancelLabel: "Cancel",
+    onConfirm: () => { setConfirmDialog(null); executeLeaveFromDetail(groupId, setLeavingGroup, setToast, toastTimerRef, loadGroup); },
+    onCancel: () => setConfirmDialog(null),
+  });
+}
+
 export default function GroupDetail() {
   const { groupId } = useParams();
   const nav = useNavigate();
@@ -218,155 +378,50 @@ export default function GroupDetail() {
 
   async function handleUpdateGroup(e) {
     e.preventDefault();
-    if (!group?.id) return;
-    setSendingEmail(true);
-    try {
-      const payload = {
-        name: group.name, moduleCode: group.moduleCode, topic: group.topic,
-        description: group.description, studyMode: group.studyMode,
-        location: group.location, meetingLink: group.meetingLink,
-        preferredSchedule: [scheduleDate, scheduleTime].filter(Boolean).join("T"),
-        maxMembers: Number(group.maxMembers),
-        approvalRequired: !!group.approvalRequired,
-      };
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}`, {
-        method: "PUT", headers: authHeaders(), credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Update failed (${res.status})`);
-      showToast("Group updated successfully!", "success", setToast, toastTimer);
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error", setToast, toastTimer); }
-    finally { setSendingEmail(false); }
+    await executeUpdateGroupAction(group, scheduleDate, scheduleTime, setSendingEmail, setToast, toastTimer, loadGroup);
   }
 
   async function handleCreateSession(e) {
     e.preventDefault();
-    if (!group?.id) return;
-    setSendingEmail(true);
-    try {
-      const payload = {
-        title: sessionForm.title,
-        startsAt: [sessionForm.startsAtDate, sessionForm.startsAtTime].filter(Boolean).join("T"),
-        endsAt: sessionForm.endsAtDate ? [sessionForm.endsAtDate, sessionForm.endsAtTime].filter(Boolean).join("T") : null,
-        location: sessionForm.location, meetingLink: sessionForm.meetingLink, notes: sessionForm.notes,
-      };
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/sessions`, {
-        method: "POST", headers: authHeaders(), credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Create session failed (${res.status})`);
-      setSessionForm({ ...sessionForm, title: "", startsAtDate: "", startsAtTime: "", endsAtDate: "", endsAtTime: "", notes: "" });
-      showToast("Session created! Notifying members by email\u2026", "success", setToast, toastTimer);
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error", setToast, toastTimer); }
-    finally { setSendingEmail(false); }
+    await executeCreateSessionAction(group?.id, sessionForm, setSessionForm, setSendingEmail, setToast, toastTimer, loadGroup);
   }
 
-  function handleDeleteSession(sessionId) {
-    if (!group?.id) return;
-    setConfirmDialog({
-      message: "Are you sure you want to delete this session?",
-      confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
-      confirmLabel: "Delete", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeDeleteSession(sessionId, group.id, setToast, toastTimer, loadGroup); },
-      onCancel: () => setConfirmDialog(null),
-    });
-  }
+  const handleDeleteSession = (sessionId) => {
+    openDeleteSessionDialog(sessionId, group?.id, setConfirmDialog, setToast, toastTimer, loadGroup);
+  };
 
   async function handleInviteMember(e) {
     e.preventDefault();
-    if (!group?.id || !inviteEmail.trim()) return;
-    setSendingEmail(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/members/invite`, {
-        method: "POST", headers: authHeaders(), credentials: "include",
-        body: JSON.stringify({ email: inviteEmail.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Invite failed (${res.status})`);
-
-      setInviteEmail("");
-      showToast("Invitation sent successfully!", "success", setToast, toastTimer);
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error", setToast, toastTimer); }
-    finally { setSendingEmail(false); }
+    await executeInviteMemberAction(group?.id, inviteEmail, setInviteEmail, setSendingEmail, setToast, toastTimer, loadGroup);
   }
 
   async function handleApproveMember(userId) {
-    if (!group?.id) return;
-    setSendingEmail(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/members/${userId}/approve`, {
-        method: "POST", headers: authHeaders(), credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Approve failed (${res.status})`);
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error", setToast, toastTimer); }
-    finally { setSendingEmail(false); }
+    await executeApproveMemberAction(group?.id, userId, setSendingEmail, setToast, toastTimer, loadGroup);
   }
 
-  function handleRemoveMember(userId) {
-    if (!group?.id) return;
-    setConfirmDialog({
-      message: "Are you sure you want to reject this member from the group?",
-      confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
-      confirmLabel: "Reject", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeRemoveMember(userId, group.id, setSendingEmail, setToast, toastTimer, loadGroup); },
-      onCancel: () => setConfirmDialog(null),
-    });
-  }
+  const handleRemoveMember = (userId) => {
+    openRemoveMemberDialog(userId, group?.id, setConfirmDialog, setSendingEmail, setToast, toastTimer, loadGroup);
+  };
 
-  function handleTransferOwnership() {
-    if (!group?.id || !transferOwnerId) return;
-    setConfirmDialog({
-      message: "Transfer ownership to selected member?",
-      confirmBtnClass: "confirmBtnGreen", cancelBtnClass: "confirmBtnOutline",
-      confirmLabel: "Transfer", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeTransferOwnership(group.id, transferOwnerId, setSendingEmail, setToast, toastTimer, loadGroup); },
-      onCancel: () => setConfirmDialog(null),
-    });
-  }
+  const handleTransferOwnership = () => {
+    openTransferOwnershipDialog(group?.id, transferOwnerId, setConfirmDialog, setSendingEmail, setToast, toastTimer, loadGroup);
+  };
 
-  function handleDissolveGroup() {
-    if (!group?.id) return;
-    setConfirmDialog({
-      message: "Are you sure you want to dissolve this group? This action will set the group status to dissolved and cannot be undone.",
-      confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
-      confirmLabel: "Dissolve", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeDissolveGroup(group.id, setSendingEmail, setToast, toastTimer, nav); },
-      onCancel: () => setConfirmDialog(null),
-    });
-  }
+  const handleDissolveGroup = () => {
+    openDissolveGroupDialog(group?.id, setConfirmDialog, setSendingEmail, setToast, toastTimer, nav);
+  };
 
   /* ── Join from detail page ── */
 
-  function handleJoinFromDetail() {
-    if (!group?.id) return;
-    setConfirmDialog({
-      message: "Are you sure you want to join this group?",
-      confirmBtnClass: "gdSubmitBtn", cancelBtnClass: "gdCancelBtn",
-      confirmLabel: "Join", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeJoinFromDetail(group.id, setJoiningGroup, setToast, toastTimer, loadGroup); },
-      onCancel: () => setConfirmDialog(null),
-    });
-  }
+  const handleJoinFromDetail = () => {
+    openJoinFromDetailDialog(group?.id, setConfirmDialog, setJoiningGroup, setToast, toastTimer, loadGroup);
+  };
 
   /* ── Leave from detail page ── */
 
-  function handleLeaveFromDetail() {
-    if (!group?.id) return;
-    setConfirmDialog({
-      message: "Are you sure you want to leave this group?",
-      confirmBtnClass: "gdLeaveBtn", cancelBtnClass: "gdCancelBtn",
-      confirmLabel: "Leave", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeLeaveFromDetail(group.id, setLeavingGroup, setToast, toastTimer, loadGroup); },
-      onCancel: () => setConfirmDialog(null),
-    });
-  }
+  const handleLeaveFromDetail = () => {
+    openLeaveFromDetailDialog(group?.id, setConfirmDialog, setLeavingGroup, setToast, toastTimer, loadGroup);
+  };
 
   /* ── Render ── */
 
@@ -397,47 +452,56 @@ export default function GroupDetail() {
             <div className="gdSection">
               <h2 className="gdSectionTitle">Group Details</h2>
               <form className="gdForm" onSubmit={handleUpdateGroup}>
-                <label className="gdLabel">Group Name *
+                <label className="gdLabel">
+                  <span>Group Name *</span>
                   <input className="gdInput" required value={group.name || ""} onChange={(e) => setGroup({ ...group, name: e.target.value })} />
                 </label>
                 <div className="gdRow">
-                  <label className="gdLabel">Module / Subject *
+                  <label className="gdLabel">
+                    <span>Module / Subject *</span>
                     <input className="gdInput" required value={group.moduleCode || ""} onChange={(e) => setGroup({ ...group, moduleCode: e.target.value })} />
                   </label>
-                  <label className="gdLabel">Topic
+                  <label className="gdLabel">
+                    <span>Topic</span>
                     <input className="gdInput" value={group.topic || ""} onChange={(e) => setGroup({ ...group, topic: e.target.value })} />
                   </label>
                 </div>
                 <div className="gdRow">
-                  <label className="gdLabel">Study Mode
+                  <label className="gdLabel">
+                    <span>Study Mode</span>
                     <select className="gdInput" value={group.studyMode || "online"} onChange={(e) => setGroup({ ...group, studyMode: e.target.value })}>
                       <option value="online">Online</option>
                       <option value="in-person">In-Person</option>
                       <option value="hybrid">Hybrid</option>
                     </select>
                   </label>
-                  <label className="gdLabel">Max Members
+                  <label className="gdLabel">
+                    <span>Max Members</span>
                     <input className="gdInput" type="number" min={2} max={100} value={group.maxMembers || 10} onChange={(e) => setGroup({ ...group, maxMembers: Number(e.target.value) })} />
                   </label>
                 </div>
-                <label className="gdLabel">Location
+                <label className="gdLabel">
+                  <span>Location</span>
                   <input className="gdInput" value={group.location || ""} onChange={(e) => setGroup({ ...group, location: e.target.value })} />
                 </label>
-                <label className="gdLabel">Meeting Link
+                <label className="gdLabel">
+                  <span>Meeting Link</span>
                   <input className="gdInput" value={group.meetingLink || ""} onChange={(e) => setGroup({ ...group, meetingLink: e.target.value })} />
                 </label>
-                <label className="gdLabel">Preferred Schedule *
+                <label className="gdLabel">
+                  <span>Preferred Schedule *</span>
                   <div className="gdRow">
                     <input className="gdInput" type="date" required min={new Date().toISOString().split("T")[0]} value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
                     <input className="gdInput" type="time" required value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
                   </div>
                 </label>
-                <label className="gdLabel">Description *
+                <label className="gdLabel">
+                  <span>Description *</span>
                   <textarea className="gdInput gdTextarea" required rows={3} value={group.description || ""} onChange={(e) => setGroup({ ...group, description: e.target.value })} />
                 </label>
                 <label className="gdLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <input type="checkbox" checked={!!group.approvalRequired} onChange={(e) => setGroup({ ...group, approvalRequired: e.target.checked })} />
-                  Require admin approval for join requests
+                  <span>Require admin approval for join requests</span>
                 </label>
                 <div className="gdActions">
                   <button type="submit" className="gdSubmitBtn" disabled={sendingEmail}>
@@ -452,7 +516,8 @@ export default function GroupDetail() {
             <div className="gdSection">
               <h2 className="gdSectionTitle">Members</h2>
               <form className="gdRow" onSubmit={handleInviteMember}>
-                <label className="gdLabel" style={{ flex: 1 }}>Invite by email
+                <label className="gdLabel" style={{ flex: 1 }}>
+                  <span>Invite by email</span>
                   <input className="gdInput" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="student@u.nus.edu" />
                 </label>
                 <div className="gdActions" style={{ alignSelf: "end" }}>
@@ -476,7 +541,7 @@ export default function GroupDetail() {
                         <tr key={`${m.userId}-${m.role}`}>
                           <td>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</td>
                           <td><span className={`gdRoleBadge gdRole-${m.role}`}>{m.role}</span></td>
-                          <td>{m.role !== "owner" ? <span className={`gdStatusBadge gdStatus-${m.membershipStatus}`}>{m.membershipStatus}</span> : "—"}</td>
+                          <td>{m.role === "owner" ? "—" : <span className={`gdStatusBadge gdStatus-${m.membershipStatus}`}>{m.membershipStatus}</span>}</td>
                           <td>
                             <div style={{ display: "flex", gap: 6 }}>
                               {(m.membershipStatus === "pending" || m.membershipStatus === "invited") && (
@@ -495,7 +560,8 @@ export default function GroupDetail() {
               )}
 
               <div className="gdRow" style={{ marginTop: 12 }}>
-                <label className="gdLabel" style={{ flex: 1 }}>Transfer Ownership
+                <label className="gdLabel" style={{ flex: 1 }}>
+                  <span>Transfer Ownership</span>
                   <select className="gdInput" value={transferOwnerId} onChange={(e) => setTransferOwnerId(e.target.value)}>
                     <option value="">Select approved member</option>
                     {members
@@ -516,30 +582,36 @@ export default function GroupDetail() {
             <div className="gdSection">
               <h2 className="gdSectionTitle">Scheduled Sessions</h2>
               <form className="gdForm" onSubmit={handleCreateSession}>
-                <label className="gdLabel">Session Title *
+                <label className="gdLabel">
+                  <span>Session Title *</span>
                   <input className="gdInput" required value={sessionForm.title} onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })} />
                 </label>
-                <label className="gdLabel">Starts At *
+                <label className="gdLabel">
+                  <span>Starts At *</span>
                   <div className="gdRow">
                     <input className="gdInput" type="date" required min={new Date().toISOString().split("T")[0]} value={sessionForm.startsAtDate} onChange={(e) => setSessionForm({ ...sessionForm, startsAtDate: e.target.value })} />
                     <input className="gdInput" type="time" required value={sessionForm.startsAtTime} onChange={(e) => setSessionForm({ ...sessionForm, startsAtTime: e.target.value })} />
                   </div>
                 </label>
-                <label className="gdLabel">Ends At
+                <label className="gdLabel">
+                  <span>Ends At</span>
                   <div className="gdRow">
                     <input className="gdInput" type="date" min={new Date().toISOString().split("T")[0]} value={sessionForm.endsAtDate} onChange={(e) => setSessionForm({ ...sessionForm, endsAtDate: e.target.value })} />
                     <input className="gdInput" type="time" value={sessionForm.endsAtTime} onChange={(e) => setSessionForm({ ...sessionForm, endsAtTime: e.target.value })} />
                   </div>
                 </label>
                 <div className="gdRow">
-                  <label className="gdLabel">Location
+                  <label className="gdLabel">
+                    <span>Location</span>
                     <input className="gdInput" value={sessionForm.location} onChange={(e) => setSessionForm({ ...sessionForm, location: e.target.value })} />
                   </label>
-                  <label className="gdLabel">Meeting Link
+                  <label className="gdLabel">
+                    <span>Meeting Link</span>
                     <input className="gdInput" value={sessionForm.meetingLink} onChange={(e) => setSessionForm({ ...sessionForm, meetingLink: e.target.value })} />
                   </label>
                 </div>
-                <label className="gdLabel">Notes
+                <label className="gdLabel">
+                  <span>Notes</span>
                   <textarea className="gdInput gdTextarea" rows={2} value={sessionForm.notes} onChange={(e) => setSessionForm({ ...sessionForm, notes: e.target.value })} />
                 </label>
                 <div className="gdActions">
@@ -636,7 +708,7 @@ export default function GroupDetail() {
                   <div key={`${m.userId}-${m.role}`} className="gdMemberRow">
                     <div>
                       <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</strong>
-                      <div className="gdMemberMeta">{m.role}{m.role !== "owner" ? ` · ${m.membershipStatus}` : ""}</div>
+                      <div className="gdMemberMeta">{m.role}{m.role === "owner" ? "" : ` · ${m.membershipStatus}`}</div>
                     </div>
                   </div>
                 ))}

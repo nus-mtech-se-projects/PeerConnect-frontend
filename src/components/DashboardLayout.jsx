@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
+import PropTypes from "prop-types";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
@@ -84,8 +85,10 @@ export default function DashboardLayout({ activeNav, children }) {
   }
 
   const account = accounts[0];
+  const accountGivenName = typeof account?.idTokenClaims?.given_name === "string" ? account.idTokenClaims.given_name : "";
+  const accountFamilyName = typeof account?.idTokenClaims?.family_name === "string" ? account.idTokenClaims.family_name : "";
   const userName = profileName || account?.name || account?.idTokenClaims?.name ||
-    [account?.idTokenClaims?.given_name, account?.idTokenClaims?.family_name].filter(Boolean).join(" ") || "Student";
+    [accountGivenName, accountFamilyName].filter(Boolean).join(" ") || "Student";
   const userEmail = account?.username || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
@@ -150,3 +153,8 @@ export default function DashboardLayout({ activeNav, children }) {
     </div>
   );
 }
+
+DashboardLayout.propTypes = {
+  activeNav: PropTypes.string,
+  children: PropTypes.oneOfType([PropTypes.node, PropTypes.func]).isRequired,
+};

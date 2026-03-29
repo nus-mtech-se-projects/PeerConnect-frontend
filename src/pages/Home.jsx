@@ -123,6 +123,24 @@ function getProfileDisplayName(profileData) {
   return fullName || profileData?.name || "";
 }
 
+function filterDashboardGroups(groups, search, myGroupsOnly) {
+  const q = search.toLowerCase().trim();
+  return groups.filter((group) => {
+    const matchesAdminFilter = !myGroupsOnly || group.isAdmin;
+    const matchesSearch =
+      !q ||
+      group.name?.toLowerCase().includes(q) ||
+      group.moduleCode?.toLowerCase().includes(q) ||
+      group.courseCode?.toLowerCase().includes(q) ||
+      group.topic?.toLowerCase().includes(q);
+    return matchesAdminFilter && matchesSearch;
+  });
+}
+
+function getReviewableMembers(members, userEmail) {
+  return members.filter((member) => member.membershipStatus === "approved" && member.email !== userEmail);
+}
+
 async function fetchFirstAvailableProfile() {
   const headers = authHeaders();
   for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
@@ -313,46 +331,55 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
       {showCreate && (
         <>
           <button type="button" className="modalOverlay" aria-label="Close create tutoring class modal" onClick={() => setShowCreate(false)} />
-          <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)}>
+          <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); setShowCreate(false); }}>
             <h2 className="modalTitle">Create Tutoring Class</h2>
             <form className="modalForm" onSubmit={handleCreate}>
-              <label className="modalLabel">Class Title *
+              <label className="modalLabel">
+                <span>Class Title *</span>
                 <input className="modalInput" required value={newClass.title} onChange={(e) => setNewClass({ ...newClass, title: e.target.value })} placeholder="e.g. CS2030 Weekly Tutoring" />
               </label>
               <div className="modalRow">
-                <label className="modalLabel">Module Code *
+                <label className="modalLabel">
+                  <span>Module Code *</span>
                   <input className="modalInput" required value={newClass.moduleCode} onChange={(e) => setNewClass({ ...newClass, moduleCode: e.target.value })} placeholder="e.g. CS2030" />
                 </label>
-                <label className="modalLabel">Topic
+                <label className="modalLabel">
+                  <span>Topic</span>
                   <input className="modalInput" value={newClass.topic} onChange={(e) => setNewClass({ ...newClass, topic: e.target.value })} placeholder="e.g. OOP & Streams" />
                 </label>
               </div>
               <div className="modalRow">
-                <label className="modalLabel">Mode
+                <label className="modalLabel">
+                  <span>Mode</span>
                   <select className="modalInput" value={newClass.mode} onChange={(e) => setNewClass({ ...newClass, mode: e.target.value })}>
                     <option value="online">Online</option>
                     <option value="in-person">In-Person</option>
                     <option value="hybrid">Hybrid</option>
                   </select>
                 </label>
-                <label className="modalLabel">Max Students
+                <label className="modalLabel">
+                  <span>Max Students</span>
                   <input className="modalInput" type="number" min={1} max={20} value={newClass.maxStudents} onChange={(e) => setNewClass({ ...newClass, maxStudents: Number(e.target.value) })} />
                 </label>
               </div>
               {(newClass.mode === "in-person" || newClass.mode === "hybrid") && (
-                <label className="modalLabel">Location *
+                <label className="modalLabel">
+                  <span>Location *</span>
                   <input className="modalInput" required value={newClass.location} onChange={(e) => setNewClass({ ...newClass, location: e.target.value })} placeholder="e.g. COM1 Level 2" />
                 </label>
               )}
               {(newClass.mode === "online" || newClass.mode === "hybrid") && (
-                <label className="modalLabel">Meeting Link *
+                <label className="modalLabel">
+                  <span>Meeting Link *</span>
                   <input className="modalInput" required value={newClass.meetingLink} onChange={(e) => setNewClass({ ...newClass, meetingLink: e.target.value })} placeholder="e.g. https://zoom.us/j/..." />
                 </label>
               )}
-              <label className="modalLabel">Schedule *
+              <label className="modalLabel">
+                <span>Schedule *</span>
                 <input className="modalInput" required value={newClass.schedule} onChange={(e) => setNewClass({ ...newClass, schedule: e.target.value })} placeholder="e.g. Every Sat 2–4pm" />
               </label>
-              <label className="modalLabel">Description
+              <label className="modalLabel">
+                <span>Description</span>
                 <textarea className="modalInput modalTextarea" rows={3} value={newClass.description} onChange={(e) => setNewClass({ ...newClass, description: e.target.value })} />
               </label>
               <div className="modalActions">
@@ -701,6 +728,143 @@ function StudyGroupsModule({
   );
 }
 
+CreateGroupModal.propTypes = {
+  showCreate: PropTypes.bool.isRequired,
+  setShowCreate: PropTypes.func.isRequired,
+  creating: PropTypes.bool.isRequired,
+  newGroup: PropTypes.object.isRequired,
+  setNewGroup: PropTypes.func.isRequired,
+  handleCreate: PropTypes.func.isRequired,
+};
+function CreateGroupModal({ showCreate, setShowCreate, creating, newGroup, setNewGroup, handleCreate }) {
+  if (!showCreate) return null;
+  return (
+    <>
+      <button type="button" className="modalOverlay" aria-label="Close create study group modal" onClick={() => setShowCreate(false)} />
+      <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); setShowCreate(false); }}>
+        <h2 className="modalTitle">Create Study Group</h2>
+        <form className="modalForm" onSubmit={handleCreate}>
+          <label className="modalLabel">
+            <span>Group Name *</span>
+            <input className="modalInput" required value={newGroup.name} onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })} />
+          </label>
+          <div className="modalRow">
+            <label className="modalLabel">
+              <span>Module / Subject *</span>
+              <input className="modalInput" required placeholder="e.g. CS2030" value={newGroup.moduleCode} onChange={(e) => setNewGroup({ ...newGroup, moduleCode: e.target.value })} />
+            </label>
+            <label className="modalLabel">
+              <span>Topic</span>
+              <input className="modalInput" placeholder="e.g. Data Structures" value={newGroup.topic} onChange={(e) => setNewGroup({ ...newGroup, topic: e.target.value })} />
+            </label>
+          </div>
+          <div className="modalRow">
+            <label className="modalLabel">
+              <span>Study Mode</span>
+              <select className="modalInput" value={newGroup.studyMode} onChange={(e) => setNewGroup({ ...newGroup, studyMode: e.target.value })}>
+                <option value="online">Online</option>
+                <option value="in-person">In-Person</option>
+                <option value="hybrid">Hybrid</option>
+              </select>
+            </label>
+            <label className="modalLabel">
+              <span>Max Members</span>
+              <input className="modalInput" type="number" min={2} max={50} value={newGroup.maxMembers} onChange={(e) => setNewGroup({ ...newGroup, maxMembers: Number(e.target.value) })} />
+            </label>
+          </div>
+          {(newGroup.studyMode === "in-person" || newGroup.studyMode === "hybrid") && (
+            <label className="modalLabel">
+              <span>Location</span>
+              <input className="modalInput" required placeholder="e.g. COM1 Level 2" value={newGroup.location} onChange={(e) => setNewGroup({ ...newGroup, location: e.target.value })} />
+            </label>
+          )}
+          {(newGroup.studyMode === "online" || newGroup.studyMode === "hybrid") && (
+            <label className="modalLabel">
+              <span>Meeting Link</span>
+              <input className="modalInput" required placeholder="e.g. https://teams.microsoft.com/..." value={newGroup.meetingLink} onChange={(e) => setNewGroup({ ...newGroup, meetingLink: e.target.value })} />
+            </label>
+          )}
+          <label className="modalLabel">
+            <span>Preferred Schedule *</span>
+            <div className="modalRow">
+              <input className="modalInput" type="date" required value={newGroup.scheduleDate} onChange={(e) => setNewGroup({ ...newGroup, scheduleDate: e.target.value })} />
+              <input className="modalInput" type="time" required value={newGroup.scheduleTime} onChange={(e) => setNewGroup({ ...newGroup, scheduleTime: e.target.value })} />
+            </div>
+          </label>
+          <label className="modalLabel">
+            <span>Description</span>
+            <textarea className="modalInput modalTextarea" required rows={3} value={newGroup.description} onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })} />
+          </label>
+          <label className="modalLabel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={newGroup.approvalRequired} onChange={(e) => setNewGroup({ ...newGroup, approvalRequired: e.target.checked })} />
+            <span>Require admin approval for join requests</span>
+          </label>
+          <div className="modalActions">
+            <button type="button" className="modalCancel" onClick={() => setShowCreate(false)}>Cancel</button>
+            <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Group"}</button>
+          </div>
+        </form>
+      </dialog>
+    </>
+  );
+}
+
+FeedbackPickerModal.propTypes = {
+  showFeedbackPicker: PropTypes.bool.isRequired,
+  closeFeedbackPicker: PropTypes.func.isRequired,
+  selectedFeedbackGroup: PropTypes.object,
+  selectedFeedbackGroupId: PropTypes.string.isRequired,
+  selectedFeedbackSessionId: PropTypes.string.isRequired,
+  setSelectedFeedbackSessionId: PropTypes.func.isRequired,
+  handleSelectFeedbackGroup: PropTypes.func.isRequired,
+  handleLaunchFeedback: PropTypes.func.isRequired,
+  feedbackOptions: PropTypes.array.isRequired,
+};
+function FeedbackPickerModal({
+  showFeedbackPicker,
+  closeFeedbackPicker,
+  selectedFeedbackGroup,
+  selectedFeedbackGroupId,
+  selectedFeedbackSessionId,
+  setSelectedFeedbackSessionId,
+  handleSelectFeedbackGroup,
+  handleLaunchFeedback,
+  feedbackOptions,
+}) {
+  if (!showFeedbackPicker) return null;
+  return (
+    <>
+      <button type="button" className="modalOverlay" aria-label="Close feedback picker modal" onClick={closeFeedbackPicker} />
+      <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); closeFeedbackPicker(); }}>
+        <h2 className="modalTitle">Give Peer Feedback</h2>
+        <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
+        <label className="modalLabel">
+          <span>Study Group</span>
+          <select className="modalInput" value={selectedFeedbackGroupId} onChange={(e) => handleSelectFeedbackGroup(e.target.value)}>
+            {feedbackOptions.map((o) => (
+              <option key={o.group.id} value={o.group.id}>{o.group.name}</option>
+            ))}
+          </select>
+        </label>
+        {selectedFeedbackGroup && (
+          <label className="modalLabel">
+            <span>Session</span>
+            <select className="modalInput" value={selectedFeedbackSessionId} onChange={(e) => setSelectedFeedbackSessionId(e.target.value)}>
+              {selectedFeedbackGroup.sessions.map((s) => (
+                <option key={s.id} value={s.id}>{s.title || s.startsAt || s.id}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <div className="modalActions">
+          <button type="button" className="modalCancel" onClick={closeFeedbackPicker}>Cancel</button>
+          <button type="button" className="modalSubmit" onClick={handleLaunchFeedback} disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}>Next →</button>
+        </div>
+      </dialog>
+    </>
+  );
+}
+
 /* ═══════════════════════════════════════════════════
    Dashboard (shown to logged-in users)
    ═══════════════════════════════════════════════════ */
@@ -718,7 +882,6 @@ function DashboardHome() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedMembers, setSelectedMembers] = useState([]);
-  const [, setSelectedSessions] = useState([]);
   const [membershipActionId, setMembershipActionId] = useState(null);
   const [newGroup, setNewGroup] = useState({
     name: "", moduleCode: "", topic: "", studyMode: "online",
@@ -802,19 +965,7 @@ function DashboardHome() {
     return () => { cancelled = true; };
   }, [nav]);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return groups.filter((g) => {
-      const matchesAdminFilter = !myGroupsOnly || g.isAdmin;
-      const matchesSearch =
-        !q ||
-        g.name?.toLowerCase().includes(q) ||
-        g.moduleCode?.toLowerCase().includes(q) ||
-        g.courseCode?.toLowerCase().includes(q) ||
-        g.topic?.toLowerCase().includes(q);
-      return matchesAdminFilter && matchesSearch;
-    });
-  }, [groups, search, myGroupsOnly]);
+  const filtered = useMemo(() => filterDashboardGroups(groups, search, myGroupsOnly), [groups, search, myGroupsOnly]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -851,11 +1002,11 @@ function DashboardHome() {
 
   function openFeedback(session, membersOverride) {
     const members = membersOverride ?? selectedMembers;
-    const approvedMembers = members.filter(
+    const firstApprovedMember = members.find(
       (m) => m.membershipStatus === "approved" && m.email !== userEmail
     );
     setFeedbackSession(session);
-    setFeedbackForm({ ...createFeedbackForm(), revieweeId: approvedMembers[0]?.userId || approvedMembers[0]?.email || "" });
+    setFeedbackForm({ ...createFeedbackForm(), revieweeId: firstApprovedMember?.userId || firstApprovedMember?.email || "" });
     setFeedbackStatus({ type: "", message: "" });
     setShowFeedback(true);
   }
@@ -873,7 +1024,6 @@ function DashboardHome() {
     if (!opt || !session) return;
     setSelectedGroup(opt.group);
     setSelectedMembers(opt.members);
-    setSelectedSessions(opt.sessions);
     setFeedbackApiPath(`${API_BASE}/api/tutoring/classes/${opt.group.id}/feedback`);
     closeFeedbackPicker();
     openFeedback(session, opt.members);
@@ -1083,14 +1233,14 @@ function DashboardHome() {
   }
 
   const account = accounts[0];
+  const accountGivenName = typeof account?.idTokenClaims?.given_name === "string" ? account.idTokenClaims.given_name : "";
+  const accountFamilyName = typeof account?.idTokenClaims?.family_name === "string" ? account.idTokenClaims.family_name : "";
   const userName = profileName || account?.name || account?.idTokenClaims?.name ||
-    [account?.idTokenClaims?.given_name, account?.idTokenClaims?.family_name].filter(Boolean).join(" ") || "Student";
+    [accountGivenName, accountFamilyName].filter(Boolean).join(" ") || "Student";
   const userEmail = account?.username || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
-  const reviewableMembers = selectedMembers.filter(
-    (m) => m.membershipStatus === "approved" && m.email !== userEmail
-  );
+  const reviewableMembers = getReviewableMembers(selectedMembers, userEmail);
   const selectedFeedbackGroup = feedbackOptions.find((o) => o.group.id === selectedFeedbackGroupId) || null;
 
   return (
@@ -1175,104 +1325,35 @@ function DashboardHome() {
         {activeModule === "restrictedMembers" && <RestrictedMemberSection />}
       </section>
 
-      {showCreate && (
-        <>
-          <button type="button" className="modalOverlay" aria-label="Close create study group modal" onClick={() => setShowCreate(false)} />
-          <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)}>
-            <h2 className="modalTitle">Create Study Group</h2>
-            <form className="modalForm" onSubmit={handleCreate}>
-              <label className="modalLabel">Group Name *
-                <input className="modalInput" required value={newGroup.name} onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })} />
-              </label>
-              <div className="modalRow">
-                <label className="modalLabel">Module / Subject *
-                  <input className="modalInput" required placeholder="e.g. CS2030" value={newGroup.moduleCode} onChange={(e) => setNewGroup({ ...newGroup, moduleCode: e.target.value })} />
-                </label>
-                <label className="modalLabel">Topic
-                  <input className="modalInput" placeholder="e.g. Data Structures" value={newGroup.topic} onChange={(e) => setNewGroup({ ...newGroup, topic: e.target.value })} />
-                </label>
-              </div>
-              <div className="modalRow">
-                <label className="modalLabel">Study Mode
-                  <select className="modalInput" value={newGroup.studyMode} onChange={(e) => setNewGroup({ ...newGroup, studyMode: e.target.value })}>
-                    <option value="online">Online</option>
-                    <option value="in-person">In-Person</option>
-                    <option value="hybrid">Hybrid</option>
-                  </select>
-                </label>
-                <label className="modalLabel">Max Members
-                  <input className="modalInput" type="number" min={2} max={50} value={newGroup.maxMembers} onChange={(e) => setNewGroup({ ...newGroup, maxMembers: Number(e.target.value) })} />
-                </label>
-              </div>
-              {(newGroup.studyMode === "in-person" || newGroup.studyMode === "hybrid") && (
-                <label className="modalLabel">Location
-                  <input className="modalInput" required placeholder="e.g. COM1 Level 2" value={newGroup.location} onChange={(e) => setNewGroup({ ...newGroup, location: e.target.value })} />
-                </label>
-              )}
-              {(newGroup.studyMode === "online" || newGroup.studyMode === "hybrid") && (
-                <label className="modalLabel">Meeting Link
-                  <input className="modalInput" required placeholder="e.g. https://teams.microsoft.com/..." value={newGroup.meetingLink} onChange={(e) => setNewGroup({ ...newGroup, meetingLink: e.target.value })} />
-                </label>
-              )}
-              <label className="modalLabel">Preferred Schedule *
-                <div className="modalRow">
-                  <input className="modalInput" type="date" required value={newGroup.scheduleDate} onChange={(e) => setNewGroup({ ...newGroup, scheduleDate: e.target.value })} />
-                  <input className="modalInput" type="time" required value={newGroup.scheduleTime} onChange={(e) => setNewGroup({ ...newGroup, scheduleTime: e.target.value })} />
-                </div>
-              </label>
-              <label className="modalLabel">Description
-                <textarea className="modalInput modalTextarea" required rows={3} value={newGroup.description} onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })} />
-              </label>
-              <label className="modalLabel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input type="checkbox" checked={newGroup.approvalRequired} onChange={(e) => setNewGroup({ ...newGroup, approvalRequired: e.target.checked })} />
-                Require admin approval for join requests
-              </label>
-              <div className="modalActions">
-                <button type="button" className="modalCancel" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Group"}</button>
-              </div>
-            </form>
-          </dialog>
-        </>
-      )}
+      <CreateGroupModal
+        showCreate={showCreate}
+        setShowCreate={setShowCreate}
+        creating={creating}
+        newGroup={newGroup}
+        setNewGroup={setNewGroup}
+        handleCreate={handleCreate}
+      />
 
-      {showFeedbackPicker && (
-        <>
-          <button type="button" className="modalOverlay" aria-label="Close feedback picker modal" onClick={closeFeedbackPicker} />
-          <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeFeedbackPicker()}>
-            <h2 className="modalTitle">Give Peer Feedback</h2>
-            <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
-            <label className="modalLabel">Study Group
-              <select className="modalInput" value={selectedFeedbackGroupId} onChange={(e) => handleSelectFeedbackGroup(e.target.value)}>
-                {feedbackOptions.map((o) => (
-                  <option key={o.group.id} value={o.group.id}>{o.group.name}</option>
-                ))}
-              </select>
-            </label>
-            {selectedFeedbackGroup && (
-              <label className="modalLabel">Session
-                <select className="modalInput" value={selectedFeedbackSessionId} onChange={(e) => setSelectedFeedbackSessionId(e.target.value)}>
-                  {selectedFeedbackGroup.sessions.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title || s.startsAt || s.id}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <div className="modalActions">
-              <button type="button" className="modalCancel" onClick={closeFeedbackPicker}>Cancel</button>
-              <button type="button" className="modalSubmit" onClick={handleLaunchFeedback} disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}>Next →</button>
-            </div>
-          </dialog>
-        </>
-      )}
+      <FeedbackPickerModal
+        showFeedbackPicker={showFeedbackPicker}
+        closeFeedbackPicker={closeFeedbackPicker}
+        selectedFeedbackGroup={selectedFeedbackGroup}
+        selectedFeedbackGroupId={selectedFeedbackGroupId}
+        selectedFeedbackSessionId={selectedFeedbackSessionId}
+        setSelectedFeedbackSessionId={setSelectedFeedbackSessionId}
+        handleSelectFeedbackGroup={handleSelectFeedbackGroup}
+        handleLaunchFeedback={handleLaunchFeedback}
+        feedbackOptions={feedbackOptions}
+      />
 
       {showFeedback && (
         <>
           <button type="button" className="modalOverlay" aria-label="Close peer feedback modal" onClick={closeFeedback} />
-          <dialog open className="modalCard" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeFeedback()}>
+          <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); closeFeedback(); }}>
             <h2 className="modalTitle">Peer Feedback — {feedbackSession?.title || "Session"}</h2>
             <form className="modalForm" onSubmit={handleSubmitFeedback}>
-              <label className="modalLabel">Reviewing
+              <label className="modalLabel">
+                <span>Reviewing</span>
                 <select className="modalInput" value={feedbackForm.revieweeId} onChange={(e) => setFeedbackForm({ ...feedbackForm, revieweeId: e.target.value })}>
                   <option value="">Select peer</option>
                   {reviewableMembers.map((m) => (
@@ -1293,15 +1374,17 @@ function DashboardHome() {
                   <StarRating label={label} value={feedbackForm[key]} onChange={(v) => setFeedbackForm({ ...feedbackForm, [key]: v })} />
                 </label>
               ))}
-              <label className="modalLabel">Strengths
+              <label className="modalLabel">
+                <span>Strengths</span>
                 <textarea className="modalInput modalTextarea" rows={2} value={feedbackForm.strengths} onChange={(e) => setFeedbackForm({ ...feedbackForm, strengths: e.target.value })} />
               </label>
-              <label className="modalLabel">Areas for Improvement
+              <label className="modalLabel">
+                <span>Areas for Improvement</span>
                 <textarea className="modalInput modalTextarea" rows={2} value={feedbackForm.improvements} onChange={(e) => setFeedbackForm({ ...feedbackForm, improvements: e.target.value })} />
               </label>
               <label className="modalLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <input type="checkbox" checked={feedbackForm.anonymousToPeer} onChange={(e) => setFeedbackForm({ ...feedbackForm, anonymousToPeer: e.target.checked })} />
-                Submit anonymously
+                <span>Submit anonymously</span>
               </label>
               {feedbackStatus.message && (
                 <p style={{ color: feedbackStatus.type === "success" ? "#16a34a" : "#d97706", fontSize: 14 }}>{feedbackStatus.message}</p>
@@ -1320,7 +1403,7 @@ function DashboardHome() {
       {showTutorFeedbacks && (
         <>
           <button type="button" className="modalOverlay" aria-label="Close submitted feedback modal" onClick={closeTutorFeedbacks} />
-          <dialog open className="modalCard tutorFeedbackModal" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && closeTutorFeedbacks()}>
+          <dialog open className="modalCard tutorFeedbackModal" aria-modal="true" onCancel={(e) => { e.preventDefault(); closeTutorFeedbacks(); }}>
             <h2 className="modalTitle">Submitted Feedbacks{tutorFeedbackClass?.title ? ` - ${tutorFeedbackClass.title}` : ""}</h2>
             <p className="tutorFeedbackIntro">
               Select a student name to view the feedback they submitted for this tutoring class.
@@ -1337,21 +1420,22 @@ function DashboardHome() {
 
             {!tutorFeedbackLoading && tutorFeedbackItems.length > 0 && (
               <div className="tutorFeedbackLayout">
-                <div className="tutorFeedbackList" role="list" aria-label="Submitted feedback names">
+                <ul className="tutorFeedbackList" aria-label="Submitted feedback names">
                   {tutorFeedbackItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`tutorFeedbackListItem ${selectedTutorFeedback?.id === item.id ? "active" : ""}`}
-                      onClick={() => setSelectedTutorFeedback(item)}
-                    >
-                      <span className="tutorFeedbackReviewer">{item.reviewerLabel}</span>
-                      <span className="tutorFeedbackMeta">
-                        {item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "Submission time unavailable"}
-                      </span>
-                    </button>
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className={`tutorFeedbackListItem ${selectedTutorFeedback?.id === item.id ? "active" : ""}`}
+                        onClick={() => setSelectedTutorFeedback(item)}
+                      >
+                        <span className="tutorFeedbackReviewer">{item.reviewerLabel}</span>
+                        <span className="tutorFeedbackMeta">
+                          {item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "Submission time unavailable"}
+                        </span>
+                      </button>
+                    </li>
                   ))}
-                </div>
+                </ul>
 
                 <div className="tutorFeedbackDetail">
                   {selectedTutorFeedback ? (

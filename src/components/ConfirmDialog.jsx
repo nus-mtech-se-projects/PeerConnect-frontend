@@ -5,7 +5,7 @@ export default function ConfirmDialog({ dialog, onClose }) {
   return (
     <>
       <div className="modalOverlay" aria-hidden="true" onClick={onClose} />
-      <dialog open className="confirmDialog" aria-modal="true" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+      <dialog open className="confirmDialog" aria-modal="true" onCancel={(e) => { e.preventDefault(); onClose(); }}>
         <p className="confirmMsg">{dialog.message}</p>
         <div className="confirmActions">
           <button className={dialog.cancelBtnClass || "confirmBtnOutline"} onClick={dialog.onCancel}>{dialog.cancelLabel || "Cancel"}</button>

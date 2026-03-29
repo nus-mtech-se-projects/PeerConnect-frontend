@@ -840,7 +840,7 @@ describe("GroupDetail – keyboard accessibility", () => {
     fireEvent.click(screen.getByText("Leave This Group"));
     expect(screen.getByText(/are you sure you want to leave/i)).toBeInTheDocument();
     const dialog = document.querySelector(".confirmDialog");
-    fireEvent.keyDown(dialog, { key: "Escape" });
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
     expect(screen.queryByText(/are you sure you want to leave/i)).not.toBeInTheDocument();
   });
 
@@ -866,7 +866,7 @@ describe("GroupDetail – keyboard accessibility", () => {
     await initMemberView();
     fireEvent.click(screen.getByText("Leave This Group"));
     const dialog = document.querySelector(".confirmDialog");
-    fireEvent.keyDown(dialog, { key: "Escape" });
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
     // Dialog should be closed (dialog handles Escape)
     expect(screen.queryByText(/are you sure you want to leave/i)).not.toBeInTheDocument();
   });

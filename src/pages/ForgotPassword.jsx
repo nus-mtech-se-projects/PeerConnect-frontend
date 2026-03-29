@@ -113,7 +113,7 @@ export default function ForgotPassword() {
           <form className="authForm" onSubmit={onRequestCode}>
             <div className="authField">
               <label className="authLabel" htmlFor="fp-identifier">
-                Email or NUS Student ID
+                <span>Email or NUS Student ID</span>
                 <input
                   id="fp-identifier"
                   className="authInput"

@@ -1,3 +1,5 @@
+import PropTypes from "prop-types";
+
 export default function PasswordCodeForm({
   code,
   onCodeChange,
@@ -15,7 +17,7 @@ export default function PasswordCodeForm({
     <form className="authForm" onSubmit={onSubmit}>
       <div className="authField">
         <label className="authLabel" htmlFor="pcf-code">
-          Verification code
+          <span>Verification code</span>
           <input
             id="pcf-code"
             className="authInput"
@@ -29,7 +31,7 @@ export default function PasswordCodeForm({
 
       <div className="authField">
         <label className="authLabel" htmlFor="pcf-password">
-          New password
+          <span>New password</span>
           <input
             id="pcf-password"
             className="authInput"
@@ -44,7 +46,7 @@ export default function PasswordCodeForm({
 
       <div className="authField">
         <label className="authLabel" htmlFor="pcf-retype">
-          Retype password
+          <span>Retype password</span>
           <input
             id="pcf-retype"
             className="authInput"
@@ -67,3 +69,17 @@ export default function PasswordCodeForm({
     </form>
   );
 }
+
+PasswordCodeForm.propTypes = {
+  code: PropTypes.string.isRequired,
+  onCodeChange: PropTypes.func.isRequired,
+  password: PropTypes.string.isRequired,
+  onPasswordChange: PropTypes.func.isRequired,
+  retypePassword: PropTypes.string.isRequired,
+  onRetypeChange: PropTypes.func.isRequired,
+  error: PropTypes.string,
+  loading: PropTypes.bool.isRequired,
+  submitLabel: PropTypes.string.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  children: PropTypes.node,
+};

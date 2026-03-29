@@ -19,9 +19,10 @@ export default function Login() {
   const loginBody = useMemo(() => {
     const trimmed = identifier.trim();
     const isEmail = trimmed.includes("@");
+    const isStudentId = !isEmail;
     return {
       email: isEmail ? trimmed : null,
-      nusStudentId: !isEmail ? trimmed : null,
+      nusStudentId: isStudentId ? trimmed : null,
       password,
     };
   }, [identifier, password]);
@@ -95,8 +96,9 @@ export default function Login() {
 
         <form className="authForm" onSubmit={onSubmit}>
           <div className="authField">
-            <label className="authLabel">Email or NUS Student ID</label>
+            <label className="authLabel" htmlFor="login-identifier">Email or NUS Student ID</label>
             <input
+              id="login-identifier"
               className="authInput"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
@@ -106,8 +108,9 @@ export default function Login() {
           </div>
 
           <div className="authField">
-            <label className="authLabel">Password</label>
+            <label className="authLabel" htmlFor="login-password">Password</label>
             <input
+              id="login-password"
               className="authInput"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

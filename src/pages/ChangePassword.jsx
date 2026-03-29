@@ -4,6 +4,18 @@ import { API_BASE, authHeaders, validatePasswordCode } from "../utils/auth";
 import PasswordCodeForm from "../components/PasswordCodeForm";
 import "../styles/pages/Auth.css";
 
+async function requestPasswordChangeCode() {
+  const res = await fetch(`${API_BASE}/api/auth/change-password/request`, {
+    method: "POST",
+    headers: authHeaders(),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Failed to send code (${res.status})`);
+  }
+}
+
 export default function ChangePassword() {
   const navigate = useNavigate();
 
@@ -16,23 +28,10 @@ export default function ChangePassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  /* ── Shared: send/resend verification code ────────────── */
-  async function requestCode() {
-    const res = await fetch(`${API_BASE}/api/auth/change-password/request`, {
-      method: "POST",
-      headers: authHeaders(),
-      credentials: "include",
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(text || `Failed to send code (${res.status})`);
-    }
-  }
-
   /* ── On mount: immediately send the verification code ── */
   useEffect(() => {
     let cancelled = false;
-    requestCode()
+    requestPasswordChangeCode()
       .then(() => { if (!cancelled) setSuccess("A verification code has been sent to your email."); })
       .catch((err) => { if (!cancelled) setError(err?.message || "Failed to send verification code. Please try again."); })
       .finally(() => { if (!cancelled) setSendingCode(false); });
@@ -45,7 +44,7 @@ export default function ChangePassword() {
     setSuccess("");
     setSendingCode(true);
     try {
-      await requestCode();
+      await requestPasswordChangeCode();
       setSuccess("A new verification code has been sent to your email.");
     } catch (err) {
       setError(err?.message || "Failed to resend code. Please try again.");
