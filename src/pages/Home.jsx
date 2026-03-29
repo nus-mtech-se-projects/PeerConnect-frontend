@@ -88,18 +88,15 @@ function normalizeFeedbackEntry(entry, index = 0) {
 }
 
 function normalizeFeedbackCollection(payload) {
-  const rawItems = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.feedback)
-      ? payload.feedback
-      : Array.isArray(payload?.feedbacks)
-        ? payload.feedbacks
-        : Array.isArray(payload?.items)
-          ? payload.items
-          : Array.isArray(payload?.records)
-            ? payload.records
-            : [];
-
+  function extractItems(p) {
+    if (Array.isArray(p)) return p;
+    if (Array.isArray(p?.feedback)) return p.feedback;
+    if (Array.isArray(p?.feedbacks)) return p.feedbacks;
+    if (Array.isArray(p?.items)) return p.items;
+    if (Array.isArray(p?.records)) return p.records;
+    return [];
+  }
+  const rawItems = extractItems(payload);
   return rawItems.map((item, index) => normalizeFeedbackEntry(item, index));
 }
 
@@ -212,7 +209,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
   }
 
   async function handleDelete(classId) {
-    if (!window.confirm("Delete this tutoring class?")) return;
+    if (!globalThis.confirm("Delete this tutoring class?")) return;
     try {
       const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}`, {
         method: "DELETE", headers: authHeaders(), credentials: "include",
@@ -938,10 +935,16 @@ function DashboardHome() {
         </div>
       </div>
 
-      {sidebarOpen && <div className="dashOverlay" onClick={closeSidebar} />}
+      {sidebarOpen && <div className="dashOverlay" onClick={closeSidebar} onKeyDown={(e) => e.key === "Escape" && closeSidebar()} role="presentation" />}
 
       <aside className={`dashSidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="dashUserCard" onClick={() => { nav("/profile"); closeSidebar(); }}>
+        <div
+          className="dashUserCard"
+          onClick={() => { nav("/profile"); closeSidebar(); }}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (() => { nav("/profile"); closeSidebar(); })()}
+          role="button"
+          tabIndex={0}
+        >
           <div className="dashAvatar">
             {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
           </div>
@@ -1284,8 +1287,8 @@ function DashboardHome() {
       )}
 
       {confirmDialog && (
-        <div className="modalOverlay" onClick={() => setConfirmDialog(null)}>
-          <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => e.key === "Escape" && setConfirmDialog(null)} role="presentation">
+          <div className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabIndex={-1}>
             <p className="confirmMsg">{confirmDialog.message}</p>
             <div className="confirmActions">
               <button className={confirmDialog.cancelBtnClass || "modalCancel"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
@@ -1296,7 +1299,13 @@ function DashboardHome() {
       )}
 
       {toast && (
-        <div className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`} onClick={() => setToast(null)}>
+        <div
+          className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`}
+          onClick={() => setToast(null)}
+          onKeyDown={(e) => e.key === "Enter" && setToast(null)}
+          role="status"
+          tabIndex={0}
+        >
           {toast.message}
         </div>
       )}

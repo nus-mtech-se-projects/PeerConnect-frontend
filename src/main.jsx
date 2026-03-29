@@ -17,18 +17,14 @@ import "./styles/pages/Auth.css";
 import "./styles/pages/Dashboard.css";
 import "./styles/pages/Profile.css";
 
-async function bootstrap() {
-  await msalInstance.initialize().catch((err) => console.error("MSAL init failed:", err));
+await msalInstance.initialize().catch((err) => console.error("MSAL init failed:", err));
 
-  ReactDOM.createRoot(document.getElementById("root")).render(
-    <React.StrictMode>
-      <MsalProvider instance={msalInstance}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </MsalProvider>
-    </React.StrictMode>
-  );
-}
-
-bootstrap();
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <MsalProvider instance={msalInstance}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </MsalProvider>
+  </React.StrictMode>
+);

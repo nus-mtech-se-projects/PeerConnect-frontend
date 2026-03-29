@@ -19,34 +19,22 @@ export default function Footer() {
           <div className="footerCol">
             <div className="footerColTitle">Product</div>
             <Link className="footerLink" to="/">Features</Link>
-            <a className="footerLink" href="#" onClick={(e) => e.preventDefault()}>
-              How it works
-            </a>
-            <a className="footerLink" href="#" onClick={(e) => e.preventDefault()}>
-              Pricing
-            </a>
+            <button type="button" className="footerLink" onClick={() => {}}>How it works</button>
+            <button type="button" className="footerLink" onClick={() => {}}>Pricing</button>
           </div>
 
           <div className="footerCol">
             <div className="footerColTitle">Company</div>
             <Link className="footerLink" to="/contact">About</Link>
             <Link className="footerLink" to="/contact">Contact</Link>
-            <a className="footerLink" href="#" onClick={(e) => e.preventDefault()}>
-              Careers
-            </a>
+            <button type="button" className="footerLink" onClick={() => {}}>Careers</button>
           </div>
 
           <div className="footerCol">
             <div className="footerColTitle">Support</div>
-            <a className="footerLink" href="#" onClick={(e) => e.preventDefault()}>
-              Help Center
-            </a>
-            <a className="footerLink" href="#" onClick={(e) => e.preventDefault()}>
-              Terms
-            </a>
-            <a className="footerLink" href="#" onClick={(e) => e.preventDefault()}>
-              Privacy
-            </a>
+            <button type="button" className="footerLink" onClick={() => {}}>Help Center</button>
+            <button type="button" className="footerLink" onClick={() => {}}>Terms</button>
+            <button type="button" className="footerLink" onClick={() => {}}>Privacy</button>
           </div>
 
           <div className="footerCol">
@@ -79,9 +67,9 @@ export default function Footer() {
         <div className="footerBottom">
           <div>© {new Date().getFullYear()} PeerConnect. All rights reserved.</div>
           <div className="footerBottomLinks">
-            <a href="#" onClick={(e) => e.preventDefault()}>Security</a>
-            <a href="#" onClick={(e) => e.preventDefault()}>Status</a>
-            <a href="#" onClick={(e) => e.preventDefault()}>Sitemap</a>
+            <button type="button" onClick={() => {}}>Security</button>
+            <button type="button" onClick={() => {}}>Status</button>
+            <button type="button" onClick={() => {}}>Sitemap</button>
           </div>
         </div>
       </div>

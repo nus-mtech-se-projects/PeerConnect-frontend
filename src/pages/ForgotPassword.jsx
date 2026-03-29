@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { API_BASE } from "../utils/auth";
+import PasswordCodeForm from "../components/PasswordCodeForm";
 import "../styles/pages/Auth.css";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export default function ForgotPassword() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: isEmail ? trimmed : null,
-          nusStudentId: !isEmail ? trimmed : null,
+          nusStudentId: isEmail ? null : trimmed,
         }),
       });
 
@@ -89,7 +89,7 @@ export default function ForgotPassword() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: isEmail ? trimmed : null,
-          nusStudentId: !isEmail ? trimmed : null,
+          nusStudentId: isEmail ? null : trimmed,
           code: code.trim(),
           newPassword: password,
         }),
@@ -126,8 +126,9 @@ export default function ForgotPassword() {
         {step === 1 && (
           <form className="authForm" onSubmit={onRequestCode}>
             <div className="authField">
-              <label className="authLabel">Email or NUS Student ID</label>
+              <label className="authLabel" htmlFor="fp-identifier">Email or NUS Student ID</label>
               <input
+                id="fp-identifier"
                 className="authInput"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -146,48 +147,18 @@ export default function ForgotPassword() {
 
         {/* ── Step 2: code + new password ──────────────────── */}
         {step === 2 && (
-          <form className="authForm" onSubmit={onResetPassword}>
-            <div className="authField">
-              <label className="authLabel">Verification code</label>
-              <input
-                className="authInput"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="Enter 6-digit code"
-                autoComplete="one-time-code"
-              />
-            </div>
-
-            <div className="authField">
-              <label className="authLabel">New password</label>
-              <input
-                className="authInput"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type="password"
-                placeholder="New password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className="authField">
-              <label className="authLabel">Retype password</label>
-              <input
-                className="authInput"
-                value={retypePassword}
-                onChange={(e) => setRetypePassword(e.target.value)}
-                type="password"
-                placeholder="Retype new password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            {error && <div className="authError">{error}</div>}
-
-            <button className="authButton" type="submit" disabled={loading}>
-              {loading ? "Resetting…" : "Reset password"}
-            </button>
-
+          <PasswordCodeForm
+            code={code}
+            onCodeChange={(e) => setCode(e.target.value)}
+            password={password}
+            onPasswordChange={(e) => setPassword(e.target.value)}
+            retypePassword={retypePassword}
+            onRetypeChange={(e) => setRetypePassword(e.target.value)}
+            error={error}
+            loading={loading}
+            submitLabel={loading ? "Resetting…" : "Reset password"}
+            onSubmit={onResetPassword}
+          >
             <button
               type="button"
               className="authLinkBtn"
@@ -195,7 +166,7 @@ export default function ForgotPassword() {
             >
               ← Back to enter email
             </button>
-          </form>
+          </PasswordCodeForm>
         )}
 
         <div className="authFooter authFooterRow">

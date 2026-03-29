@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE, authHeaders } from "../utils/auth";
+import PasswordCodeForm from "../components/PasswordCodeForm";
 import "../styles/pages/Auth.css";
 
 export default function ChangePassword() {
@@ -116,65 +117,25 @@ export default function ChangePassword() {
         {success && <div className="authSuccess">{success}</div>}
 
         {!sendingCode && (
-          <form className="authForm" onSubmit={onChangePassword}>
-            <div className="authField">
-              <label className="authLabel">Verification code</label>
-              <input
-                className="authInput"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="Enter 6-digit code"
-                autoComplete="one-time-code"
-              />
-            </div>
-
-            <div className="authField">
-              <label className="authLabel">New password</label>
-              <input
-                className="authInput"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type="password"
-                placeholder="New password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className="authField">
-              <label className="authLabel">Retype password</label>
-              <input
-                className="authInput"
-                value={retypePassword}
-                onChange={(e) => setRetypePassword(e.target.value)}
-                type="password"
-                placeholder="Retype new password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            {error && <div className="authError">{error}</div>}
-
-            <button className="authButton" type="submit" disabled={loading}>
-              {loading ? "Changing…" : "Change password"}
-            </button>
-
-            <button
-              type="button"
-              className="authLinkBtn"
-              onClick={handleResend}
-              disabled={sendingCode}
-            >
+          <PasswordCodeForm
+            code={code}
+            onCodeChange={(e) => setCode(e.target.value)}
+            password={password}
+            onPasswordChange={(e) => setPassword(e.target.value)}
+            retypePassword={retypePassword}
+            onRetypeChange={(e) => setRetypePassword(e.target.value)}
+            error={error}
+            loading={loading}
+            submitLabel={loading ? "Changing…" : "Change password"}
+            onSubmit={onChangePassword}
+          >
+            <button type="button" className="authLinkBtn" onClick={handleResend} disabled={sendingCode}>
               Resend verification code
             </button>
-
-            <button
-              type="button"
-              className="authLinkBtn"
-              onClick={() => navigate("/profile")}
-            >
+            <button type="button" className="authLinkBtn" onClick={() => navigate("/profile")}>
               ← Back to Profile
             </button>
-          </form>
+          </PasswordCodeForm>
         )}
 
         {sendingCode && (
