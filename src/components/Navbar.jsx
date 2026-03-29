@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import peerconnectIcon from "../assets/images/peerconnect_icon.png";
+import ConfirmDialog from "./ConfirmDialog";
 import "../styles/pages/Dashboard.css";
 
 export default function Navbar() {
@@ -119,17 +120,7 @@ export default function Navbar() {
       </div>
     </header>
 
-    {confirmDialog && (
-      <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => { if (e.key === "Escape") setConfirmDialog(null); }} role="presentation">
-        <dialog open className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
-          <p className="confirmMsg">{confirmDialog.message}</p>
-          <div className="confirmActions">
-            <button className="confirmBtnOutline" onClick={confirmDialog.onCancel}>Cancel</button>
-            <button className="confirmBtnGreen" onClick={confirmDialog.onConfirm}>OK</button>
-          </div>
-        </dialog>
-      </div>
-    )}
+    <ConfirmDialog dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
     </>
   );
 }

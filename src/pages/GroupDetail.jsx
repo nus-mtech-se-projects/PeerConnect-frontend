@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE, authHeaders } from "../utils/auth";
+import ConfirmDialog from "../components/ConfirmDialog";
+import Toast from "../components/Toast";
 import "../styles/pages/GroupDetail.css";
 
 function formatDateTime(iso) {
@@ -686,17 +688,7 @@ export default function GroupDetail() {
         )}
       </div>
 
-      {confirmDialog && (
-        <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => { if (e.key === "Escape") setConfirmDialog(null); }} role="presentation">
-          <div className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog">
-            <p className="confirmMsg">{confirmDialog.message}</p>
-            <div className="confirmActions">
-              <button className={confirmDialog.cancelBtnClass || "gdCancelBtn"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
-              <button className={confirmDialog.confirmBtnClass || "gdSubmitBtn"} onClick={confirmDialog.onConfirm}>{confirmDialog.confirmLabel || "Yes"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
 
       {sendingEmail && (
         <div className="gdEmailOverlay">
@@ -708,9 +700,7 @@ export default function GroupDetail() {
       )}
 
       {toast && (
-        <div className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`} onClick={() => setToast(null)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setToast(null); }} role="button" tabIndex={0}>
-          {toast.message}
-        </div>
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
       )}
     </div>
   );

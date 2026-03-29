@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon } from "./Icons";
+import ConfirmDialog from "./ConfirmDialog";
+import Toast from "./Toast";
 import "../styles/pages/Dashboard.css";
 
 const NAV_ITEMS = [
@@ -99,18 +101,20 @@ export default function DashboardLayout({ activeNav, children }) {
         </div>
       </div>
 
-      {sidebarOpen && <div className="dashOverlay" onClick={closeSidebar} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") closeSidebar(); }} role="button" tabIndex={0} aria-label="Close sidebar" />}
+      {sidebarOpen && <button type="button" className="dashOverlay" onClick={closeSidebar} aria-label="Close sidebar" />}
 
       <aside className={`dashSidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="dashUserCard" onClick={() => { nav("/profile"); closeSidebar(); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { nav("/profile"); closeSidebar(); } }} role="button" tabIndex={0}>
-          <div className="dashAvatar">
-            {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
-          </div>
-          <div className="dashUserInfo">
-            <h3 className="dashUserName">{userName}</h3>
-            <p className="dashUserEmail">{userEmail}</p>
-          </div>
-          <button className="dashCloseBtn" onClick={(e) => { e.stopPropagation(); closeSidebar(); }} aria-label="Close menu"><CloseIcon /></button>
+        <div className="dashUserCard">
+          <button type="button" className="dashUserCardBtn" onClick={() => { nav("/profile"); closeSidebar(); }} aria-label="Go to profile">
+            <div className="dashAvatar">
+              {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
+            </div>
+            <div className="dashUserInfo">
+              <h3 className="dashUserName">{userName}</h3>
+              <p className="dashUserEmail">{userEmail}</p>
+            </div>
+          </button>
+          <button className="dashCloseBtn" onClick={closeSidebar} aria-label="Close menu"><CloseIcon /></button>
         </div>
 
         <nav className="dashNav">
@@ -140,23 +144,9 @@ export default function DashboardLayout({ activeNav, children }) {
         ? children({ showToast, setConfirmDialog })
         : children}
 
-      {confirmDialog && (
-        <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => { if (e.key === "Escape") setConfirmDialog(null); }} role="presentation">
-          <div className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog">
-            <p className="confirmMsg">{confirmDialog.message}</p>
-            <div className="confirmActions">
-              <button className={confirmDialog.cancelBtnClass || "confirmBtnOutline"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
-              <button className={confirmDialog.confirmBtnClass || "confirmBtnGreen"} onClick={confirmDialog.onConfirm}>{confirmDialog.confirmLabel || "Yes"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
 
-      {toast && (
-        <div className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`} onClick={() => setToast(null)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setToast(null); }} role="button" tabIndex={0}>
-          {toast.message}
-        </div>
-      )}
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }

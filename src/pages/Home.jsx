@@ -9,6 +9,8 @@ import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
+import ConfirmDialog from "../components/ConfirmDialog";
+import Toast from "../components/Toast";
 import "../styles/pages/Dashboard.css";
 function createFeedbackForm() {
   return {
@@ -1307,29 +1309,9 @@ function DashboardHome() {
         </div>
       )}
 
-      {confirmDialog && (
-        <div className="modalOverlay" onClick={() => setConfirmDialog(null)} onKeyDown={(e) => e.key === "Escape" && setConfirmDialog(null)} role="presentation">
-          <dialog open className="confirmDialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} aria-modal="true">
-            <p className="confirmMsg">{confirmDialog.message}</p>
-            <div className="confirmActions">
-              <button className={confirmDialog.cancelBtnClass || "modalCancel"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
-              <button className={confirmDialog.confirmBtnClass || "modalSubmit"} onClick={confirmDialog.onConfirm}>{confirmDialog.confirmLabel || "Yes"}</button>
-            </div>
-          </dialog>
-        </div>
-      )}
+      <ConfirmDialog dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
 
-      {toast && (
-        <div
-          className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`}
-          onClick={() => setToast(null)}
-          onKeyDown={(e) => e.key === "Enter" && setToast(null)}
-          role="status"
-          tabIndex={0}
-        >
-          {toast.message}
-        </div>
-      )}
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }
