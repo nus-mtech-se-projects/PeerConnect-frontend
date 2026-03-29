@@ -915,7 +915,6 @@ describe("GroupDetail – transfer ownership UAT", () => {
 describe("GroupDetail – session form UAT", () => {
   it("session form pre-fills location and meeting link from group data", async () => {
     await initOwnerView();
-    const section = document.querySelector('.gdSection:last-of-type') || document;
     // The session form location field should be pre-filled from group.location
     const locationInputs = screen.getAllByDisplayValue("COM1-B1");
     expect(locationInputs.length).toBeGreaterThanOrEqual(1);

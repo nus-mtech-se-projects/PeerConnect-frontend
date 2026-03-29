@@ -23,11 +23,11 @@ export default function DashboardLayout({ activeNav, children }) {
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
 
-  function showToast(message, type = "success") {
+  const showToast = useCallback((message, type = "success") => {
     clearTimeout(toastTimer.current);
     setToast({ message, type });
     toastTimer.current = setTimeout(() => setToast(null), 3500);
-  }
+  }, []);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -37,19 +37,20 @@ export default function DashboardLayout({ activeNav, children }) {
       if (cancelled) return;
       const h = authHeaders();
       let nameFound = false;
+      let avatarFound = false;
       for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
         try {
           const res = await fetch(url, { headers: h, credentials: "include" });
           if (!res.ok) continue;
           const data = await res.json();
           if (cancelled) return;
-          if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
+          if (data.avatarUrl) { setAvatarUrl(data.avatarUrl); avatarFound = true; }
           if (!nameFound) {
             const full = [data.firstName, data.lastName].filter(Boolean).join(" ");
             if (full) { setProfileName(full); nameFound = true; }
             else if (data.name) { setProfileName(data.name); nameFound = true; }
           }
-          if (nameFound && avatarUrl) break;
+          if (nameFound && avatarFound) break;
         } catch { /* try next */ }
       }
     }).catch(() => {});
@@ -131,6 +132,7 @@ export default function DashboardLayout({ activeNav, children }) {
       </aside>
 
       {typeof children === "function"
+        // eslint-disable-next-line react-hooks/refs
         ? children({ showToast, setConfirmDialog })
         : children}
 

@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import vitest from 'eslint-plugin-vitest'
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'coverage/**', '**/*.local-backup.*']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

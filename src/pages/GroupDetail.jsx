@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../styles/pages/GroupDetail.css";
 
@@ -57,7 +57,7 @@ export default function GroupDetail() {
     toastTimer.current = setTimeout(() => setToast(null), 3500);
   }
 
-  async function loadGroup() {
+  const loadGroup = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/groups/${groupId}`, {
@@ -113,9 +113,9 @@ export default function GroupDetail() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [groupId]);
 
-  useEffect(() => { loadGroup(); }, [groupId]);
+  useEffect(() => { loadGroup(); }, [loadGroup]);
 
   const isOwner = group?.isAdmin;
 

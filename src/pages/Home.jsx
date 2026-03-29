@@ -564,7 +564,7 @@ function DashboardHome() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedMembers, setSelectedMembers] = useState([]);
-  const [selectedSessions, setSelectedSessions] = useState([]);
+  const [, setSelectedSessions] = useState([]);
   const [membershipActionId, setMembershipActionId] = useState(null);
   const [newGroup, setNewGroup] = useState({
     name: "", moduleCode: "", topic: "", studyMode: "online",
