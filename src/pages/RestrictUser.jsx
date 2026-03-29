@@ -64,6 +64,7 @@ function RestrictUsersTable({ rows, actionId, onRestrict, onAllow, showRestricte
         <thead>
           <tr>
             <th>Name</th>
+            <th>Email</th>
             {showRestrictedOn && <th>Restricted On</th>}
             <th>Action</th>
           </tr>
@@ -74,6 +75,7 @@ function RestrictUsersTable({ rows, actionId, onRestrict, onAllow, showRestricte
             return (
               <tr key={userId}>
                 <td>{formatUserName(user)}</td>
+                <td>{user.email || "—"}</td>
                 {showRestrictedOn && (
                   <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}</td>
                 )}
@@ -101,6 +103,7 @@ RestrictUsersTable.propTypes = {
     restrictedUserId: PropTypes.string,
     firstName: PropTypes.string,
     lastName: PropTypes.string,
+    email: PropTypes.string,
     createdAt: PropTypes.string,
     restricted: PropTypes.bool,
   })).isRequired,
