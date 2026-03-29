@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE, authHeaders, validatePasswordCode } from "../utils/auth";
+import PasswordCodeForm from "../components/PasswordCodeForm";
 import "../styles/pages/Auth.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-function authHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+async function requestPasswordChangeCode() {
+  const res = await fetch(`${API_BASE}/api/auth/change-password/request`, {
+    method: "POST",
+    headers: authHeaders(),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Failed to send code (${res.status})`);
+  }
 }
 
 export default function ChangePassword() {
@@ -27,33 +31,10 @@ export default function ChangePassword() {
   /* ── On mount: immediately send the verification code ── */
   useEffect(() => {
     let cancelled = false;
-
-    async function sendCode() {
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/change-password/request`, {
-          method: "POST",
-          headers: authHeaders(),
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(text || `Failed to send code (${res.status})`);
-        }
-
-        if (!cancelled) {
-          setSuccess("A verification code has been sent to your email.");
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err?.message || "Failed to send verification code. Please try again.");
-        }
-      } finally {
-        if (!cancelled) setSendingCode(false);
-      }
-    }
-
-    sendCode();
+    requestPasswordChangeCode()
+      .then(() => { if (!cancelled) setSuccess("A verification code has been sent to your email."); })
+      .catch((err) => { if (!cancelled) setError(err?.message || "Failed to send verification code. Please try again."); })
+      .finally(() => { if (!cancelled) setSendingCode(false); });
     return () => { cancelled = true; };
   }, []);
 
@@ -62,19 +43,8 @@ export default function ChangePassword() {
     setError("");
     setSuccess("");
     setSendingCode(true);
-
     try {
-      const res = await fetch(`${API_BASE}/api/auth/change-password/request`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(text || `Failed to resend code (${res.status})`);
-      }
-
+      await requestPasswordChangeCode();
       setSuccess("A new verification code has been sent to your email.");
     } catch (err) {
       setError(err?.message || "Failed to resend code. Please try again.");
@@ -89,22 +59,8 @@ export default function ChangePassword() {
     setError("");
     setSuccess("");
 
-    if (!code.trim()) {
-      setError("Please enter the verification code.");
-      return;
-    }
-    if (!password) {
-      setError("Please enter a new password.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    if (password !== retypePassword) {
-      setError("Passwords do not match.");
-      return;
-    }
+    const validationError = validatePasswordCode(code, password, retypePassword);
+    if (validationError) { setError(validationError); return; }
 
     setLoading(true);
     try {
@@ -146,65 +102,25 @@ export default function ChangePassword() {
         {success && <div className="authSuccess">{success}</div>}
 
         {!sendingCode && (
-          <form className="authForm" onSubmit={onChangePassword}>
-            <div className="authField">
-              <label className="authLabel">Verification code</label>
-              <input
-                className="authInput"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="Enter 6-digit code"
-                autoComplete="one-time-code"
-              />
-            </div>
-
-            <div className="authField">
-              <label className="authLabel">New password</label>
-              <input
-                className="authInput"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type="password"
-                placeholder="New password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className="authField">
-              <label className="authLabel">Retype password</label>
-              <input
-                className="authInput"
-                value={retypePassword}
-                onChange={(e) => setRetypePassword(e.target.value)}
-                type="password"
-                placeholder="Retype new password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            {error && <div className="authError">{error}</div>}
-
-            <button className="authButton" type="submit" disabled={loading}>
-              {loading ? "Changing…" : "Change password"}
-            </button>
-
-            <button
-              type="button"
-              className="authLinkBtn"
-              onClick={handleResend}
-              disabled={sendingCode}
-            >
+          <PasswordCodeForm
+            code={code}
+            onCodeChange={(e) => setCode(e.target.value)}
+            password={password}
+            onPasswordChange={(e) => setPassword(e.target.value)}
+            retypePassword={retypePassword}
+            onRetypeChange={(e) => setRetypePassword(e.target.value)}
+            error={error}
+            loading={loading}
+            submitLabel={loading ? "Changing…" : "Change password"}
+            onSubmit={onChangePassword}
+          >
+            <button type="button" className="authLinkBtn" onClick={handleResend} disabled={sendingCode}>
               Resend verification code
             </button>
-
-            <button
-              type="button"
-              className="authLinkBtn"
-              onClick={() => navigate("/profile")}
-            >
+            <button type="button" className="authLinkBtn" onClick={() => navigate("/profile")}>
               ← Back to Profile
             </button>
-          </form>
+          </PasswordCodeForm>
         )}
 
         {sendingCode && (

@@ -1,14 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
+import { API_BASE, authHeaders } from "../utils/auth";
 import "../styles/pages/Profile.css";
+const ALLOWED_TYPES = new Set(["image/png", "image/jpeg"]);
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
-const ALLOWED_TYPES = ["image/png", "image/jpeg"];
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-/* ── NUS Faculty → Major mapping ── */
 const FACULTY_MAJORS = {
   "Faculty of Arts and Social Sciences": [
     "Chinese Language", "Chinese Studies", "Communications and New Media",
@@ -52,14 +49,6 @@ const FACULTY_MAJORS = {
 };
 
 const FACULTIES = Object.keys(FACULTY_MAJORS);
-
-function authHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
 
 export default function Profile() {
   const nav = useNavigate();
@@ -160,7 +149,7 @@ export default function Profile() {
   /* ── avatar file handling ── */
   async function processAvatarFile(file) {
     if (!file) return;
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_TYPES.has(file.type)) {
       setMessage("Only PNG or JPG files are allowed.");
       return;
     }
@@ -243,6 +232,38 @@ export default function Profile() {
 
   // Resolved avatar source: local preview (during upload) or saved URL
   const avatarSrc = avatarPreview || form.avatarUrl;
+  let dropZoneContent;
+  if (uploading) {
+    dropZoneContent = (
+      <div className="profileDropContent">
+        <span className="profileDropIcon profileDropSpin">⟳</span>
+        <span className="profileDropText">Uploading…</span>
+      </div>
+    );
+  } else if (avatarSrc) {
+    dropZoneContent = (
+      <div className="profileDropPreview">
+        <img src={avatarSrc} alt="Avatar preview" className="profileDropThumb" />
+        <span className="profileDropHint">Click to replace</span>
+        <button
+          type="button"
+          className="profileDropRemove"
+          onClick={(e) => { e.stopPropagation(); handleRemoveAvatar(); }}
+          title="Remove avatar"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  } else {
+    dropZoneContent = (
+      <div className="profileDropContent">
+        <span className="profileDropIcon">⇧</span>
+        <span className="profileDropText">Click or drag image here</span>
+        <span className="profileDropHint">PNG / JPG — max 2 MB</span>
+      </div>
+    );
+  }
 
   if (loading) return <div className="profilePage"><p className="profileMsg">Loading profile…</p></div>;
 
@@ -267,7 +288,7 @@ export default function Profile() {
         <form className="profileForm" onSubmit={handleSave}>
           <div className="profileRow">
             <label className="profileLabel">
-              Faculty
+              <span>Faculty</span>
               <select
                 className="profileInput profileSelect"
                 value={form.faculty}
@@ -281,7 +302,7 @@ export default function Profile() {
             </label>
 
             <label className="profileLabel">
-              Major
+              <span>Major</span>
               <select
                 className="profileInput profileSelect"
                 value={form.major}
@@ -298,7 +319,7 @@ export default function Profile() {
 
           <div className="profileRow">
             <label className="profileLabel">
-              Year of Study
+              <span>Year of Study</span>
               <select
                 className="profileInput"
                 value={form.yearOfStudy}
@@ -314,7 +335,7 @@ export default function Profile() {
             </label>
 
             <div className="profileLabel">
-              Avatar
+              <span>Avatar</span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -322,42 +343,16 @@ export default function Profile() {
                 className="profileFileHidden"
                 onChange={handleFileChange}
               />
-              <div
+              <button
+                type="button"
                 className={`profileDropZone${dragging ? " profileDropZoneActive" : ""}`}
                 onClick={handleAvatarClick}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && handleAvatarClick()}
               >
-                {uploading ? (
-                  <div className="profileDropContent">
-                    <span className="profileDropIcon profileDropSpin">⟳</span>
-                    <span className="profileDropText">Uploading…</span>
-                  </div>
-                ) : avatarSrc ? (
-                  <div className="profileDropPreview">
-                    <img src={avatarSrc} alt="Avatar preview" className="profileDropThumb" />
-                    <span className="profileDropHint">Click to replace</span>
-                    <button
-                      type="button"
-                      className="profileDropRemove"
-                      onClick={(e) => { e.stopPropagation(); handleRemoveAvatar(); }}
-                      title="Remove avatar"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <div className="profileDropContent">
-                    <span className="profileDropIcon">⇧</span>
-                    <span className="profileDropText">Click or drag image here</span>
-                    <span className="profileDropHint">PNG / JPG — max 2 MB</span>
-                  </div>
-                )}
-              </div>
+                {dropZoneContent}
+              </button>
             </div>
           </div>
 
@@ -372,7 +367,7 @@ export default function Profile() {
                   checked={form.fullTime === true}
                   onChange={() => setForm((prev) => ({ ...prev, fullTime: true }))}
                 />
-                Yes
+                <span>Yes</span>
               </label>
               <label className="profileRadioLabel">
                 <input
@@ -382,13 +377,13 @@ export default function Profile() {
                   checked={form.fullTime === false}
                   onChange={() => setForm((prev) => ({ ...prev, fullTime: false }))}
                 />
-                No
+                <span>No</span>
               </label>
             </div>
           </div>
 
           <label className="profileLabel">
-            Bio
+            <span>Bio</span>
             <textarea
               className="profileInput profileTextarea"
               rows={4}

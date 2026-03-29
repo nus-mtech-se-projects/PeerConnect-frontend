@@ -1,4 +1,5 @@
 import React from "react";
+import PropTypes from "prop-types";
 import tutoringImg from "../assets/images/tutoring.jpg";
 function Block({ title, children }) {
   return (
@@ -8,6 +9,11 @@ function Block({ title, children }) {
     </section>
   );
 }
+
+Block.propTypes = {
+  title: PropTypes.string,
+  children: PropTypes.node,
+};
 
 export default function About() {
   return (

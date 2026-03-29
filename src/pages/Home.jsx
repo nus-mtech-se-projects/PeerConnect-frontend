@@ -7,9 +7,11 @@ import tutoringImg from "../assets/images/tutoring.jpg";
 import studyGroupImg from "../assets/images/study-group.jpg";
 import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
+import PropTypes from "prop-types";
+import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
+import ConfirmDialog from "../components/ConfirmDialog";
+import Toast from "../components/Toast";
 import "../styles/pages/Dashboard.css";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 function createFeedbackForm() {
   return {
     revieweeId: "",
@@ -89,45 +91,68 @@ function normalizeFeedbackEntry(entry, index = 0) {
 }
 
 function normalizeFeedbackCollection(payload) {
-  const rawItems = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.feedback)
-      ? payload.feedback
-      : Array.isArray(payload?.feedbacks)
-        ? payload.feedbacks
-        : Array.isArray(payload?.items)
-          ? payload.items
-          : Array.isArray(payload?.records)
-            ? payload.records
-            : [];
-
+  const extractItems = (p) => {
+    if (Array.isArray(p)) return p;
+    if (Array.isArray(p?.feedback)) return p.feedback;
+    if (Array.isArray(p?.feedbacks)) return p.feedbacks;
+    if (Array.isArray(p?.items)) return p.items;
+    if (Array.isArray(p?.records)) return p.records;
+    return [];
+  };
+  const rawItems = extractItems(payload);
   return rawItems.map((item, index) => normalizeFeedbackEntry(item, index));
 }
 
-/* ──────────────────── helpers ──────────────────── */
-function authHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+function getTutoringActionLabel(course, enrollingId) {
+  if (enrollingId === course.id) {
+    return course.enrolled ? "Leaving…" : "Joining…";
+  }
+  return course.enrolled ? "Leave" : "Join";
 }
 
-function waitForToken(timeoutMs = 8000) {
-  return new Promise((resolve, reject) => {
-    const start = Date.now();
-    (function check() {
-      const token = localStorage.getItem("accessToken");
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          if (payload.exp * 1000 > Date.now()) { resolve(token); return; }
-        } catch { /* malformed */ }
-      }
-      if (Date.now() - start > timeoutMs) { reject(new Error("Token timeout")); return; }
-      setTimeout(check, 300);
-    })();
+function getGroupMembershipButtonLabel(group, membershipActionId) {
+  if (membershipActionId === group.id) {
+    return group.joined ? "Leaving…" : "Joining…";
+  }
+  if (group.joined) return "Leave";
+  return group.membershipStatus === "pending" ? "Pending" : "Join";
+}
+
+function getProfileDisplayName(profileData) {
+  const fullName = [profileData?.firstName, profileData?.lastName].filter(Boolean).join(" ");
+  return fullName || profileData?.name || "";
+}
+
+function filterDashboardGroups(groups, search, myGroupsOnly) {
+  const q = search.toLowerCase().trim();
+  return groups.filter((group) => {
+    const matchesAdminFilter = !myGroupsOnly || group.isAdmin;
+    const matchesSearch =
+      !q ||
+      group.name?.toLowerCase().includes(q) ||
+      group.moduleCode?.toLowerCase().includes(q) ||
+      group.courseCode?.toLowerCase().includes(q) ||
+      group.topic?.toLowerCase().includes(q);
+    return matchesAdminFilter && matchesSearch;
   });
+}
+
+function getReviewableMembers(members, userEmail) {
+  return members.filter((member) => member.membershipStatus === "approved" && member.email !== userEmail);
+}
+
+async function fetchFirstAvailableProfile() {
+  const headers = authHeaders();
+  for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
+    try {
+      const res = await fetch(url, { headers, credentials: "include" });
+      if (!res.ok) continue;
+      return await res.json();
+    } catch {
+      // Try next endpoint.
+    }
+  }
+  return null;
 }
 
 /* ──────── SVG icons ──────── */
@@ -191,6 +216,10 @@ function LandingHome() {
 
 /* ──────────────────── Peer Tutoring Components ──────────────────── */
 
+TutorDashboard.propTypes = {
+  onClassCreated: PropTypes.func,
+  onViewFeedbacks: PropTypes.func,
+};
 function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -204,19 +233,26 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    waitForToken().then(() => {
-      fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
-        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`Failed to load (${r.status})`)))
-        .then((data) => {
-          if (!cancelled) {
-            const myClasses = Array.isArray(data) ? data.filter((c) => c.isTutor) : [];
-            setClasses(myClasses);
-          }
-        })
-        .catch((err) => { if (!cancelled) setError(err.message); })
-        .finally(() => { if (!cancelled) setLoading(false); });
-    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    const loadTutorClasses = async () => {
+      setLoading(true);
+      try {
+        await waitForToken();
+        const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
+        if (!res.ok) throw new Error(`Failed to load (${res.status})`);
+        const data = await res.json();
+        if (cancelled) return;
+        const myClasses = Array.isArray(data) ? data.filter((c) => c.isTutor) : [];
+        setClasses(myClasses);
+      } catch (err) {
+        if (!cancelled) {
+          const message = err?.message === "Authentication timeout" ? err.message : (err?.message || "Authentication timeout");
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadTutorClasses();
     return () => { cancelled = true; };
   }, []);
 
@@ -239,7 +275,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
   }
 
   async function handleDelete(classId) {
-    if (!window.confirm("Delete this tutoring class?")) return;
+    if (!globalThis.confirm("Delete this tutoring class?")) return;
     try {
       const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}`, {
         method: "DELETE", headers: authHeaders(), credentials: "include",
@@ -293,47 +329,57 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
       </div>
 
       {showCreate && (
-        <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
-          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <>
+          <button type="button" className="modalOverlay" aria-label="Close create tutoring class modal" onClick={() => setShowCreate(false)} />
+          <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); setShowCreate(false); }}>
             <h2 className="modalTitle">Create Tutoring Class</h2>
             <form className="modalForm" onSubmit={handleCreate}>
-              <label className="modalLabel">Class Title *
+              <label className="modalLabel">
+                <span>Class Title *</span>
                 <input className="modalInput" required value={newClass.title} onChange={(e) => setNewClass({ ...newClass, title: e.target.value })} placeholder="e.g. CS2030 Weekly Tutoring" />
               </label>
               <div className="modalRow">
-                <label className="modalLabel">Module Code *
+                <label className="modalLabel">
+                  <span>Module Code *</span>
                   <input className="modalInput" required value={newClass.moduleCode} onChange={(e) => setNewClass({ ...newClass, moduleCode: e.target.value })} placeholder="e.g. CS2030" />
                 </label>
-                <label className="modalLabel">Topic
+                <label className="modalLabel">
+                  <span>Topic</span>
                   <input className="modalInput" value={newClass.topic} onChange={(e) => setNewClass({ ...newClass, topic: e.target.value })} placeholder="e.g. OOP & Streams" />
                 </label>
               </div>
               <div className="modalRow">
-                <label className="modalLabel">Mode
+                <label className="modalLabel">
+                  <span>Mode</span>
                   <select className="modalInput" value={newClass.mode} onChange={(e) => setNewClass({ ...newClass, mode: e.target.value })}>
                     <option value="online">Online</option>
                     <option value="in-person">In-Person</option>
                     <option value="hybrid">Hybrid</option>
                   </select>
                 </label>
-                <label className="modalLabel">Max Students
+                <label className="modalLabel">
+                  <span>Max Students</span>
                   <input className="modalInput" type="number" min={1} max={20} value={newClass.maxStudents} onChange={(e) => setNewClass({ ...newClass, maxStudents: Number(e.target.value) })} />
                 </label>
               </div>
               {(newClass.mode === "in-person" || newClass.mode === "hybrid") && (
-                <label className="modalLabel">Location *
+                <label className="modalLabel">
+                  <span>Location *</span>
                   <input className="modalInput" required value={newClass.location} onChange={(e) => setNewClass({ ...newClass, location: e.target.value })} placeholder="e.g. COM1 Level 2" />
                 </label>
               )}
               {(newClass.mode === "online" || newClass.mode === "hybrid") && (
-                <label className="modalLabel">Meeting Link *
+                <label className="modalLabel">
+                  <span>Meeting Link *</span>
                   <input className="modalInput" required value={newClass.meetingLink} onChange={(e) => setNewClass({ ...newClass, meetingLink: e.target.value })} placeholder="e.g. https://zoom.us/j/..." />
                 </label>
               )}
-              <label className="modalLabel">Schedule *
+              <label className="modalLabel">
+                <span>Schedule *</span>
                 <input className="modalInput" required value={newClass.schedule} onChange={(e) => setNewClass({ ...newClass, schedule: e.target.value })} placeholder="e.g. Every Sat 2–4pm" />
               </label>
-              <label className="modalLabel">Description
+              <label className="modalLabel">
+                <span>Description</span>
                 <textarea className="modalInput modalTextarea" rows={3} value={newClass.description} onChange={(e) => setNewClass({ ...newClass, description: e.target.value })} />
               </label>
               <div className="modalActions">
@@ -341,13 +387,17 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
                 <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Class"}</button>
               </div>
             </form>
-          </div>
-        </div>
+          </dialog>
+        </>
       )}
     </div>
   );
 }
 
+TuteeDashboard.propTypes = {
+  excludeIds: PropTypes.instanceOf(Set),
+  onGiveFeedback: PropTypes.func,
+};
 function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -357,14 +407,28 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    waitForToken().then(() => {
-      fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
-        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`Failed to load (${r.status})`)))
-        .then((data) => { if (!cancelled) setClasses(Array.isArray(data) ? data.filter((c) => !c.isTutor && !excludeIds.has(c.id)) : []); })
-        .catch((err) => { if (!cancelled) setError(err.message); })
-        .finally(() => { if (!cancelled) setLoading(false); });
-    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    const loadTuteeClasses = async () => {
+      setLoading(true);
+      try {
+        await waitForToken();
+        const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
+        if (!res.ok) throw new Error(`Failed to load (${res.status})`);
+        const data = await res.json();
+        if (cancelled) return;
+        const visibleClasses = Array.isArray(data)
+          ? data.filter((c) => !c.isTutor && !excludeIds.has(c.id))
+          : [];
+        setClasses(visibleClasses);
+      } catch (err) {
+        if (!cancelled) {
+          const message = err?.message === "Authentication timeout" ? err.message : (err?.message || "Authentication timeout");
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadTuteeClasses();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -451,9 +515,7 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
                   onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
                   disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
                 >
-                  {enrollingId === c.id
-                    ? (c.enrolled ? "Leaving…" : "Joining…")
-                    : (c.enrolled ? "Leave" : "Join")}
+                  {getTutoringActionLabel(c, enrollingId)}
                 </button>
               </div>
             </div>
@@ -464,6 +526,10 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
   );
 }
 
+PeerTutoringSection.propTypes = {
+  onGiveFeedback: PropTypes.func,
+  onViewTutorFeedbacks: PropTypes.func,
+};
 function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
   const [role, setRole] = useState(null);
   const [myClassIds, setMyClassIds] = useState(new Set());
@@ -504,21 +570,27 @@ function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
   );
 }
 
+StarRating.propTypes = {
+  value: PropTypes.number,
+  onChange: PropTypes.func,
+  label: PropTypes.string,
+};
 function StarRating({ value, onChange, label }) {
   return (
-    <div role="group" aria-label={label} style={{ display: "flex", gap: 4, marginTop: 4 }}>
+    <fieldset style={{ display: "flex", gap: 4, marginTop: 4, border: "none", padding: 0, margin: 0 }}>
+      {label && <legend className="sr-only">{label}</legend>}
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type="button"
-          aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
+          aria-label={`Rate ${star} star${star === 1 ? "" : "s"}`}
           onClick={() => onChange(star)}
           style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: star <= value ? "#f59e0b" : "#d1d5db", padding: "0 2px" }}
         >
           {star <= value ? "★" : "☆"}
         </button>
       ))}
-    </div>
+    </fieldset>
   );
 }
 
@@ -547,6 +619,252 @@ function RestrictedMemberSection() {
   );
 }
 
+StudyGroupCard.propTypes = {
+  group: PropTypes.object.isRequired,
+  membershipActionId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onJoin: PropTypes.func.isRequired,
+  onLeave: PropTypes.func.isRequired,
+  onOpenGroup: PropTypes.func.isRequired,
+};
+function StudyGroupCard({ group, membershipActionId, onJoin, onLeave, onOpenGroup }) {
+  return (
+    <div className="groupCard" key={group.id || group.name}>
+      <div className="groupCardHeader">
+        <span className="groupCourse">{group.moduleCode || group.courseCode || "General"}</span>
+        <span className={`groupMode ${group.studyMode}`}>{group.studyMode === "online" ? "Online" : "In-Person"}</span>
+      </div>
+      <h3 className="groupName">{group.name || "Study Group"}</h3>
+      <p className="groupTopic">{group.topic || "No topic specified"}</p>
+      {group.description && <p className="groupDesc">{group.description}</p>}
+      {group.preferredSchedule && <p className="groupTopic">Schedule: {group.preferredSchedule}</p>}
+      {group.status && <p className="groupTopic">Status: {group.status}</p>}
+      <div className="groupFooter">
+        <span className="groupMembers">{group.memberCount ?? "?"}/{group.maxMembers ?? "∞"} members</span>
+        <div style={{ display: "flex", gap: 8 }}>
+          {!group.isAdmin && (
+            <button
+              className={group.joined ? "groupLeaveBtn" : "groupJoinBtn"}
+              onClick={() => (group.joined ? onLeave(group.id) : onJoin(group.id))}
+              disabled={!group.id || membershipActionId === group.id || group.status === "dissolved" || (!group.joined && group.status === "full")}
+            >
+              {getGroupMembershipButtonLabel(group, membershipActionId)}
+            </button>
+          )}
+          <button className="groupManageBtn" onClick={() => onOpenGroup(group.id)}>
+            {group.isAdmin ? "Manage" : "Info"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+StudyGroupsModule.propTypes = {
+  myGroupsOnly: PropTypes.bool.isRequired,
+  setMyGroupsOnly: PropTypes.func.isRequired,
+  setShowCreate: PropTypes.func.isRequired,
+  search: PropTypes.string.isRequired,
+  setSearch: PropTypes.func.isRequired,
+  loading: PropTypes.bool.isRequired,
+  error: PropTypes.string.isRequired,
+  filtered: PropTypes.array.isRequired,
+  membershipActionId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onJoin: PropTypes.func.isRequired,
+  onLeave: PropTypes.func.isRequired,
+  onOpenGroup: PropTypes.func.isRequired,
+};
+function StudyGroupsModule({
+  myGroupsOnly,
+  setMyGroupsOnly,
+  setShowCreate,
+  search,
+  setSearch,
+  loading,
+  error,
+  filtered,
+  membershipActionId,
+  onJoin,
+  onLeave,
+  onOpenGroup,
+}) {
+  return (
+    <>
+      <div className="dashHeader">
+        <div className="dashHeaderTop">
+          <div>
+            <h1 className="dashTitle">Study Groups</h1>
+            <p className="dashSubtitle">Discover, create, and join study groups</p>
+          </div>
+          <div className="dashHeaderBtns">
+            <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
+            <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
+          </div>
+        </div>
+        <div className="dashSearchWrap">
+          <SearchIcon />
+          <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+      </div>
+
+      {loading && <p className="dashMsg">Loading groups…</p>}
+      {error && <p className="dashMsg dashError">{error}</p>}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="dashEmpty"><GroupsIcon /><p>No groups found. Create one to get started!</p></div>
+      )}
+
+      <div className="dashGrid">
+        {filtered.map((g) => (
+          <StudyGroupCard
+            key={g.id || g.name}
+            group={g}
+            membershipActionId={membershipActionId}
+            onJoin={onJoin}
+            onLeave={onLeave}
+            onOpenGroup={onOpenGroup}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+CreateGroupModal.propTypes = {
+  showCreate: PropTypes.bool.isRequired,
+  setShowCreate: PropTypes.func.isRequired,
+  creating: PropTypes.bool.isRequired,
+  newGroup: PropTypes.object.isRequired,
+  setNewGroup: PropTypes.func.isRequired,
+  handleCreate: PropTypes.func.isRequired,
+};
+function CreateGroupModal({ showCreate, setShowCreate, creating, newGroup, setNewGroup, handleCreate }) {
+  if (!showCreate) return null;
+  return (
+    <>
+      <button type="button" className="modalOverlay" aria-label="Close create study group modal" onClick={() => setShowCreate(false)} />
+      <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); setShowCreate(false); }}>
+        <h2 className="modalTitle">Create Study Group</h2>
+        <form className="modalForm" onSubmit={handleCreate}>
+          <label className="modalLabel">
+            <span>Group Name *</span>
+            <input className="modalInput" required value={newGroup.name} onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })} />
+          </label>
+          <div className="modalRow">
+            <label className="modalLabel">
+              <span>Module / Subject *</span>
+              <input className="modalInput" required placeholder="e.g. CS2030" value={newGroup.moduleCode} onChange={(e) => setNewGroup({ ...newGroup, moduleCode: e.target.value })} />
+            </label>
+            <label className="modalLabel">
+              <span>Topic</span>
+              <input className="modalInput" placeholder="e.g. Data Structures" value={newGroup.topic} onChange={(e) => setNewGroup({ ...newGroup, topic: e.target.value })} />
+            </label>
+          </div>
+          <div className="modalRow">
+            <label className="modalLabel">
+              <span>Study Mode</span>
+              <select className="modalInput" value={newGroup.studyMode} onChange={(e) => setNewGroup({ ...newGroup, studyMode: e.target.value })}>
+                <option value="online">Online</option>
+                <option value="in-person">In-Person</option>
+                <option value="hybrid">Hybrid</option>
+              </select>
+            </label>
+            <label className="modalLabel">
+              <span>Max Members</span>
+              <input className="modalInput" type="number" min={2} max={50} value={newGroup.maxMembers} onChange={(e) => setNewGroup({ ...newGroup, maxMembers: Number(e.target.value) })} />
+            </label>
+          </div>
+          {(newGroup.studyMode === "in-person" || newGroup.studyMode === "hybrid") && (
+            <label className="modalLabel">
+              <span>Location</span>
+              <input className="modalInput" required placeholder="e.g. COM1 Level 2" value={newGroup.location} onChange={(e) => setNewGroup({ ...newGroup, location: e.target.value })} />
+            </label>
+          )}
+          {(newGroup.studyMode === "online" || newGroup.studyMode === "hybrid") && (
+            <label className="modalLabel">
+              <span>Meeting Link</span>
+              <input className="modalInput" required placeholder="e.g. https://teams.microsoft.com/..." value={newGroup.meetingLink} onChange={(e) => setNewGroup({ ...newGroup, meetingLink: e.target.value })} />
+            </label>
+          )}
+          <label className="modalLabel">
+            <span>Preferred Schedule *</span>
+            <div className="modalRow">
+              <input className="modalInput" type="date" required value={newGroup.scheduleDate} onChange={(e) => setNewGroup({ ...newGroup, scheduleDate: e.target.value })} />
+              <input className="modalInput" type="time" required value={newGroup.scheduleTime} onChange={(e) => setNewGroup({ ...newGroup, scheduleTime: e.target.value })} />
+            </div>
+          </label>
+          <label className="modalLabel">
+            <span>Description</span>
+            <textarea className="modalInput modalTextarea" required rows={3} value={newGroup.description} onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })} />
+          </label>
+          <label className="modalLabel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={newGroup.approvalRequired} onChange={(e) => setNewGroup({ ...newGroup, approvalRequired: e.target.checked })} />
+            <span>Require admin approval for join requests</span>
+          </label>
+          <div className="modalActions">
+            <button type="button" className="modalCancel" onClick={() => setShowCreate(false)}>Cancel</button>
+            <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Group"}</button>
+          </div>
+        </form>
+      </dialog>
+    </>
+  );
+}
+
+FeedbackPickerModal.propTypes = {
+  showFeedbackPicker: PropTypes.bool.isRequired,
+  closeFeedbackPicker: PropTypes.func.isRequired,
+  selectedFeedbackGroup: PropTypes.object,
+  selectedFeedbackGroupId: PropTypes.string.isRequired,
+  selectedFeedbackSessionId: PropTypes.string.isRequired,
+  setSelectedFeedbackSessionId: PropTypes.func.isRequired,
+  handleSelectFeedbackGroup: PropTypes.func.isRequired,
+  handleLaunchFeedback: PropTypes.func.isRequired,
+  feedbackOptions: PropTypes.array.isRequired,
+};
+function FeedbackPickerModal({
+  showFeedbackPicker,
+  closeFeedbackPicker,
+  selectedFeedbackGroup,
+  selectedFeedbackGroupId,
+  selectedFeedbackSessionId,
+  setSelectedFeedbackSessionId,
+  handleSelectFeedbackGroup,
+  handleLaunchFeedback,
+  feedbackOptions,
+}) {
+  if (!showFeedbackPicker) return null;
+  return (
+    <>
+      <button type="button" className="modalOverlay" aria-label="Close feedback picker modal" onClick={closeFeedbackPicker} />
+      <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); closeFeedbackPicker(); }}>
+        <h2 className="modalTitle">Give Peer Feedback</h2>
+        <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
+        <label className="modalLabel">
+          <span>Study Group</span>
+          <select className="modalInput" value={selectedFeedbackGroupId} onChange={(e) => handleSelectFeedbackGroup(e.target.value)}>
+            {feedbackOptions.map((o) => (
+              <option key={o.group.id} value={o.group.id}>{o.group.name}</option>
+            ))}
+          </select>
+        </label>
+        {selectedFeedbackGroup && (
+          <label className="modalLabel">
+            <span>Session</span>
+            <select className="modalInput" value={selectedFeedbackSessionId} onChange={(e) => setSelectedFeedbackSessionId(e.target.value)}>
+              {selectedFeedbackGroup.sessions.map((s) => (
+                <option key={s.id} value={s.id}>{s.title || s.startsAt || s.id}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <div className="modalActions">
+          <button type="button" className="modalCancel" onClick={closeFeedbackPicker}>Cancel</button>
+          <button type="button" className="modalSubmit" onClick={handleLaunchFeedback} disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}>Next →</button>
+        </div>
+      </dialog>
+    </>
+  );
+}
+
 /* ═══════════════════════════════════════════════════
    Dashboard (shown to logged-in users)
    ═══════════════════════════════════════════════════ */
@@ -562,24 +880,14 @@ function DashboardHome() {
   const [profileName, setProfileName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [showManage, setShowManage] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedMembers, setSelectedMembers] = useState([]);
-  const [selectedSessions, setSelectedSessions] = useState([]);
-  const [manageLoading, setManageLoading] = useState(false);
   const [membershipActionId, setMembershipActionId] = useState(null);
   const [newGroup, setNewGroup] = useState({
     name: "", moduleCode: "", topic: "", studyMode: "online",
     location: "", meetingLink: "", scheduleDate: "", scheduleTime: "", maxMembers: 10,
     description: "", approvalRequired: false,
   });
-  const [sessionForm, setSessionForm] = useState({
-    title: "", startsAt: "", endsAt: "", location: "", meetingLink: "", notes: "",
-  });
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [transferOwnerId, setTransferOwnerId] = useState("");
-  const [manageScheduleDate, setManageScheduleDate] = useState("");
-  const [manageScheduleTime, setManageScheduleTime] = useState("");
   const [creating, setCreating] = useState(false);
   const [activeModule, setActiveModule] = useState("studyGroups");
   const [myGroupsOnly, setMyGroupsOnly] = useState(false);
@@ -614,30 +922,20 @@ function DashboardHome() {
   /* fetch user name + avatar */
   useEffect(() => {
     let cancelled = false;
-    waitForToken().then(async () => {
-      if (cancelled) return;
-      const h = authHeaders();
-      let nameFound = false;
-
-      for (const url of [
-        `${API_BASE}/api/users/me`,
-        `${API_BASE}/api/profile`,
-      ]) {
-        try {
-          const res = await fetch(url, { headers: h, credentials: "include" });
-          if (!res.ok) continue;
-          const data = await res.json();
-          if (cancelled) return;
-          if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
-          if (!nameFound) {
-            const full = [data.firstName, data.lastName].filter(Boolean).join(" ");
-            if (full) { setProfileName(full); nameFound = true; }
-            else if (data.name) { setProfileName(data.name); nameFound = true; }
-          }
-          if (nameFound && avatarUrl) break;
-        } catch { /* try next */ }
+    const loadProfile = async () => {
+      try {
+        await waitForToken();
+        if (cancelled) return;
+        const profileData = await fetchFirstAvailableProfile();
+        if (cancelled || !profileData) return;
+        if (profileData.avatarUrl) setAvatarUrl(profileData.avatarUrl);
+        const displayName = getProfileDisplayName(profileData);
+        if (displayName) setProfileName(displayName);
+      } catch {
+        // Best effort profile enrichment.
       }
-    }).catch(() => { });
+    };
+    loadProfile();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -667,22 +965,7 @@ function DashboardHome() {
     return () => { cancelled = true; };
   }, [nav]);
 
-  const filtered = useMemo(() => {
-    let result = groups;
-    if (myGroupsOnly) {
-      result = result.filter((g) => g.isAdmin);
-    }
-    const q = search.toLowerCase().trim();
-    if (q) {
-      result = result.filter((g) =>
-        g.name?.toLowerCase().includes(q) ||
-        g.moduleCode?.toLowerCase().includes(q) ||
-        g.courseCode?.toLowerCase().includes(q) ||
-        g.topic?.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [groups, search, myGroupsOnly]);
+  const filtered = useMemo(() => filterDashboardGroups(groups, search, myGroupsOnly), [groups, search, myGroupsOnly]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -710,44 +993,6 @@ function DashboardHome() {
     finally { setCreating(false); }
   }
 
-  async function openManage(groupId) {
-    setManageLoading(true);
-    setShowManage(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${groupId}`, {
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Failed to load group details (${res.status})`);
-      setSelectedGroup({
-        ...data,
-        moduleCode: data.moduleCode || data.courseCode || "",
-      });
-      setSelectedMembers(Array.isArray(data.members) ? data.members : []);
-      setSelectedSessions(Array.isArray(data.sessions) ? data.sessions : []);
-      setTransferOwnerId("");
-      setInviteEmail("");
-      const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
-      const parts = ps.split(/[T ]/);
-      setManageScheduleDate(parts[0] || "");
-      setManageScheduleTime(parts[1] ? parts[1].substring(0, 5) : "");
-      setSessionForm({ title: "", startsAt: "", endsAt: "", location: data.location || "", meetingLink: data.meetingLink || "", notes: "" });
-    } catch (err) {
-      showToast(err.message, "error");
-      setShowManage(false);
-    } finally {
-      setManageLoading(false);
-    }
-  }
-
-  function closeManage() {
-    setShowManage(false);
-    setSelectedGroup(null);
-    setSelectedMembers([]);
-    setSelectedSessions([]);
-  }
-
   const closeFeedbackPicker = useCallback(() => {
     setShowFeedbackPicker(false);
     setFeedbackOptions([]);
@@ -757,11 +1002,11 @@ function DashboardHome() {
 
   function openFeedback(session, membersOverride) {
     const members = membersOverride ?? selectedMembers;
-    const approvedMembers = members.filter(
+    const firstApprovedMember = members.find(
       (m) => m.membershipStatus === "approved" && m.email !== userEmail
     );
     setFeedbackSession(session);
-    setFeedbackForm({ ...createFeedbackForm(), revieweeId: approvedMembers[0]?.userId || approvedMembers[0]?.email || "" });
+    setFeedbackForm({ ...createFeedbackForm(), revieweeId: firstApprovedMember?.userId || firstApprovedMember?.email || "" });
     setFeedbackStatus({ type: "", message: "" });
     setShowFeedback(true);
   }
@@ -779,7 +1024,6 @@ function DashboardHome() {
     if (!opt || !session) return;
     setSelectedGroup(opt.group);
     setSelectedMembers(opt.members);
-    setSelectedSessions(opt.sessions);
     setFeedbackApiPath(`${API_BASE}/api/tutoring/classes/${opt.group.id}/feedback`);
     closeFeedbackPicker();
     openFeedback(session, opt.members);
@@ -886,186 +1130,6 @@ function DashboardHome() {
     }
   }
 
-  async function refreshSelectedGroup() {
-    if (!selectedGroup?.id) return;
-    const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}`, {
-      headers: authHeaders(),
-      credentials: "include",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || `Failed to refresh group details (${res.status})`);
-    setSelectedGroup({ ...data, moduleCode: data.moduleCode || data.courseCode || "" });
-    setSelectedMembers(Array.isArray(data.members) ? data.members : []);
-    setSelectedSessions(Array.isArray(data.sessions) ? data.sessions : []);
-    setGroups((prev) => prev.map((g) => (g.id === data.id ? { ...g, ...data } : g)));
-  }
-
-  async function handleUpdateGroup(e) {
-    e.preventDefault();
-    if (!selectedGroup?.id) return;
-    try {
-      const payload = {
-        name: selectedGroup.name,
-        moduleCode: selectedGroup.moduleCode,
-        topic: selectedGroup.topic,
-        description: selectedGroup.description,
-        studyMode: selectedGroup.studyMode,
-        location: selectedGroup.location,
-        meetingLink: selectedGroup.meetingLink,
-        preferredSchedule: [manageScheduleDate, manageScheduleTime].filter(Boolean).join("T"),
-        maxMembers: Number(selectedGroup.maxMembers),
-        approvalRequired: !!selectedGroup.approvalRequired,
-      };
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}`, {
-        method: "PUT",
-        headers: authHeaders(),
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Update failed (${res.status})`);
-      setGroups((prev) => prev.map((g) => (g.id === data.id ? { ...g, ...data } : g)));
-      setSelectedGroup((prev) => ({ ...prev, ...data }));
-      showToast("Group updated successfully!");
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleCreateSession(e) {
-    e.preventDefault();
-    if (!selectedGroup?.id) return;
-    try {
-      const payload = {
-        title: sessionForm.title,
-        startsAt: sessionForm.startsAt,
-        endsAt: sessionForm.endsAt || null,
-        location: sessionForm.location,
-        meetingLink: sessionForm.meetingLink,
-        notes: sessionForm.notes,
-      };
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/sessions`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Create session failed (${res.status})`);
-      setSessionForm({ ...sessionForm, title: "", startsAt: "", endsAt: "", notes: "" });
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleDeleteSession(sessionId) {
-    if (!selectedGroup?.id) return;
-    if (!window.confirm("Delete this session?")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/sessions/${sessionId}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Delete session failed (${res.status})`);
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleInviteMember(e) {
-    e.preventDefault();
-    if (!selectedGroup?.id || !inviteEmail.trim()) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/members/invite`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-        body: JSON.stringify({ email: inviteEmail.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Invite failed (${res.status})`);
-      setInviteEmail("");
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleApproveMember(userId) {
-    if (!selectedGroup?.id) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/members/${userId}/approve`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Approve failed (${res.status})`);
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleRemoveMember(userId) {
-    if (!selectedGroup?.id) return;
-    if (!window.confirm("Remove this member from group?")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/members/${userId}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Remove failed (${res.status})`);
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleTransferOwnership() {
-    if (!selectedGroup?.id || !transferOwnerId) return;
-    if (!window.confirm("Transfer ownership to selected member?")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/transfer-ownership`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-        body: JSON.stringify({ newOwnerUserId: transferOwnerId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Transfer failed (${res.status})`);
-      showToast("Ownership transferred successfully!");
-      await refreshSelectedGroup();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
-  async function handleDissolveGroup() {
-    if (!selectedGroup?.id) return;
-    if (!window.confirm("Dissolve this group? This will set status to dissolved.")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${selectedGroup.id}/dissolve`, {
-        method: "POST",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Dissolve failed (${res.status})`);
-      setGroups((prev) => prev.filter((g) => g.id !== selectedGroup.id));
-      closeManage();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
-
   async function handleLogout() {
     setConfirmDialog({
       message: "Are you sure you want to logout?",
@@ -1169,14 +1233,14 @@ function DashboardHome() {
   }
 
   const account = accounts[0];
+  const accountGivenName = typeof account?.idTokenClaims?.given_name === "string" ? account.idTokenClaims.given_name : "";
+  const accountFamilyName = typeof account?.idTokenClaims?.family_name === "string" ? account.idTokenClaims.family_name : "";
   const userName = profileName || account?.name || account?.idTokenClaims?.name ||
-    [account?.idTokenClaims?.given_name, account?.idTokenClaims?.family_name].filter(Boolean).join(" ") || "Student";
+    [accountGivenName, accountFamilyName].filter(Boolean).join(" ") || "Student";
   const userEmail = account?.username || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
-  const reviewableMembers = selectedMembers.filter(
-    (m) => m.membershipStatus === "approved" && m.email !== userEmail
-  );
+  const reviewableMembers = getReviewableMembers(selectedMembers, userEmail);
   const selectedFeedbackGroup = feedbackOptions.find((o) => o.group.id === selectedFeedbackGroupId) || null;
 
   return (
@@ -1192,25 +1256,32 @@ function DashboardHome() {
         </div>
       </div>
 
-      {sidebarOpen && <div className="dashOverlay" onClick={closeSidebar} />}
+      {sidebarOpen && <button type="button" className="dashOverlay" onClick={closeSidebar} aria-label="Close menu" />}
 
       <aside className={`dashSidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="dashUserCard" onClick={() => { nav("/profile"); closeSidebar(); }}>
-          <div className="dashAvatar">
-            {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
-          </div>
-          <div className="dashUserInfo">
-            <h3 className="dashUserName">{userName}</h3>
-            <p className="dashUserEmail">{userEmail}</p>
-          </div>
-          <button className="dashCloseBtn" onClick={(e) => { e.stopPropagation(); closeSidebar(); }} aria-label="Close menu"><CloseIcon /></button>
+        <div className="dashUserCard">
+          <button
+            type="button"
+            className="dashUserCardBtn"
+            onClick={() => { nav("/profile"); closeSidebar(); }}
+            aria-label="Go to profile"
+          >
+            <div className="dashAvatar">
+              {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
+            </div>
+            <div className="dashUserInfo">
+              <h3 className="dashUserName">{userName}</h3>
+              <p className="dashUserEmail">{userEmail}</p>
+            </div>
+          </button>
+          <button className="dashCloseBtn" onClick={closeSidebar} aria-label="Close menu"><CloseIcon /></button>
         </div>
 
         <nav className="dashNav">
           <span className="dashNavLabel">MODULES</span>
           <button className={`dashNavItem ${activeModule === "studyGroups" ? "active" : ""}`} onClick={() => { setActiveModule("studyGroups"); closeSidebar(); }}><GroupsIcon /> Study Groups</button>
           <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
-          <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
+          <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { nav("/restrict-user"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
           <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
         </nav>
@@ -1222,63 +1293,20 @@ function DashboardHome() {
 
       <section className="dashMain">
         {activeModule === "studyGroups" && (
-          <>
-            <div className="dashHeader">
-              <div className="dashHeaderTop">
-                <div>
-                  <h1 className="dashTitle">Study Groups</h1>
-                  <p className="dashSubtitle">Discover, create, and join study groups</p>
-                </div>
-                <div className="dashHeaderBtns">
-                  <button className={`dashMyGroupsBtn${myGroupsOnly ? " active" : ""}`} onClick={() => setMyGroupsOnly((v) => !v)}><GroupsIcon /> {myGroupsOnly ? "All Groups" : "My Groups"}</button>
-                  <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Group</button>
-                </div>
-              </div>
-              <div className="dashSearchWrap">
-                <SearchIcon />
-                <input className="dashSearch" type="text" placeholder="Search by name, course code, or topic…" value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-            </div>
-
-            {loading && <p className="dashMsg">Loading groups…</p>}
-            {error && <p className="dashMsg dashError">{error}</p>}
-            {!loading && !error && filtered.length === 0 && (
-              <div className="dashEmpty"><GroupsIcon /><p>No groups found. Create one to get started!</p></div>
-            )}
-
-            <div className="dashGrid">
-              {filtered.map((g) => (
-                <div className="groupCard" key={g.id || g.name}>
-                  <div className="groupCardHeader">
-                    <span className="groupCourse">{g.moduleCode || g.courseCode || "General"}</span>
-                    <span className={`groupMode ${g.studyMode}`}>{g.studyMode === "online" ? "Online" : "In-Person"}</span>
-                  </div>
-                  <h3 className="groupName">{g.name || "Study Group"}</h3>
-                  <p className="groupTopic">{g.topic || "No topic specified"}</p>
-                  {g.description && <p className="groupDesc">{g.description}</p>}
-                  {g.preferredSchedule && <p className="groupTopic">Schedule: {g.preferredSchedule}</p>}
-                  {g.status && <p className="groupTopic">Status: {g.status}</p>}
-                  <div className="groupFooter">
-                    <span className="groupMembers">{g.memberCount ?? "?"}/{g.maxMembers ?? "∞"} members</span>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="groupJoinBtn"
-                        onClick={() => (g.joined ? handleLeave(g.id) : handleJoin(g.id))}
-                        disabled={!g.id || membershipActionId === g.id || g.status === "dissolved" || (!g.joined && g.status === "full")}
-                      >
-                        {membershipActionId === g.id
-                          ? (g.joined ? "Leaving…" : "Joining…")
-                          : (g.joined ? "Leave" : (g.membershipStatus === "pending" ? "Pending" : "Join"))}
-                      </button>
-                      {g.isAdmin && (
-                        <button className="groupJoinBtn" onClick={() => openManage(g.id)}>Manage</button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <StudyGroupsModule
+            myGroupsOnly={myGroupsOnly}
+            setMyGroupsOnly={setMyGroupsOnly}
+            setShowCreate={setShowCreate}
+            search={search}
+            setSearch={setSearch}
+            loading={loading}
+            error={error}
+            filtered={filtered}
+            membershipActionId={membershipActionId}
+            onJoin={handleJoin}
+            onLeave={handleLeave}
+            onOpenGroup={(groupId) => nav(`/group/${groupId}`)}
+          />
         )}
 
         {activeModule === "peerTutoring" && (
@@ -1297,255 +1325,35 @@ function DashboardHome() {
         {activeModule === "restrictedMembers" && <RestrictedMemberSection />}
       </section>
 
-      {showCreate && (
-        <div className="modalOverlay" onClick={() => setShowCreate(false)} onKeyDown={(e) => e.key === "Escape" && setShowCreate(false)} role="presentation">
-          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <h2 className="modalTitle">Create Study Group</h2>
-            <form className="modalForm" onSubmit={handleCreate}>
-              <label className="modalLabel">Group Name *
-                <input className="modalInput" required value={newGroup.name} onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })} />
-              </label>
-              <div className="modalRow">
-                <label className="modalLabel">Module / Subject *
-                  <input className="modalInput" required placeholder="e.g. CS2030" value={newGroup.moduleCode} onChange={(e) => setNewGroup({ ...newGroup, moduleCode: e.target.value })} />
-                </label>
-                <label className="modalLabel">Topic
-                  <input className="modalInput" placeholder="e.g. Data Structures" value={newGroup.topic} onChange={(e) => setNewGroup({ ...newGroup, topic: e.target.value })} />
-                </label>
-              </div>
-              <div className="modalRow">
-                <label className="modalLabel">Study Mode
-                  <select className="modalInput" value={newGroup.studyMode} onChange={(e) => setNewGroup({ ...newGroup, studyMode: e.target.value })}>
-                    <option value="online">Online</option>
-                    <option value="in-person">In-Person</option>
-                    <option value="hybrid">Hybrid</option>
-                  </select>
-                </label>
-                <label className="modalLabel">Max Members
-                  <input className="modalInput" type="number" min={2} max={50} value={newGroup.maxMembers} onChange={(e) => setNewGroup({ ...newGroup, maxMembers: Number(e.target.value) })} />
-                </label>
-              </div>
-              {(newGroup.studyMode === "in-person" || newGroup.studyMode === "hybrid") && (
-                <label className="modalLabel">Location
-                  <input className="modalInput" required placeholder="e.g. COM1 Level 2" value={newGroup.location} onChange={(e) => setNewGroup({ ...newGroup, location: e.target.value })} />
-                </label>
-              )}
-              {(newGroup.studyMode === "online" || newGroup.studyMode === "hybrid") && (
-                <label className="modalLabel">Meeting Link
-                  <input className="modalInput" required placeholder="e.g. https://teams.microsoft.com/..." value={newGroup.meetingLink} onChange={(e) => setNewGroup({ ...newGroup, meetingLink: e.target.value })} />
-                </label>
-              )}
-              <label className="modalLabel">Preferred Schedule *
-                <div className="modalRow">
-                  <input className="modalInput" type="date" required value={newGroup.scheduleDate} onChange={(e) => setNewGroup({ ...newGroup, scheduleDate: e.target.value })} />
-                  <input className="modalInput" type="time" required value={newGroup.scheduleTime} onChange={(e) => setNewGroup({ ...newGroup, scheduleTime: e.target.value })} />
-                </div>
-              </label>
-              <label className="modalLabel">Description
-                <textarea className="modalInput modalTextarea" required rows={3} value={newGroup.description} onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })} />
-              </label>
-              <label className="modalLabel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input type="checkbox" checked={newGroup.approvalRequired} onChange={(e) => setNewGroup({ ...newGroup, approvalRequired: e.target.checked })} />
-                Require admin approval for join requests
-              </label>
-              <div className="modalActions">
-                <button type="button" className="modalCancel" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Group"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreateGroupModal
+        showCreate={showCreate}
+        setShowCreate={setShowCreate}
+        creating={creating}
+        newGroup={newGroup}
+        setNewGroup={setNewGroup}
+        handleCreate={handleCreate}
+      />
 
-      {showManage && (
-        <div className="modalOverlay" onClick={closeManage}>
-          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
-            {!selectedGroup || manageLoading ? (
-              <p>Loading group details…</p>
-            ) : (
-              <>
-                <h2 className="modalTitle">Manage Group: {selectedGroup.name}</h2>
-                <form className="modalForm" onSubmit={handleUpdateGroup}>
-                  <label className="modalLabel">Group Name *
-                    <input className="modalInput" required value={selectedGroup.name || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, name: e.target.value })} />
-                  </label>
-                  <div className="modalRow">
-                    <label className="modalLabel">Module / Subject *
-                      <input className="modalInput" required value={selectedGroup.moduleCode || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, moduleCode: e.target.value })} />
-                    </label>
-                    <label className="modalLabel">Topic
-                      <input className="modalInput" value={selectedGroup.topic || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, topic: e.target.value })} />
-                    </label>
-                  </div>
-                  <div className="modalRow">
-                    <label className="modalLabel">Study Mode
-                      <select className="modalInput" value={selectedGroup.studyMode || "online"} onChange={(e) => setSelectedGroup({ ...selectedGroup, studyMode: e.target.value })}>
-                        <option value="online">Online</option>
-                        <option value="in-person">In-Person</option>
-                        <option value="hybrid">Hybrid</option>
-                      </select>
-                    </label>
-                    <label className="modalLabel">Max Members
-                      <input className="modalInput" type="number" min={2} max={100} value={selectedGroup.maxMembers || 10} onChange={(e) => setSelectedGroup({ ...selectedGroup, maxMembers: Number(e.target.value) })} />
-                    </label>
-                  </div>
-                  <label className="modalLabel">Location
-                    <input className="modalInput" value={selectedGroup.location || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, location: e.target.value })} />
-                  </label>
-                  <label className="modalLabel">Meeting Link
-                    <input className="modalInput" value={selectedGroup.meetingLink || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, meetingLink: e.target.value })} />
-                  </label>
-                  <label className="modalLabel">Preferred Schedule *
-                    <div className="modalRow">
-                      <input className="modalInput" type="date" required value={manageScheduleDate} onChange={(e) => setManageScheduleDate(e.target.value)} />
-                      <input className="modalInput" type="time" required value={manageScheduleTime} onChange={(e) => setManageScheduleTime(e.target.value)} />
-                    </div>
-                  </label>
-                  <label className="modalLabel">Description *
-                    <textarea className="modalInput modalTextarea" required rows={3} value={selectedGroup.description || ""} onChange={(e) => setSelectedGroup({ ...selectedGroup, description: e.target.value })} />
-                  </label>
-                  <label className="modalLabel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="checkbox" checked={!!selectedGroup.approvalRequired} onChange={(e) => setSelectedGroup({ ...selectedGroup, approvalRequired: e.target.checked })} />
-                    Require admin approval for join requests
-                  </label>
-                  <div className="modalActions">
-                    <button type="submit" className="modalSubmit">Save Group</button>
-                  </div>
-                </form>
-
-                <hr />
-                <h3>Members</h3>
-                <form className="modalRow" onSubmit={handleInviteMember}>
-                  <label className="modalLabel">Invite by email
-                    <input className="modalInput" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="student@u.nus.edu" />
-                  </label>
-                  <div className="modalActions" style={{ alignSelf: "end" }}>
-                    <button type="submit" className="modalSubmit">Invite</button>
-                  </div>
-                </form>
-                <div>
-                  {selectedMembers.map((m) => (
-                    <div key={`${m.userId}-${m.role}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #eee" }}>
-                      <div>
-                        <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || m.userId}</strong>
-                        <div>{m.email} · {m.role} · {m.membershipStatus}</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {(m.membershipStatus === "pending" || m.membershipStatus === "invited") && (
-                          <button className="groupJoinBtn" onClick={() => handleApproveMember(m.userId)}>Approve</button>
-                        )}
-                        {selectedGroup.createdBy !== m.userId && (
-                          <button className="groupJoinBtn" onClick={() => handleRemoveMember(m.userId)}>Remove</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="modalRow" style={{ marginTop: 12 }}>
-                  <label className="modalLabel">Transfer Ownership
-                    <select className="modalInput" value={transferOwnerId} onChange={(e) => setTransferOwnerId(e.target.value)}>
-                      <option value="">Select approved member</option>
-                      {selectedMembers
-                        .filter((m) => m.membershipStatus === "approved" && m.userId !== selectedGroup.createdBy)
-                        .map((m) => (
-                          <option key={m.userId} value={m.userId}>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || m.userId}</option>
-                        ))}
-                    </select>
-                  </label>
-                  <div className="modalActions" style={{ alignSelf: "end" }}>
-                    <button className="modalSubmit" onClick={handleTransferOwnership} type="button">Transfer</button>
-                  </div>
-                </div>
-
-                <hr />
-                <h3>Scheduled Sessions</h3>
-                <form className="modalForm" onSubmit={handleCreateSession}>
-                  <label className="modalLabel">Session Title *
-                    <input className="modalInput" required value={sessionForm.title} onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })} />
-                  </label>
-                  <div className="modalRow">
-                    <label className="modalLabel">Starts At (ISO) *
-                      <input className="modalInput" required placeholder="2026-03-15T19:00:00" value={sessionForm.startsAt} onChange={(e) => setSessionForm({ ...sessionForm, startsAt: e.target.value })} />
-                    </label>
-                    <label className="modalLabel">Ends At (ISO)
-                      <input className="modalInput" placeholder="2026-03-15T21:00:00" value={sessionForm.endsAt} onChange={(e) => setSessionForm({ ...sessionForm, endsAt: e.target.value })} />
-                    </label>
-                  </div>
-                  <div className="modalRow">
-                    <label className="modalLabel">Location
-                      <input className="modalInput" value={sessionForm.location} onChange={(e) => setSessionForm({ ...sessionForm, location: e.target.value })} />
-                    </label>
-                    <label className="modalLabel">Meeting Link
-                      <input className="modalInput" value={sessionForm.meetingLink} onChange={(e) => setSessionForm({ ...sessionForm, meetingLink: e.target.value })} />
-                    </label>
-                  </div>
-                  <label className="modalLabel">Notes
-                    <textarea className="modalInput modalTextarea" rows={2} value={sessionForm.notes} onChange={(e) => setSessionForm({ ...sessionForm, notes: e.target.value })} />
-                  </label>
-                  <div className="modalActions">
-                    <button type="submit" className="modalSubmit">Create Session</button>
-                  </div>
-                </form>
-
-                <div>
-                  {selectedSessions.map((s) => (
-                    <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #eee" }}>
-                      <div>
-                        <strong>{s.title}</strong>
-                        <div>{s.startsAt} {s.endsAt ? `→ ${s.endsAt}` : ""}</div>
-                        <div>{s.location || s.meetingLink || "No location/link"}</div>
-                      </div>
-                      <button className="groupJoinBtn" onClick={() => handleDeleteSession(s.id)}>Delete</button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="modalActions" style={{ marginTop: 16, justifyContent: "space-between" }}>
-                  <button type="button" className="modalCancel" onClick={closeManage}>Close</button>
-                  <button type="button" className="modalCancel" onClick={handleDissolveGroup}>Dissolve Group</button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {showFeedbackPicker && (
-        <div className="modalOverlay" onClick={closeFeedbackPicker} onKeyDown={(e) => e.key === "Escape" && closeFeedbackPicker()} role="presentation">
-          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <h2 className="modalTitle">Give Peer Feedback</h2>
-            <p style={{ color: "#6b7280", marginBottom: 16 }}>Select the group and session you want to provide feedback for.</p>
-            <label className="modalLabel">Study Group
-              <select className="modalInput" value={selectedFeedbackGroupId} onChange={(e) => handleSelectFeedbackGroup(e.target.value)}>
-                {feedbackOptions.map((o) => (
-                  <option key={o.group.id} value={o.group.id}>{o.group.name}</option>
-                ))}
-              </select>
-            </label>
-            {selectedFeedbackGroup && (
-              <label className="modalLabel">Session
-                <select className="modalInput" value={selectedFeedbackSessionId} onChange={(e) => setSelectedFeedbackSessionId(e.target.value)}>
-                  {selectedFeedbackGroup.sessions.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title || s.startsAt || s.id}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <div className="modalActions">
-              <button type="button" className="modalCancel" onClick={closeFeedbackPicker}>Cancel</button>
-              <button type="button" className="modalSubmit" onClick={handleLaunchFeedback} disabled={!selectedFeedbackGroupId || !selectedFeedbackSessionId}>Next →</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FeedbackPickerModal
+        showFeedbackPicker={showFeedbackPicker}
+        closeFeedbackPicker={closeFeedbackPicker}
+        selectedFeedbackGroup={selectedFeedbackGroup}
+        selectedFeedbackGroupId={selectedFeedbackGroupId}
+        selectedFeedbackSessionId={selectedFeedbackSessionId}
+        setSelectedFeedbackSessionId={setSelectedFeedbackSessionId}
+        handleSelectFeedbackGroup={handleSelectFeedbackGroup}
+        handleLaunchFeedback={handleLaunchFeedback}
+        feedbackOptions={feedbackOptions}
+      />
 
       {showFeedback && (
-        <div className="modalOverlay" onClick={closeFeedback} onKeyDown={(e) => e.key === "Escape" && closeFeedback()} role="presentation">
-          <div className="modalCard" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <>
+          <button type="button" className="modalOverlay" aria-label="Close peer feedback modal" onClick={closeFeedback} />
+          <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); closeFeedback(); }}>
             <h2 className="modalTitle">Peer Feedback — {feedbackSession?.title || "Session"}</h2>
             <form className="modalForm" onSubmit={handleSubmitFeedback}>
-              <label className="modalLabel">Reviewing
+              <label className="modalLabel">
+                <span>Reviewing</span>
                 <select className="modalInput" value={feedbackForm.revieweeId} onChange={(e) => setFeedbackForm({ ...feedbackForm, revieweeId: e.target.value })}>
                   <option value="">Select peer</option>
                   {reviewableMembers.map((m) => (
@@ -1566,15 +1374,17 @@ function DashboardHome() {
                   <StarRating label={label} value={feedbackForm[key]} onChange={(v) => setFeedbackForm({ ...feedbackForm, [key]: v })} />
                 </label>
               ))}
-              <label className="modalLabel">Strengths
+              <label className="modalLabel">
+                <span>Strengths</span>
                 <textarea className="modalInput modalTextarea" rows={2} value={feedbackForm.strengths} onChange={(e) => setFeedbackForm({ ...feedbackForm, strengths: e.target.value })} />
               </label>
-              <label className="modalLabel">Areas for Improvement
+              <label className="modalLabel">
+                <span>Areas for Improvement</span>
                 <textarea className="modalInput modalTextarea" rows={2} value={feedbackForm.improvements} onChange={(e) => setFeedbackForm({ ...feedbackForm, improvements: e.target.value })} />
               </label>
               <label className="modalLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <input type="checkbox" checked={feedbackForm.anonymousToPeer} onChange={(e) => setFeedbackForm({ ...feedbackForm, anonymousToPeer: e.target.checked })} />
-                Submit anonymously
+                <span>Submit anonymously</span>
               </label>
               {feedbackStatus.message && (
                 <p style={{ color: feedbackStatus.type === "success" ? "#16a34a" : "#d97706", fontSize: 14 }}>{feedbackStatus.message}</p>
@@ -1586,13 +1396,14 @@ function DashboardHome() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </dialog>
+        </>
       )}
 
       {showTutorFeedbacks && (
-        <div className="modalOverlay" onClick={closeTutorFeedbacks} onKeyDown={(e) => e.key === "Escape" && closeTutorFeedbacks()} role="presentation">
-          <div className="modalCard tutorFeedbackModal" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <>
+          <button type="button" className="modalOverlay" aria-label="Close submitted feedback modal" onClick={closeTutorFeedbacks} />
+          <dialog open className="modalCard tutorFeedbackModal" aria-modal="true" onCancel={(e) => { e.preventDefault(); closeTutorFeedbacks(); }}>
             <h2 className="modalTitle">Submitted Feedbacks{tutorFeedbackClass?.title ? ` - ${tutorFeedbackClass.title}` : ""}</h2>
             <p className="tutorFeedbackIntro">
               Select a student name to view the feedback they submitted for this tutoring class.
@@ -1609,21 +1420,22 @@ function DashboardHome() {
 
             {!tutorFeedbackLoading && tutorFeedbackItems.length > 0 && (
               <div className="tutorFeedbackLayout">
-                <div className="tutorFeedbackList" role="list" aria-label="Submitted feedback names">
+                <ul className="tutorFeedbackList" aria-label="Submitted feedback names">
                   {tutorFeedbackItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`tutorFeedbackListItem ${selectedTutorFeedback?.id === item.id ? "active" : ""}`}
-                      onClick={() => setSelectedTutorFeedback(item)}
-                    >
-                      <span className="tutorFeedbackReviewer">{item.reviewerLabel}</span>
-                      <span className="tutorFeedbackMeta">
-                        {item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "Submission time unavailable"}
-                      </span>
-                    </button>
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className={`tutorFeedbackListItem ${selectedTutorFeedback?.id === item.id ? "active" : ""}`}
+                        onClick={() => setSelectedTutorFeedback(item)}
+                      >
+                        <span className="tutorFeedbackReviewer">{item.reviewerLabel}</span>
+                        <span className="tutorFeedbackMeta">
+                          {item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "Submission time unavailable"}
+                        </span>
+                      </button>
+                    </li>
                   ))}
-                </div>
+                </ul>
 
                 <div className="tutorFeedbackDetail">
                   {selectedTutorFeedback ? (
@@ -1682,27 +1494,13 @@ function DashboardHome() {
             <div className="modalActions">
               <button type="button" className="modalCancel" onClick={closeTutorFeedbacks}>Close</button>
             </div>
-          </div>
-        </div>
+          </dialog>
+        </>
       )}
 
-      {confirmDialog && (
-        <div className="modalOverlay" onClick={() => setConfirmDialog(null)}>
-          <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
-            <p className="confirmMsg">{confirmDialog.message}</p>
-            <div className="confirmActions">
-              <button className={confirmDialog.cancelBtnClass || "modalCancel"} onClick={confirmDialog.onCancel}>{confirmDialog.cancelLabel || "Cancel"}</button>
-              <button className={confirmDialog.confirmBtnClass || "modalSubmit"} onClick={confirmDialog.onConfirm}>{confirmDialog.confirmLabel || "Yes"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
 
-      {toast && (
-        <div className={`dashToast ${toast.type === "error" ? "dashToastError" : "dashToastSuccess"}`} onClick={() => setToast(null)}>
-          {toast.message}
-        </div>
-      )}
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }

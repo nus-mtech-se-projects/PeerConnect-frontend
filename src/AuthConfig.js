@@ -9,8 +9,8 @@ const msalConfig = {
   auth: {
     clientId,
     authority,
-    redirectUri: window.location.origin,
-    postLogoutRedirectUri: window.location.origin,
+    redirectUri: globalThis.location.origin,
+    postLogoutRedirectUri: globalThis.location.origin,
     navigateToLoginRequestUrl: false,
   },
   cache: {

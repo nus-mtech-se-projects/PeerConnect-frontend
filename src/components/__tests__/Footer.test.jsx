@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import Footer from "../Footer";
 
 describe("Footer", () => {
-  const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  const alertSpy = vi.spyOn(globalThis, "alert").mockImplementation(() => {});
 
   beforeEach(() => alertSpy.mockClear());
   afterEach(() => alertSpy.mockClear());

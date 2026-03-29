@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 
 export default function Carousel({ slides = [], autoPlayMs = 0 }) {
   const safeSlides = useMemo(() => slides ?? [], [slides]);
@@ -69,9 +70,9 @@ export default function Carousel({ slides = [], autoPlayMs = 0 }) {
           </button>
 
           <div className="dotsRow" aria-label="Carousel pagination">
-            {safeSlides.map((_, i) => (
+            {safeSlides.map((slide, i) => (
               <button
-                key={i}
+                key={`dot-${slide?.title ?? slide?.imageAlt ?? i}`}
                 className={`dot2 ${i === idx ? "active" : ""}`}
                 onClick={() => setIdx(i)}
                 aria-label={`Go to slide ${i + 1}`}
@@ -83,3 +84,8 @@ export default function Carousel({ slides = [], autoPlayMs = 0 }) {
     </section>
   );
 }
+
+Carousel.propTypes = {
+  slides: PropTypes.array,
+  autoPlayMs: PropTypes.number,
+};

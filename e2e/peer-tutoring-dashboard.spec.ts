@@ -18,7 +18,7 @@ test.describe("Peer tutoring dashboard", () => {
     const token = createValidToken();
 
     await page.addInitScript((accessToken) => {
-      window.localStorage.setItem("accessToken", accessToken);
+      globalThis.localStorage.setItem("accessToken", accessToken);
     }, token);
 
     await page.route("**/api/users/me", async (route) => {

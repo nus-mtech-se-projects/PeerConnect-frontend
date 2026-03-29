@@ -24,8 +24,8 @@ export const msalConfig = {
   auth: {
     clientId,
     authority: `https://login.microsoftonline.com/${tenantId}`,
-    redirectUri: window.location.origin, 
-    postLogoutRedirectUri: window.location.origin,
+    redirectUri: globalThis.location.origin, 
+    postLogoutRedirectUri: globalThis.location.origin,
     //redirectUri: 'https://salmon-island-0f8625f00.6.azurestaticapps.net',
     //postLogoutRedirectUri: 'https://salmon-island-0f8625f00.6.azurestaticapps.net',
     navigateToLoginRequestUrl: true,

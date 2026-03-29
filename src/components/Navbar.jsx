@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import peerconnectIcon from "../assets/images/peerconnect_icon.png";
+import ConfirmDialog from "./ConfirmDialog";
 import "../styles/pages/Dashboard.css";
 
 export default function Navbar() {
@@ -50,7 +51,12 @@ export default function Navbar() {
 
         {/* Overlay backdrop */}
         {menuOpen && (
-          <div className="navOverlay" onClick={() => setMenuOpen(false)} />
+          <button
+            type="button"
+            className="navOverlay"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Close menu"
+          />
         )}
 
         {/* Links + actions — drawer on mobile, inline on desktop */}
@@ -114,17 +120,7 @@ export default function Navbar() {
       </div>
     </header>
 
-    {confirmDialog && (
-      <div className="modalOverlay" onClick={() => setConfirmDialog(null)}>
-        <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
-          <p className="confirmMsg">{confirmDialog.message}</p>
-          <div className="confirmActions">
-            <button className="confirmBtnOutline" onClick={confirmDialog.onCancel}>Cancel</button>
-            <button className="confirmBtnGreen" onClick={confirmDialog.onConfirm}>OK</button>
-          </div>
-        </div>
-      </div>
-    )}
+    <ConfirmDialog dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
     </>
   );
 }
