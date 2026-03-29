@@ -2,10 +2,9 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import { getMicrosoftLoginErrorMessage, loginRequest } from "../AuthConfig";
+import { API_BASE } from "../utils/auth";
 // Shared auth page styles (login + signup)
 import "../styles/pages/Auth.css";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 
 export default function Signup() {
@@ -102,7 +101,7 @@ export default function Signup() {
           </button>
         </div>
 
-        <div className="divider" aria-hidden="true">
+        <div className="divider" role="separator">
           <span />
           <em>or</em>
           <span />

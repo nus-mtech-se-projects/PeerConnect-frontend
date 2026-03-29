@@ -88,6 +88,94 @@ async function doLoadGroup(groupId, setters) {
   }
 }
 
+function showToast(message, type = "success", setToast, toastTimerRef) {
+  clearTimeout(toastTimerRef.current);
+  setToast({ message, type });
+  toastTimerRef.current = setTimeout(() => setToast(null), 3500);
+}
+
+async function executeDeleteSession(sessionId, groupId, setToast, toastTimerRef, loadGroup) {
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/sessions/${sessionId}`, {
+      method: "DELETE", headers: authHeaders(), credentials: "include",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Delete session failed (${res.status})`);
+    await loadGroup();
+  } catch (err) { showToast(err.message, "error", setToast, toastTimerRef); }
+}
+
+async function executeRemoveMember(userId, groupId, setSendingEmail, setToast, toastTimerRef, loadGroup) {
+  setSendingEmail(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/members/${userId}`, {
+      method: "DELETE", headers: authHeaders(), credentials: "include",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Remove failed (${res.status})`);
+    await loadGroup();
+  } catch (err) { showToast(err.message, "error", setToast, toastTimerRef); }
+  finally { setSendingEmail(false); }
+}
+
+async function executeTransferOwnership(groupId, transferOwnerId, setSendingEmail, setToast, toastTimerRef, loadGroup) {
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/transfer-ownership`, {
+      method: "POST", headers: authHeaders(), credentials: "include",
+      body: JSON.stringify({ newOwnerUserId: transferOwnerId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Transfer failed (${res.status})`);
+    showToast("Ownership transferred successfully!", "success", setToast, toastTimerRef);
+    await loadGroup();
+  } catch (err) { showToast(err.message, "error", setToast, toastTimerRef); }
+}
+
+async function executeDissolveGroup(groupId, setSendingEmail, setToast, toastTimerRef, nav) {
+  setSendingEmail(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/dissolve`, {
+      method: "POST", headers: authHeaders(), credentials: "include",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Dissolve failed (${res.status})`);
+    nav("/");
+  } catch (err) { showToast(err.message, "error", setToast, toastTimerRef); }
+  finally { setSendingEmail(false); }
+}
+
+async function executeJoinFromDetail(groupId, setJoiningGroup, setToast, toastTimerRef, loadGroup) {
+  setJoiningGroup(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/join`, {
+      method: "POST", headers: authHeaders(), credentials: "include",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Join failed (${res.status})`);
+    if (data.alreadyJoined) {
+      showToast("You have already joined this group.", "error", setToast, toastTimerRef);
+    } else {
+      showToast("Successfully joined the group!", "success", setToast, toastTimerRef);
+    }
+    await loadGroup();
+  } catch (err) { showToast(err.message, "error", setToast, toastTimerRef); }
+  finally { setJoiningGroup(false); }
+}
+
+async function executeLeaveFromDetail(groupId, setLeavingGroup, setToast, toastTimerRef, loadGroup) {
+  setLeavingGroup(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/leave`, {
+      method: "POST", headers: authHeaders(), credentials: "include",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Leave failed (${res.status})`);
+    showToast("You have left the group.", "success", setToast, toastTimerRef);
+    await loadGroup();
+  } catch (err) { showToast(err.message, "error", setToast, toastTimerRef); }
+  finally { setLeavingGroup(false); }
+}
+
 export default function GroupDetail() {
   const { groupId } = useParams();
   const nav = useNavigate();
@@ -113,12 +201,6 @@ export default function GroupDetail() {
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [sendingEmail, setSendingEmail] = useState(false);
-
-  function showToast(message, type = "success") {
-    clearTimeout(toastTimer.current);
-    setToast({ message, type });
-    toastTimer.current = setTimeout(() => setToast(null), 3500);
-  }
 
   const loadGroup = useCallback(() => doLoadGroup(groupId, {
     setLoading, setGroup, setMembers, setSessions, setPreviewOnly,
@@ -151,9 +233,9 @@ export default function GroupDetail() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Update failed (${res.status})`);
-      showToast("Group updated successfully!");
+      showToast("Group updated successfully!", "success", setToast, toastTimer);
       await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
+    } catch (err) { showToast(err.message, "error", setToast, toastTimer); }
     finally { setSendingEmail(false); }
   }
 
@@ -175,9 +257,9 @@ export default function GroupDetail() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Create session failed (${res.status})`);
       setSessionForm({ ...sessionForm, title: "", startsAtDate: "", startsAtTime: "", endsAtDate: "", endsAtTime: "", notes: "" });
-      showToast("Session created! Notifying members by email…");
+      showToast("Session created! Notifying members by email\u2026", "success", setToast, toastTimer);
       await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
+    } catch (err) { showToast(err.message, "error", setToast, toastTimer); }
     finally { setSendingEmail(false); }
   }
 
@@ -187,20 +269,9 @@ export default function GroupDetail() {
       message: "Are you sure you want to delete this session?",
       confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
       confirmLabel: "Delete", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeDeleteSession(sessionId); },
+      onConfirm: () => { setConfirmDialog(null); executeDeleteSession(sessionId, group.id, setToast, toastTimer, loadGroup); },
       onCancel: () => setConfirmDialog(null),
     });
-  }
-
-  async function executeDeleteSession(sessionId) {
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/sessions/${sessionId}`, {
-        method: "DELETE", headers: authHeaders(), credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Delete session failed (${res.status})`);
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
   }
 
   async function handleInviteMember(e) {
@@ -216,9 +287,9 @@ export default function GroupDetail() {
       if (!res.ok) throw new Error(data?.error || `Invite failed (${res.status})`);
 
       setInviteEmail("");
-      showToast("Invitation sent successfully!");
+      showToast("Invitation sent successfully!", "success", setToast, toastTimer);
       await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
+    } catch (err) { showToast(err.message, "error", setToast, toastTimer); }
     finally { setSendingEmail(false); }
   }
 
@@ -232,7 +303,7 @@ export default function GroupDetail() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Approve failed (${res.status})`);
       await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
+    } catch (err) { showToast(err.message, "error", setToast, toastTimer); }
     finally { setSendingEmail(false); }
   }
 
@@ -242,46 +313,20 @@ export default function GroupDetail() {
       message: "Are you sure you want to reject this member from the group?",
       confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
       confirmLabel: "Reject", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeRemoveMember(userId); },
+      onConfirm: () => { setConfirmDialog(null); executeRemoveMember(userId, group.id, setSendingEmail, setToast, toastTimer, loadGroup); },
       onCancel: () => setConfirmDialog(null),
     });
   }
 
-  async function executeRemoveMember(userId) {
-    setSendingEmail(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/members/${userId}`, {
-        method: "DELETE", headers: authHeaders(), credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Remove failed (${res.status})`);
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
-    finally { setSendingEmail(false); }
-  }
-
-  async function handleTransferOwnership() {
+  function handleTransferOwnership() {
     if (!group?.id || !transferOwnerId) return;
     setConfirmDialog({
       message: "Transfer ownership to selected member?",
       confirmBtnClass: "confirmBtnGreen", cancelBtnClass: "confirmBtnOutline",
       confirmLabel: "Transfer", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeTransferOwnership(); },
+      onConfirm: () => { setConfirmDialog(null); executeTransferOwnership(group.id, transferOwnerId, setSendingEmail, setToast, toastTimer, loadGroup); },
       onCancel: () => setConfirmDialog(null),
     });
-  }
-
-  async function executeTransferOwnership() {
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/transfer-ownership`, {
-        method: "POST", headers: authHeaders(), credentials: "include",
-        body: JSON.stringify({ newOwnerUserId: transferOwnerId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Transfer failed (${res.status})`);
-      showToast("Ownership transferred successfully!");
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
   }
 
   function handleDissolveGroup() {
@@ -290,23 +335,9 @@ export default function GroupDetail() {
       message: "Are you sure you want to dissolve this group? This action will set the group status to dissolved and cannot be undone.",
       confirmBtnClass: "confirmBtnRed", cancelBtnClass: "confirmBtnOutline",
       confirmLabel: "Dissolve", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeDissolveGroup(); },
+      onConfirm: () => { setConfirmDialog(null); executeDissolveGroup(group.id, setSendingEmail, setToast, toastTimer, nav); },
       onCancel: () => setConfirmDialog(null),
     });
-  }
-
-  async function executeDissolveGroup() {
-    setSendingEmail(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/dissolve`, {
-        method: "POST", headers: authHeaders(), credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Dissolve failed (${res.status})`);
-
-      nav("/");
-    } catch (err) { showToast(err.message, "error"); }
-    finally { setSendingEmail(false); }
   }
 
   /* ── Join from detail page ── */
@@ -317,27 +348,9 @@ export default function GroupDetail() {
       message: "Are you sure you want to join this group?",
       confirmBtnClass: "gdSubmitBtn", cancelBtnClass: "gdCancelBtn",
       confirmLabel: "Join", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeJoinFromDetail(); },
+      onConfirm: () => { setConfirmDialog(null); executeJoinFromDetail(group.id, setJoiningGroup, setToast, toastTimer, loadGroup); },
       onCancel: () => setConfirmDialog(null),
     });
-  }
-
-  async function executeJoinFromDetail() {
-    setJoiningGroup(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/join`, {
-        method: "POST", headers: authHeaders(), credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Join failed (${res.status})`);
-      if (data.alreadyJoined) {
-        showToast("You have already joined this group.", "error");
-      } else {
-        showToast("Successfully joined the group!");
-      }
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
-    finally { setJoiningGroup(false); }
   }
 
   /* ── Leave from detail page ── */
@@ -348,23 +361,9 @@ export default function GroupDetail() {
       message: "Are you sure you want to leave this group?",
       confirmBtnClass: "gdLeaveBtn", cancelBtnClass: "gdCancelBtn",
       confirmLabel: "Leave", cancelLabel: "Cancel",
-      onConfirm: () => { setConfirmDialog(null); executeLeaveFromDetail(); },
+      onConfirm: () => { setConfirmDialog(null); executeLeaveFromDetail(group.id, setLeavingGroup, setToast, toastTimer, loadGroup); },
       onCancel: () => setConfirmDialog(null),
     });
-  }
-
-  async function executeLeaveFromDetail() {
-    setLeavingGroup(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${group.id}/leave`, {
-        method: "POST", headers: authHeaders(), credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Leave failed (${res.status})`);
-      showToast("You have left the group.");
-      await loadGroup();
-    } catch (err) { showToast(err.message, "error"); }
-    finally { setLeavingGroup(false); }
   }
 
   /* ── Render ── */

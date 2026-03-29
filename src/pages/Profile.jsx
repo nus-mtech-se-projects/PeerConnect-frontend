@@ -1,14 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
+import { API_BASE, authHeaders } from "../utils/auth";
 import "../styles/pages/Profile.css";
-
-const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg"];
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-/* ── NUS Faculty → Major mapping ── */
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
 const FACULTY_MAJORS = {
   "Faculty of Arts and Social Sciences": [
     "Chinese Language", "Chinese Studies", "Communications and New Media",
@@ -52,14 +49,6 @@ const FACULTY_MAJORS = {
 };
 
 const FACULTIES = Object.keys(FACULTY_MAJORS);
-
-function authHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
 
 export default function Profile() {
   const nav = useNavigate();
