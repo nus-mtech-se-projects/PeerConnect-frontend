@@ -1,16 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { API_BASE, authHeaders } from "../utils/auth";
 import "../styles/pages/GroupDetail.css";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-function authHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
 
 function formatDateTime(iso) {
   if (!iso) return "";

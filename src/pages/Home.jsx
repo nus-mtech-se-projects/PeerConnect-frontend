@@ -7,9 +7,8 @@ import tutoringImg from "../assets/images/tutoring.jpg";
 import studyGroupImg from "../assets/images/study-group.jpg";
 import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
+import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import "../styles/pages/Dashboard.css";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 function createFeedbackForm() {
   return {
     revieweeId: "",
@@ -102,32 +101,6 @@ function normalizeFeedbackCollection(payload) {
             : [];
 
   return rawItems.map((item, index) => normalizeFeedbackEntry(item, index));
-}
-
-/* ──────────────────── helpers ──────────────────── */
-function authHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
-function waitForToken(timeoutMs = 8000) {
-  return new Promise((resolve, reject) => {
-    const start = Date.now();
-    (function check() {
-      const token = localStorage.getItem("accessToken");
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          if (payload.exp * 1000 > Date.now()) { resolve(token); return; }
-        } catch { /* malformed */ }
-      }
-      if (Date.now() - start > timeoutMs) { reject(new Error("Token timeout")); return; }
-      setTimeout(check, 300);
-    })();
-  });
 }
 
 /* ──────── SVG icons ──────── */
