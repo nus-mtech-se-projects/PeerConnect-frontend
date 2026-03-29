@@ -40,6 +40,54 @@ async function loadGroupPreview(groupId, setGroup, setMembers, setSessions) {
   setSessions(Array.isArray(found.sessions) ? found.sessions : []);
 }
 
+function getStudyModeLabel(mode) {
+  if (mode === "online") return "Online";
+  if (mode === "hybrid") return "Hybrid";
+  return "In-Person";
+}
+
+function ownerFirstSort(a, b) {
+  if (a.role === "owner") return -1;
+  if (b.role === "owner") return 1;
+  return 0;
+}
+
+async function doLoadGroup(groupId, setters) {
+  const {
+    setLoading, setGroup, setMembers, setSessions, setPreviewOnly,
+    setScheduleDate, setScheduleTime, setSessionForm, setTransferOwnerId,
+    setInviteEmail, setError,
+  } = setters;
+  setLoading(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}`, {
+      headers: authHeaders(), credentials: "include",
+    });
+    if (res.status === 403 || res.status === 401) {
+      await loadGroupPreview(groupId, setGroup, setMembers, setSessions);
+      setPreviewOnly(true);
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Failed to load group (${res.status})`);
+    setGroup({ ...data, moduleCode: data.moduleCode || data.courseCode || "" });
+    setMembers(Array.isArray(data.members) ? data.members : []);
+    setSessions(Array.isArray(data.sessions) ? data.sessions : []);
+    setPreviewOnly(false);
+    const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
+    const parts = ps.split(/[T ]/);
+    setScheduleDate(parts[0] || "");
+    setScheduleTime(parts[1] ? parts[1].substring(0, 5) : "");
+    setSessionForm((prev) => ({ ...prev, location: data.location || "", meetingLink: data.meetingLink || "" }));
+    setTransferOwnerId("");
+    setInviteEmail("");
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
 export default function GroupDetail() {
   const { groupId } = useParams();
   const nav = useNavigate();
@@ -72,38 +120,11 @@ export default function GroupDetail() {
     toastTimer.current = setTimeout(() => setToast(null), 3500);
   }
 
-  const loadGroup = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/groups/${groupId}`, {
-        headers: authHeaders(), credentials: "include",
-      });
-
-      if (res.status === 403 || res.status === 401) {
-        await loadGroupPreview(groupId, setGroup, setMembers, setSessions);
-        setPreviewOnly(true);
-        return;
-      }
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Failed to load group (${res.status})`);
-      setGroup({ ...data, moduleCode: data.moduleCode || data.courseCode || "" });
-      setMembers(Array.isArray(data.members) ? data.members : []);
-      setSessions(Array.isArray(data.sessions) ? data.sessions : []);
-      setPreviewOnly(false);
-      const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
-      const parts = ps.split(/[T ]/);
-      setScheduleDate(parts[0] || "");
-      setScheduleTime(parts[1] ? parts[1].substring(0, 5) : "");
-      setSessionForm((prev) => ({ ...prev, location: data.location || "", meetingLink: data.meetingLink || "" }));
-      setTransferOwnerId("");
-      setInviteEmail("");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [groupId]);
+  const loadGroup = useCallback(() => doLoadGroup(groupId, {
+    setLoading, setGroup, setMembers, setSessions, setPreviewOnly,
+    setScheduleDate, setScheduleTime, setSessionForm, setTransferOwnerId,
+    setInviteEmail, setError,
+  }), [groupId]);
 
   useEffect(() => { loadGroup(); }, [loadGroup]);
 
@@ -365,7 +386,7 @@ export default function GroupDetail() {
         <div className="gdHeader">
           <h1 className="gdTitle">{group.name}</h1>
           <span className={`gdMode ${group.studyMode}`}>
-            {group.studyMode === "online" ? "Online" : group.studyMode === "hybrid" ? "Hybrid" : "In-Person"}
+            {getStudyModeLabel(group.studyMode)}
           </span>
         </div>
 
@@ -450,7 +471,7 @@ export default function GroupDetail() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...members].sort((a, b) => (a.role === "owner" ? -1 : b.role === "owner" ? 1 : 0)).map((m) => (
+                      {[...members].sort(ownerFirstSort).map((m) => (
                         <tr key={`${m.userId}-${m.role}`}>
                           <td>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</td>
                           <td><span className={`gdRoleBadge gdRole-${m.role}`}>{m.role}</span></td>
@@ -576,7 +597,7 @@ export default function GroupDetail() {
                 </div>
                 <div className="gdInfoItem">
                   <span className="gdInfoLabel">Study Mode</span>
-                  <span className="gdInfoValue">{group.studyMode === "online" ? "Online" : group.studyMode === "hybrid" ? "Hybrid" : "In-Person"}</span>
+                  <span className="gdInfoValue">{getStudyModeLabel(group.studyMode)}</span>
                 </div>
                 <div className="gdInfoItem">
                   <span className="gdInfoLabel">Max Members</span>
@@ -610,7 +631,7 @@ export default function GroupDetail() {
             <div className="gdSection">
               <h2 className="gdSectionTitle">{previewOnly ? "Owner" : "Members"}</h2>
               <div className="gdMemberList">
-                {(previewOnly ? members.filter((m) => m.role === "owner") : [...members].sort((a, b) => (a.role === "owner" ? -1 : b.role === "owner" ? 1 : 0))).map((m) => (
+                {(previewOnly ? members.filter((m) => m.role === "owner") : [...members].sort(ownerFirstSort)).map((m) => (
                   <div key={`${m.userId}-${m.role}`} className="gdMemberRow">
                     <div>
                       <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</strong>

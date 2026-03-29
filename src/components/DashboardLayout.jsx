@@ -13,22 +13,24 @@ const NAV_ITEMS = [
   { id: "support", label: "Support", icon: <SupportIcon />, disabled: true },
 ];
 
+function applyProfileData(data, state, setAvatarUrl, setProfileName) {
+  if (data.avatarUrl) { setAvatarUrl(data.avatarUrl); state.avatarFound = true; }
+  if (!state.nameFound) {
+    const name = [data.firstName, data.lastName].filter(Boolean).join(" ") || data.name || "";
+    if (name) { setProfileName(name); state.nameFound = true; }
+  }
+}
+
 async function fetchProfileData(h, getCancelled, setAvatarUrl, setProfileName) {
-  let nameFound = false;
-  let avatarFound = false;
+  const state = { nameFound: false, avatarFound: false };
   for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
     try {
       const res = await fetch(url, { headers: h, credentials: "include" });
       if (!res.ok) continue;
       const data = await res.json();
       if (getCancelled()) return;
-      if (data.avatarUrl) { setAvatarUrl(data.avatarUrl); avatarFound = true; }
-      if (!nameFound) {
-        const full = [data.firstName, data.lastName].filter(Boolean).join(" ");
-        if (full) { setProfileName(full); nameFound = true; }
-        else if (data.name) { setProfileName(data.name); nameFound = true; }
-      }
-      if (nameFound && avatarFound) break;
+      applyProfileData(data, state, setAvatarUrl, setProfileName);
+      if (state.nameFound && state.avatarFound) break;
     } catch { /* try next */ }
   }
 }
