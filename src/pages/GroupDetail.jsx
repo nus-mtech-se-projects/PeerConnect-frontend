@@ -124,6 +124,7 @@ export default function GroupDetail() {
   async function handleUpdateGroup(e) {
     e.preventDefault();
     if (!group?.id) return;
+    setSendingEmail(true);
     try {
       const payload = {
         name: group.name, moduleCode: group.moduleCode, topic: group.topic,
@@ -142,11 +143,13 @@ export default function GroupDetail() {
       showToast("Group updated successfully!");
       await loadGroup();
     } catch (err) { showToast(err.message, "error"); }
+    finally { setSendingEmail(false); }
   }
 
   async function handleCreateSession(e) {
     e.preventDefault();
     if (!group?.id) return;
+    setSendingEmail(true);
     try {
       const payload = {
         title: sessionForm.title,
@@ -161,8 +164,10 @@ export default function GroupDetail() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Create session failed (${res.status})`);
       setSessionForm({ ...sessionForm, title: "", startsAtDate: "", startsAtTime: "", endsAtDate: "", endsAtTime: "", notes: "" });
+      showToast("Session created! Notifying members by email…");
       await loadGroup();
     } catch (err) { showToast(err.message, "error"); }
+    finally { setSendingEmail(false); }
   }
 
   function handleDeleteSession(sessionId) {
@@ -359,6 +364,11 @@ export default function GroupDetail() {
 
   return (
     <div className="gdPage">
+      {sendingEmail && (
+        <div className="gdProgressBar">
+          <div className="gdProgressBarFill" />
+        </div>
+      )}
       <button className="gdBackBtn" onClick={() => nav("/")}>← Back to Dashboard</button>
 
       <div className="gdCard">
@@ -418,7 +428,9 @@ export default function GroupDetail() {
                   Require admin approval for join requests
                 </label>
                 <div className="gdActions">
-                  <button type="submit" className="gdSubmitBtn">Save Group</button>
+                  <button type="submit" className="gdSubmitBtn" disabled={sendingEmail}>
+                    {sendingEmail ? "Saving…" : "Save Group"}
+                  </button>
                 </div>
               </form>
             </div>
@@ -442,17 +454,15 @@ export default function GroupDetail() {
                     <thead>
                       <tr>
                         <th>Name</th>
-                        <th>Email</th>
                         <th>Role</th>
                         <th>Status</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {members.map((m) => (
+                      {[...members].sort((a, b) => (a.role === "owner" ? -1 : b.role === "owner" ? 1 : 0)).map((m) => (
                         <tr key={`${m.userId}-${m.role}`}>
                           <td>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</td>
-                          <td>{m.email || "—"}</td>
                           <td><span className={`gdRoleBadge gdRole-${m.role}`}>{m.role}</span></td>
                           <td>{m.role !== "owner" ? <span className={`gdStatusBadge gdStatus-${m.membershipStatus}`}>{m.membershipStatus}</span> : "—"}</td>
                           <td>
@@ -479,7 +489,7 @@ export default function GroupDetail() {
                     {members
                       .filter((m) => m.membershipStatus === "approved" && m.userId !== group.createdBy)
                       .map((m) => (
-                        <option key={m.userId} value={m.userId}>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || m.userId}</option>
+                        <option key={m.userId} value={m.userId}>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</option>
                       ))}
                   </select>
                 </label>
@@ -521,7 +531,9 @@ export default function GroupDetail() {
                   <textarea className="gdInput gdTextarea" rows={2} value={sessionForm.notes} onChange={(e) => setSessionForm({ ...sessionForm, notes: e.target.value })} />
                 </label>
                 <div className="gdActions">
-                  <button type="submit" className="gdSubmitBtn">Create Session</button>
+                  <button type="submit" className="gdSubmitBtn" disabled={sendingEmail}>
+                    {sendingEmail ? "Creating Session…" : "Create Session"}
+                  </button>
                 </div>
               </form>
 
@@ -608,11 +620,11 @@ export default function GroupDetail() {
             <div className="gdSection">
               <h2 className="gdSectionTitle">{previewOnly ? "Owner" : "Members"}</h2>
               <div className="gdMemberList">
-                {(previewOnly ? members.filter((m) => m.role === "owner") : members).map((m) => (
+                {(previewOnly ? members.filter((m) => m.role === "owner") : [...members].sort((a, b) => (a.role === "owner" ? -1 : b.role === "owner" ? 1 : 0))).map((m) => (
                   <div key={`${m.userId}-${m.role}`} className="gdMemberRow">
                     <div>
-                      <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || (previewOnly ? m.userId : m.email) || m.userId}</strong>
-                      <div className="gdMemberMeta">{previewOnly ? "" : `${m.email} · `}{m.role}{m.role !== "owner" ? ` · ${m.membershipStatus}` : ""}</div>
+                      <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</strong>
+                      <div className="gdMemberMeta">{m.role}{m.role !== "owner" ? ` · ${m.membershipStatus}` : ""}</div>
                     </div>
                   </div>
                 ))}

@@ -829,3 +829,195 @@ describe("GroupDetail – edge cases", () => {
     await screen.findByDisplayValue("Algo Study");
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   UAT – KEYBOARD ACCESSIBILITY
+   ═══════════════════════════════════════════════════════════════ */
+
+describe("GroupDetail – keyboard accessibility", () => {
+  it("Escape key closes confirm dialog", async () => {
+    await initMemberView();
+    fireEvent.click(screen.getByText("Leave This Group"));
+    expect(screen.getByText(/are you sure you want to leave/i)).toBeInTheDocument();
+    const overlay = document.querySelector(".modalOverlay");
+    fireEvent.keyDown(overlay, { key: "Escape" });
+    expect(screen.queryByText(/are you sure you want to leave/i)).not.toBeInTheDocument();
+  });
+
+  it("Enter key on toast dismisses it", async () => {
+    await initOwnerView();
+    mockApiSuccess();
+    fireEvent.click(screen.getByText("Save Group"));
+    const toast = await screen.findByText("Group updated successfully!");
+    fireEvent.keyDown(toast, { key: "Enter" });
+    expect(screen.queryByText("Group updated successfully!")).not.toBeInTheDocument();
+  });
+
+  it("Space key on toast dismisses it", async () => {
+    await initOwnerView();
+    mockApiSuccess();
+    fireEvent.click(screen.getByText("Save Group"));
+    const toast = await screen.findByText("Group updated successfully!");
+    fireEvent.keyDown(toast, { key: " " });
+    expect(screen.queryByText("Group updated successfully!")).not.toBeInTheDocument();
+  });
+
+  it("keyDown on confirm dialog inner box does not propagate to overlay", async () => {
+    await initMemberView();
+    fireEvent.click(screen.getByText("Leave This Group"));
+    const dialog = document.querySelector(".confirmDialog");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    // Dialog should still be open (inner box blocks propagation)
+    expect(screen.getByText(/are you sure you want to leave/i)).toBeInTheDocument();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   UAT – TRANSFER OWNERSHIP
+   ═══════════════════════════════════════════════════════════════ */
+
+describe("GroupDetail – transfer ownership UAT", () => {
+  it("Transfer button with no member selected does not open dialog", async () => {
+    await initOwnerView();
+    // transferOwnerId is "" by default — clicking Transfer should do nothing
+    fireEvent.click(screen.getByText("Transfer"));
+    expect(screen.queryByText(/transfer ownership to selected member/i)).not.toBeInTheDocument();
+  });
+
+  it("cancel in transfer ownership dialog closes it", async () => {
+    await initOwnerView();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.selectOptions(screen.getByDisplayValue("Select approved member"), "m-2");
+    fireEvent.click(screen.getByText("Transfer"));
+    expect(screen.getByText(/transfer ownership to selected member/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.queryByText(/transfer ownership to selected member/i)).not.toBeInTheDocument();
+  });
+
+  it("transfer sends correct newOwnerUserId payload", async () => {
+    await initOwnerView();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.selectOptions(screen.getByDisplayValue("Select approved member"), "m-2");
+    fireEvent.click(screen.getByText("Transfer"));
+    mockApiSuccess(baseGroup);
+    fireEvent.click(screen.getAllByText("Transfer").find((b) => b.closest(".confirmDialog")));
+    await waitFor(() => {
+      const call = globalThis.fetch.mock.calls.find((c) => c[0].includes("transfer-ownership"));
+      expect(JSON.parse(call[1].body)).toEqual({ newOwnerUserId: "m-2" });
+    });
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   UAT – SESSION FORM PRE-FILL & BUTTON STATES
+   ═══════════════════════════════════════════════════════════════ */
+
+describe("GroupDetail – session form UAT", () => {
+  it("session form pre-fills location and meeting link from group data", async () => {
+    await initOwnerView();
+    const section = document.querySelector('.gdSection:last-of-type') || document;
+    // The session form location field should be pre-filled from group.location
+    const locationInputs = screen.getAllByDisplayValue("COM1-B1");
+    expect(locationInputs.length).toBeGreaterThanOrEqual(1);
+    const meetingLinkInputs = screen.getAllByDisplayValue("https://zoom.us/j/123");
+    expect(meetingLinkInputs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Create Session button is disabled while submitting", async () => {
+    await initOwnerView();
+    globalThis.fetch.mockReturnValueOnce(new Promise(() => {}));
+    fireEvent.submit(screen.getByText("Create Session").closest("form"));
+    expect(screen.getByText("Creating Session…")).toBeDisabled();
+  });
+
+  it("Save Group button is disabled while submitting", async () => {
+    await initOwnerView();
+    globalThis.fetch.mockReturnValueOnce(new Promise(() => {}));
+    fireEvent.click(screen.getByText("Save Group"));
+    expect(screen.getByText("Saving…")).toBeDisabled();
+  });
+
+  it("delete session cancel keeps session in list", async () => {
+    await initOwnerView();
+    fireEvent.click(screen.getByText("Delete"));
+    expect(screen.getByText(/are you sure you want to delete this session/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.queryByText(/are you sure you want to delete/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Week 1")).toBeInTheDocument();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   UAT – DISSOLVE FLOW
+   ═══════════════════════════════════════════════════════════════ */
+
+describe("GroupDetail – dissolve UAT", () => {
+  it("cancel in dissolve dialog keeps user on page", async () => {
+    await initOwnerView();
+    fireEvent.click(screen.getByText("Dissolve Group"));
+    expect(screen.getByText(/are you sure you want to dissolve/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.queryByText(/are you sure you want to dissolve/i)).not.toBeInTheDocument();
+    expect(mockNav).not.toHaveBeenCalled();
+  });
+
+  it("dissolve group shows progress bar while in flight", async () => {
+    await initOwnerView();
+    globalThis.fetch.mockReturnValueOnce(new Promise(() => {}));
+    fireEvent.click(screen.getByText("Dissolve Group"));
+    fireEvent.click(screen.getByText("Dissolve", { selector: ".confirmDialog button" }));
+    expect(document.querySelector(".gdProgressBar")).toBeInTheDocument();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   UAT – MEMBER MANAGEMENT
+   ═══════════════════════════════════════════════════════════════ */
+
+describe("GroupDetail – member management UAT", () => {
+  it("reject member cancel keeps member in table", async () => {
+    await initOwnerView(ownerGroupWithPending);
+    fireEvent.click(screen.getAllByText("Reject")[0]);
+    expect(screen.getByText(/are you sure you want to reject/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.queryByText(/are you sure you want to reject/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Eve Ng")).toBeInTheDocument();
+  });
+
+  it("owner row shows dash for status column", async () => {
+    await initOwnerView();
+    const rows = document.querySelectorAll(".gdTable tbody tr");
+    const ownerRow = rows[0];
+    expect(ownerRow.textContent).toContain("—");
+  });
+
+  it("members are sorted with owner first", async () => {
+    await initOwnerView();
+    const rows = document.querySelectorAll(".gdTable tbody tr");
+    expect(rows[0].textContent).toContain("Alice Tan");
+    expect(rows[1].textContent).toContain("Bob Lee");
+  });
+
+  it("invite member clears email input on success", async () => {
+    await initOwnerView();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const emailInput = screen.getByPlaceholderText("student@u.nus.edu");
+    await user.type(emailInput, "new@u.nus.edu");
+    mockApiSuccess();
+    fireEvent.click(screen.getByText("Invite"));
+    await waitFor(() => expect(emailInput).toHaveValue(""));
+  });
+
+  it("approved members appear in transfer ownership dropdown", async () => {
+    await initOwnerView();
+    const option = screen.getByRole("option", { name: "Bob Lee" });
+    expect(option).toBeInTheDocument();
+    expect(option.value).toBe("m-2");
+  });
+
+  it("owner is not shown in transfer ownership dropdown", async () => {
+    await initOwnerView();
+    const select = screen.getByDisplayValue("Select approved member");
+    expect(select.querySelector('[value="owner-1"]')).not.toBeInTheDocument();
+  });
+});

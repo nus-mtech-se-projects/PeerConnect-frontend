@@ -208,6 +208,29 @@
   transform: none;
 }
 
+/* ── Top progress bar (shown during any email/background operation) ── */
+.gdProgressBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 61, 124, 0.15);
+  z-index: 10000;
+  overflow: hidden;
+}
+.gdProgressBarFill {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, #003D7C, #EF7C00);
+  border-radius: 0 3px 3px 0;
+  animation: gdProgressSlide 1.2s ease-in-out infinite;
+}
+@keyframes gdProgressSlide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
 /* ── Email-sending overlay ── */
 .gdEmailOverlay {
   position: fixed;

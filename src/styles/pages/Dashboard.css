@@ -458,7 +458,7 @@
   padding: 8px 20px;
   border-radius: 15px;
   border: none;
-  background: #EF7C00;
+  background: #FF9912;
   color: #fff;
   font-weight: 600;
   font-size: 13px;
@@ -467,7 +467,7 @@
   transition: background 150ms ease, transform 120ms ease;
 }
 .groupLeaveBtn:hover {
-  background: #d96e00;
+  background: #cc7a0f;
   transform: translateY(-1px);
 }
 
