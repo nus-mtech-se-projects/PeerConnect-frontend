@@ -28,6 +28,10 @@ export default function RestrictUser() {
     waitForToken().then(() => loadRestricted()).catch(() => setLoading(false));
   }, []);
 
+  function updateSearchRestricted(userId, restricted) {
+    setSearchResults((prev) => prev.map((u) => u.userId === userId ? { ...u, restricted } : u));
+  }
+
   /* Search users (debounced) */
   useEffect(() => {
     clearTimeout(searchTimer.current);
@@ -62,7 +66,7 @@ export default function RestrictUser() {
             if (!res.ok) throw new Error(data?.error || `Restrict failed (${res.status})`);
             showToast("User restricted successfully!");
             await loadRestricted(showToast);
-            setSearchResults((prev) => prev.map((u) => u.userId === userId ? { ...u, restricted: true } : u));
+            updateSearchRestricted(userId, true);
           } catch (err) { showToast(err.message, "error"); }
           finally { setActionId(null); }
         }
@@ -87,7 +91,7 @@ export default function RestrictUser() {
             if (!res.ok) throw new Error(data?.error || `Allow failed (${res.status})`);
             showToast("User allowed successfully!");
             await loadRestricted(showToast);
-            setSearchResults((prev) => prev.map((u) => u.userId === userId ? { ...u, restricted: false } : u));
+            updateSearchRestricted(userId, false);
           } catch (err) { showToast(err.message, "error"); }
           finally { setActionId(null); }
         }

@@ -13,6 +13,26 @@ const NAV_ITEMS = [
   { id: "support", label: "Support", icon: <SupportIcon />, disabled: true },
 ];
 
+async function fetchProfileData(h, getCancelled, setAvatarUrl, setProfileName) {
+  let nameFound = false;
+  let avatarFound = false;
+  for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
+    try {
+      const res = await fetch(url, { headers: h, credentials: "include" });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (getCancelled()) return;
+      if (data.avatarUrl) { setAvatarUrl(data.avatarUrl); avatarFound = true; }
+      if (!nameFound) {
+        const full = [data.firstName, data.lastName].filter(Boolean).join(" ");
+        if (full) { setProfileName(full); nameFound = true; }
+        else if (data.name) { setProfileName(data.name); nameFound = true; }
+      }
+      if (nameFound && avatarFound) break;
+    } catch { /* try next */ }
+  }
+}
+
 export default function DashboardLayout({ activeNav, children }) {
   const nav = useNavigate();
   const { instance, accounts } = useMsal();
@@ -33,27 +53,9 @@ export default function DashboardLayout({ activeNav, children }) {
 
   useEffect(() => {
     let cancelled = false;
-    waitForToken().then(async () => {
-      if (cancelled) return;
-      const h = authHeaders();
-      let nameFound = false;
-      let avatarFound = false;
-      for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
-        try {
-          const res = await fetch(url, { headers: h, credentials: "include" });
-          if (!res.ok) continue;
-          const data = await res.json();
-          if (cancelled) return;
-          if (data.avatarUrl) { setAvatarUrl(data.avatarUrl); avatarFound = true; }
-          if (!nameFound) {
-            const full = [data.firstName, data.lastName].filter(Boolean).join(" ");
-            if (full) { setProfileName(full); nameFound = true; }
-            else if (data.name) { setProfileName(data.name); nameFound = true; }
-          }
-          if (nameFound && avatarFound) break;
-        } catch { /* try next */ }
-      }
-    }).catch(() => {});
+    waitForToken()
+      .then(() => fetchProfileData(authHeaders(), () => cancelled, setAvatarUrl, setProfileName))
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 

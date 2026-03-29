@@ -16,6 +16,30 @@ function formatDateTime(iso) {
   return `${dd}-${mon}-${yyyy} at ${hh}:${mm}`;
 }
 
+async function loadGroupPreview(groupId, setGroup, setMembers, setSessions) {
+  const listRes = await fetch(`${API_BASE}/api/groups`, { headers: authHeaders(), credentials: "include" });
+  if (!listRes.ok) throw new Error("Unable to load group information");
+  const allGroups = await listRes.json();
+  const found = Array.isArray(allGroups) ? allGroups.find((g) => String(g.id) === String(groupId)) : null;
+  if (!found) throw new Error("Group not found");
+  setGroup({ ...found, moduleCode: found.moduleCode || found.courseCode || "" });
+  let ownerMembers = Array.isArray(found.members)
+    ? found.members.filter((m) => m.role === "owner").map((m) => ({ ...m, email: undefined }))
+    : [];
+  if (ownerMembers.length === 0 && found.createdBy) {
+    const ownerFullName = found.ownerName || found.createdByName || "";
+    const nameParts = ownerFullName.split(" ");
+    ownerMembers = [{
+      userId: found.createdBy,
+      firstName: found.ownerFirstName || found.createdByFirstName || nameParts[0] || "",
+      lastName: found.ownerLastName || found.createdByLastName || nameParts.slice(1).join(" ") || "",
+      role: "owner",
+    }];
+  }
+  setMembers(ownerMembers);
+  setSessions(Array.isArray(found.sessions) ? found.sessions : []);
+}
+
 export default function GroupDetail() {
   const { groupId } = useParams();
   const nav = useNavigate();
@@ -56,32 +80,7 @@ export default function GroupDetail() {
       });
 
       if (res.status === 403 || res.status === 401) {
-        /* Not a member — fall back to the groups list for a preview */
-        const listRes = await fetch(`${API_BASE}/api/groups`, {
-          headers: authHeaders(), credentials: "include",
-        });
-        if (!listRes.ok) throw new Error("Unable to load group information");
-        const allGroups = await listRes.json();
-        const found = Array.isArray(allGroups) ? allGroups.find((g) => String(g.id) === String(groupId)) : null;
-        if (!found) throw new Error("Group not found");
-        setGroup({ ...found, moduleCode: found.moduleCode || found.courseCode || "" });
-        /* For preview: show only the owner, and hide their email */
-        let ownerMembers = Array.isArray(found.members)
-          ? found.members.filter((m) => m.role === "owner").map((m) => ({ ...m, email: undefined }))
-          : [];
-        /* If no members array from list API, build a synthetic owner entry from group-level fields */
-        if (ownerMembers.length === 0 && found.createdBy) {
-          const ownerFullName = found.ownerName || found.createdByName || "";
-          const nameParts = ownerFullName.split(" ");
-          ownerMembers = [{
-            userId: found.createdBy,
-            firstName: found.ownerFirstName || found.createdByFirstName || nameParts[0] || "",
-            lastName: found.ownerLastName || found.createdByLastName || nameParts.slice(1).join(" ") || "",
-            role: "owner",
-          }];
-        }
-        setMembers(ownerMembers);
-        setSessions(Array.isArray(found.sessions) ? found.sessions : []);
+        await loadGroupPreview(groupId, setGroup, setMembers, setSessions);
         setPreviewOnly(true);
         return;
       }
