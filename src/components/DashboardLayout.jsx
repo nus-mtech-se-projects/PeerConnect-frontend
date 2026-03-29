@@ -16,6 +16,41 @@ const NAV_ITEMS = [
   { id: "support", label: "Support", icon: <SupportIcon />, disabled: true },
 ];
 
+function AvatarContent({ avatarUrl, userInitial }) {
+  return avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial;
+}
+
+AvatarContent.propTypes = {
+  avatarUrl: PropTypes.string,
+  userInitial: PropTypes.string.isRequired,
+};
+
+function SidebarUserCard({ avatarUrl, userInitial, userName, userEmail, onProfileClick, onClose }) {
+  return (
+    <div className="dashUserCard">
+      <button type="button" className="dashUserCardBtn" onClick={onProfileClick} aria-label="Go to profile">
+        <div className="dashAvatar">
+          <AvatarContent avatarUrl={avatarUrl} userInitial={userInitial} />
+        </div>
+        <div className="dashUserInfo">
+          <h3 className="dashUserName">{userName}</h3>
+          <p className="dashUserEmail">{userEmail}</p>
+        </div>
+      </button>
+      <button className="dashCloseBtn" onClick={onClose} aria-label="Close menu"><CloseIcon /></button>
+    </div>
+  );
+}
+
+SidebarUserCard.propTypes = {
+  avatarUrl: PropTypes.string,
+  userInitial: PropTypes.string.isRequired,
+  userName: PropTypes.string.isRequired,
+  userEmail: PropTypes.string,
+  onProfileClick: PropTypes.func.isRequired,
+  onClose: PropTypes.func.isRequired,
+};
+
 function applyProfileData(data, state, setAvatarUrl, setProfileName) {
   if (data.avatarUrl) { setAvatarUrl(data.avatarUrl); state.avatarFound = true; }
   if (!state.nameFound) {
@@ -99,7 +134,7 @@ export default function DashboardLayout({ activeNav, children }) {
         <h1 className="dashTopTitle">Dashboard</h1>
         <div className="dashTopRight">
           <button className="dashTopAvatar" onClick={() => nav("/profile")}>
-            {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
+            <AvatarContent avatarUrl={avatarUrl} userInitial={userInitial} />
           </button>
         </div>
       </div>
@@ -107,18 +142,14 @@ export default function DashboardLayout({ activeNav, children }) {
       {sidebarOpen && <button type="button" className="dashOverlay" onClick={closeSidebar} aria-label="Close sidebar" />}
 
       <aside className={`dashSidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="dashUserCard">
-          <button type="button" className="dashUserCardBtn" onClick={() => { nav("/profile"); closeSidebar(); }} aria-label="Go to profile">
-            <div className="dashAvatar">
-              {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
-            </div>
-            <div className="dashUserInfo">
-              <h3 className="dashUserName">{userName}</h3>
-              <p className="dashUserEmail">{userEmail}</p>
-            </div>
-          </button>
-          <button className="dashCloseBtn" onClick={closeSidebar} aria-label="Close menu"><CloseIcon /></button>
-        </div>
+        <SidebarUserCard
+          avatarUrl={avatarUrl}
+          userInitial={userInitial}
+          userName={userName}
+          userEmail={userEmail}
+          onProfileClick={() => { nav("/profile"); closeSidebar(); }}
+          onClose={closeSidebar}
+        />
 
         <nav className="dashNav">
           <span className="dashNavLabel">MODULES</span>
