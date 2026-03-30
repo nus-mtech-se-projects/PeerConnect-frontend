@@ -47,6 +47,27 @@
   border-bottom: 1px solid #f3f4f6;
 }
 
+.ruUserAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f0f4f8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #003D7C;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.ruUserAvatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .ruTable tbody tr:last-child td {
   border-bottom: none;
 }

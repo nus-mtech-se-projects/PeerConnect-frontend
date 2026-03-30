@@ -41,7 +41,6 @@ test.describe('Restricted Members management', () => {
     await mockRestrictedEndpoints(page);
     await page.goto('/restrict-user');
     await expect(page.getByText('Blocked User')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('blocked@u.nus.edu')).toBeVisible();
   });
 
   test('search input is rendered with placeholder', async ({ page }) => {
@@ -59,7 +58,6 @@ test.describe('Restricted Members management', () => {
     await page.goto('/restrict-user');
     await page.locator('.dashSearch').fill('new');
     await expect(page.getByText('New Person')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('new@u.nus.edu')).toBeVisible();
   });
 
   test('search shows no results message when empty (mocked)', async ({ page }) => {

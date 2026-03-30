@@ -19,8 +19,8 @@ export default function Footer() {
           <div className="footerCol">
             <div className="footerColTitle">Product</div>
             <Link className="footerLink" to="/">Features</Link>
-            <button type="button" className="footerLink" onClick={() => {}}>How it works</button>
-            <button type="button" className="footerLink" onClick={() => {}}>Pricing</button>
+            <Link className="footerLink" to="/how-it-works">How it works</Link>
+            <Link className="footerLink" to="/pricing">Pricing</Link>
           </div>
 
           <div className="footerCol">
@@ -39,7 +39,7 @@ export default function Footer() {
 
           <div className="footerCol">
             <div className="footerColTitle">Get updates</div>
-            <div className="footerSmall">
+            <div className="footerSmall" style={{ fontSize: "14px" }}>
               Monthly tips, new features, and study resources.
             </div>
 

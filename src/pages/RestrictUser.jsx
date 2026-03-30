@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
-import DashboardLayout from "../components/DashboardLayout";
+import DashboardLayout, { AvatarContent } from "../components/DashboardLayout";
 import { RestrictIcon, SearchIcon } from "../components/Icons";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
+import { extractAvatarUrl } from "../utils/profileSync";
 import "../styles/pages/RestrictUser.css";
+
+function getMemberInitials(user) {
+  if (!user) return "?";
+  const names = [user.firstName || "", user.lastName || ""].filter(Boolean).join(" ");
+  return names.charAt(0).toUpperCase() || "?";
+}
 
 function authRequestOptions(options = {}) {
   return { headers: authHeaders(), credentials: "include", ...options };
@@ -63,8 +70,8 @@ function RestrictUsersTable({ rows, actionId, onRestrict, onAllow, showRestricte
       <table className="ruTable">
         <thead>
           <tr>
+            <th>Avatar</th>
             <th>Name</th>
-            <th>Email</th>
             {showRestrictedOn && <th>Restricted On</th>}
             <th>Action</th>
           </tr>
@@ -74,8 +81,12 @@ function RestrictUsersTable({ rows, actionId, onRestrict, onAllow, showRestricte
             const userId = user.userId || user.restrictedUserId;
             return (
               <tr key={userId}>
+                <td>
+                  <div className="ruUserAvatar">
+                    <AvatarContent avatarUrl={extractAvatarUrl(user) || ""} userInitial={getMemberInitials(user)} />
+                  </div>
+                </td>
                 <td>{formatUserName(user)}</td>
-                <td>{user.email || "—"}</td>
                 {showRestrictedOn && (
                   <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}</td>
                 )}
@@ -104,6 +115,7 @@ RestrictUsersTable.propTypes = {
     firstName: PropTypes.string,
     lastName: PropTypes.string,
     email: PropTypes.string,
+    avatarUrl: PropTypes.string,
     createdAt: PropTypes.string,
     restricted: PropTypes.bool,
   })).isRequired,

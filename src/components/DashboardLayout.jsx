@@ -1,22 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import PropTypes from "prop-types";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
+import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
 import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
 import Toast from "./Toast";
 import "../styles/pages/Dashboard.css";
 
 const NAV_ITEMS = [
-  { id: "groups", label: "Study Groups", icon: <GroupsIcon />, path: "/" },
-  { id: "tutoring", label: "Peer Tutoring", icon: <TutoringIcon />, disabled: true },
-  { id: "restrict", label: "Restricted Member", icon: <RestrictIcon />, path: "/restrict-user" },
+  { id: "groups", label: "Study Groups", icon: <GroupsIcon />, path: "/", navState: { activeModule: "studyGroups" } },
+  { id: "tutoring", label: "Peer Tutoring", icon: <TutoringIcon />, path: "/", navState: { activeModule: "peerTutoring" } },
+  { id: "restrict", label: "Restricted Member", icon: <RestrictIcon />, path: "/", navState: { activeModule: "restrictedMembers" } },
   { id: "ai", label: "AI Tutor", icon: <AiIcon />, disabled: true },
   { id: "support", label: "Support", icon: <SupportIcon />, disabled: true },
 ];
 
-function AvatarContent({ avatarUrl, userInitial }) {
+export function AvatarContent({ avatarUrl, userInitial }) {
   return avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial;
 }
 
@@ -52,7 +53,11 @@ SidebarUserCard.propTypes = {
 };
 
 function applyProfileData(data, state, setAvatarUrl, setProfileName) {
-  if (data.avatarUrl) { setAvatarUrl(data.avatarUrl); state.avatarFound = true; }
+  const avatar = extractAvatarUrl(data);
+  if (avatar !== null) {
+    setAvatarUrl(avatar);
+    state.avatarFound = true;
+  }
   if (!state.nameFound) {
     const name = [data.firstName, data.lastName].filter(Boolean).join(" ") || data.name || "";
     if (name) { setProfileName(name); state.nameFound = true; }
@@ -75,10 +80,11 @@ async function fetchProfileData(h, getCancelled, setAvatarUrl, setProfileName) {
 
 export default function DashboardLayout({ activeNav, children }) {
   const nav = useNavigate();
+  const location = useLocation();
   const { instance, accounts } = useMsal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(location.state?.avatarUrl ?? "");
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -97,6 +103,15 @@ export default function DashboardLayout({ activeNav, children }) {
       .then(() => fetchProfileData(authHeaders(), () => cancelled, setAvatarUrl, setProfileName))
       .catch(() => {});
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    return subscribeProfileUpdated((detail) => {
+      if (typeof detail.avatarUrl === "string") setAvatarUrl(detail.avatarUrl);
+      if (typeof detail.profileName === "string" && detail.profileName.trim()) {
+        setProfileName(detail.profileName.trim());
+      }
+    });
   }, []);
 
   async function handleLogout() {
@@ -160,7 +175,7 @@ export default function DashboardLayout({ activeNav, children }) {
               disabled={item.disabled}
               onClick={() => {
                 if (item.id === activeNav) { closeSidebar(); return; }
-                if (item.path) { nav(item.path); closeSidebar(); }
+                if (item.path) { nav(item.path, { state: { ...item.navState, avatarUrl } }); closeSidebar(); }
               }}
             >
               {item.icon} {item.label}
