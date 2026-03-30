@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useMsal } from "@azure/msal-react";
+import { MemoryRouter } from "react-router-dom";
 import Home from "../Home";
 
 const mockNavigate = vi.fn();
@@ -66,6 +67,14 @@ function mockDashboardFetch({
   });
 }
 
+function renderHome() {
+  return render(
+    <MemoryRouter>
+      <Home />
+    </MemoryRouter>
+  );
+}
+
 describe("Home page", () => {
   beforeEach(() => {
     mockNavigate.mockClear();
@@ -78,12 +87,12 @@ describe("Home page", () => {
   });
 
   it("renders main heading for guests", () => {
-    render(<Home />);
+    renderHome();
     expect(screen.getByRole("heading", { name: /study smarter with peers/i })).toBeInTheDocument();
   });
 
   it("renders 4 feature cards for guests", () => {
-    render(<Home />);
+    renderHome();
 
     const featureSection = document.querySelector(".featureRow");
     expect(featureSection).toBeTruthy();
@@ -107,7 +116,7 @@ describe("Home page", () => {
       accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
     });
 
-    render(<Home />);
+    renderHome();
 
     expect(await screen.findByRole("heading", { name: /^study groups$/i })).toBeInTheDocument();
     expect(screen.getByText(/discover, create, and join study groups/i)).toBeInTheDocument();
@@ -126,7 +135,7 @@ describe("Home page", () => {
       accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
     });
 
-    render(<Home />);
+    renderHome();
 
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
 
@@ -146,7 +155,7 @@ describe("Home page", () => {
       accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
     });
 
-    render(<Home />);
+    renderHome();
 
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
@@ -182,7 +191,7 @@ describe("Home page", () => {
       accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
     });
 
-    render(<Home />);
+    renderHome();
 
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutee/i }));
@@ -245,7 +254,7 @@ describe("Home page", () => {
       instance: { logoutRedirect: vi.fn() },
       accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
     });
-    render(<Home />);
+    renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
     await user.click(await screen.findByRole("button", { name: /view feedbacks/i }));
@@ -266,7 +275,7 @@ describe("Home page", () => {
     });
 
     const user = userEvent.setup({ delay: null });
-    render(<Home />);
+    renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
 
@@ -306,7 +315,7 @@ describe("Home page", () => {
     });
 
     const user = userEvent.setup({ delay: null });
-    render(<Home />);
+    renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
 
@@ -348,7 +357,7 @@ describe("Home page", () => {
     });
 
     const user = userEvent.setup({ delay: null });
-    render(<Home />);
+    renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
     await user.click(await screen.findByRole("button", { name: /view feedbacks/i }));
@@ -398,7 +407,7 @@ describe("Home page", () => {
   }
 
   async function openTuteeClassFeedbackForm(user) {
-    render(<Home />);
+    renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutee/i }));
     await user.click(await screen.findByRole("button", { name: /^feedback$/i }));

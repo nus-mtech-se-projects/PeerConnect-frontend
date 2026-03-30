@@ -1,17 +1,28 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import Carousel from "../components/Carousel";
 import FeatureCard from "../components/FeatureCard";
+import { AvatarContent } from "../components/DashboardLayout";
 import tutoringImg from "../assets/images/tutoring.jpg";
 import studyGroupImg from "../assets/images/study-group.jpg";
 import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
+import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
+import {
+  getRuMemberInitials,
+  ruAuthRequestOptions,
+  ruParseJsonOrEmpty,
+  formatRestrictedUserName,
+  createAllowConfirmDialog,
+  loadRestrictedUsers,
+} from "../utils/restrictedUsers";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
 import "../styles/pages/Dashboard.css";
+import "../styles/pages/RestrictUser.css";
 function createFeedbackForm() {
   return {
     revieweeId: "",
@@ -143,16 +154,20 @@ function getReviewableMembers(members, userEmail) {
 
 async function fetchFirstAvailableProfile() {
   const headers = authHeaders();
+  let fallbackProfile = null;
   for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
     try {
       const res = await fetch(url, { headers, credentials: "include" });
       if (!res.ok) continue;
-      return await res.json();
+      const data = await res.json();
+      if (!fallbackProfile) fallbackProfile = data;
+      const avatar = extractAvatarUrl(data);
+      if (avatar) return data;
     } catch {
       // Try next endpoint.
     }
   }
-  return null;
+  return fallbackProfile;
 }
 
 /* ──────── SVG icons ──────── */
@@ -594,28 +609,219 @@ function StarRating({ value, onChange, label }) {
   );
 }
 
-function RestrictedMemberSection() {
+/* ──────────── Restricted Members Section ──────────── */
+
+RestrictionActionButton.propTypes = {
+  userId: PropTypes.string.isRequired,
+  restricted: PropTypes.bool.isRequired,
+  actionId: PropTypes.string,
+  onRestrict: PropTypes.func.isRequired,
+  onAllow: PropTypes.func.isRequired,
+};
+function RestrictionActionButton({ userId, restricted, actionId, onRestrict, onAllow }) {
+  const busy = actionId === userId;
+  if (restricted) {
+    return (
+      <button className="ruAllowBtn" disabled={busy} onClick={() => onAllow(userId)}>
+        {busy ? "…" : "Allow"}
+      </button>
+    );
+  }
   return (
-    <div>
+    <button className="ruRestrictBtn" disabled={busy} onClick={() => onRestrict(userId)}>
+      {busy ? "…" : "Restrict"}
+    </button>
+  );
+}
+
+RestrictUsersTable.propTypes = {
+  rows: PropTypes.arrayOf(PropTypes.shape({
+    userId: PropTypes.string,
+    restrictedUserId: PropTypes.string,
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    avatarUrl: PropTypes.string,
+    createdAt: PropTypes.string,
+    restricted: PropTypes.bool,
+  })).isRequired,
+  actionId: PropTypes.string,
+  onRestrict: PropTypes.func.isRequired,
+  onAllow: PropTypes.func.isRequired,
+  showRestrictedOn: PropTypes.bool,
+};
+function RestrictUsersTable({ rows, actionId, onRestrict, onAllow, showRestrictedOn = false }) {
+  return (
+    <div className="ruTableWrap">
+      <table className="ruTable">
+        <thead>
+          <tr>
+            <th>Avatar</th>
+            <th>Name</th>
+            {showRestrictedOn && <th>Restricted On</th>}
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((user) => {
+            const userId = user.userId || user.restrictedUserId;
+            return (
+              <tr key={userId}>
+                <td>
+                  <div className="ruUserAvatar">
+                    <AvatarContent avatarUrl={extractAvatarUrl(user) || ""} userInitial={getRuMemberInitials(user)} />
+                  </div>
+                </td>
+                <td>{formatRestrictedUserName(user)}</td>
+                {showRestrictedOn && (
+                  <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}</td>
+                )}
+                <td>
+                  <RestrictionActionButton
+                    userId={userId}
+                    restricted={showRestrictedOn || !!user.restricted}
+                    actionId={actionId}
+                    onRestrict={onRestrict}
+                    onAllow={onAllow}
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+RestrictedMemberSection.propTypes = {
+  showToast: PropTypes.func.isRequired,
+  setConfirmDialog: PropTypes.func.isRequired,
+};
+function RestrictedMemberSection({ showToast, setConfirmDialog }) {
+  const [restrictedList, setRestrictedList] = useState([]);
+  const [ruLoading, setRuLoading] = useState(true);
+  const [ruSearch, setRuSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [actionId, setActionId] = useState(null);
+  const searchTimer = useRef(null);
+
+  async function executeRestrictionAction({ userId, method, url, fallbackError, successMessage, restrictedValue }) {
+    try {
+      const res = await fetch(url, ruAuthRequestOptions(method === "POST" ? { method, body: JSON.stringify({ userId }) } : { method }));
+      const data = await ruParseJsonOrEmpty(res);
+      if (!res.ok) throw new Error(data?.error || `${fallbackError} (${res.status})`);
+      showToast(successMessage);
+      await loadRestricted();
+      setSearchResults((prev) => prev.map((u) => u.userId === userId ? { ...u, restricted: restrictedValue } : u));
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function loadRestricted() {
+    try {
+      const data = await loadRestrictedUsers();
+      setRestrictedList(Array.isArray(data) ? data : []);
+    } catch (err) { showToast(err.message, "error"); }
+    finally { setRuLoading(false); }
+  }
+
+  useEffect(() => {
+    waitForToken().then(() => loadRestricted()).catch(() => setRuLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(searchTimer.current);
+    if (ruSearch.trim().length < 2) { setSearchResults([]); return; }
+    searchTimer.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/restricted-users/search?q=${encodeURIComponent(ruSearch.trim())}`,
+          ruAuthRequestOptions()
+        );
+        if (!res.ok) throw new Error(`Search failed (${res.status})`);
+        const data = await res.json();
+        setSearchResults(Array.isArray(data) ? data : []);
+      } catch { setSearchResults([]); }
+      finally { setSearching(false); }
+    }, 400);
+    return () => clearTimeout(searchTimer.current);
+  }, [ruSearch]);
+
+  async function executeRestrict(userId) {
+    await executeRestrictionAction({
+      userId, method: "POST", url: `${API_BASE}/api/restricted-users`,
+      fallbackError: "Restrict failed", successMessage: "User restricted successfully!", restrictedValue: true,
+    });
+  }
+
+  async function executeAllow(userId) {
+    await executeRestrictionAction({
+      userId, method: "DELETE", url: `${API_BASE}/api/restricted-users/${userId}`,
+      fallbackError: "Allow failed", successMessage: "User allowed successfully!", restrictedValue: false,
+    });
+  }
+
+  function handleRestrict(userId) {
+    setActionId(userId);
+    executeRestrict(userId);
+  }
+
+  function handleAllow(userId) {
+    setConfirmDialog(createAllowConfirmDialog(userId, setConfirmDialog, executeAllow, showToast));
+  }
+
+  return (
+    <section className="dashMain" style={{ display: "block" }}>
       <div className="dashHeader">
         <div className="dashHeaderTop">
           <div>
-            <h1 className="dashTitle">Restricted Member</h1>
-            <p className="dashSubtitle">
-              Manage members who have participated in your groups or tutoring sessions.
-              Select a member to restrict them from joining your future groups or tutoring sessions.
-            </p>
+            <h1 className="dashTitle">Restricted Members</h1>
+            <p className="dashSubtitle">Manage members who are restricted from joining your groups</p>
           </div>
         </div>
+        <div className="dashSearchWrap">
+          <SearchIcon />
+          <input
+            className="dashSearch"
+            type="text"
+            placeholder="Search users by email, first name, or last name…"
+            value={ruSearch}
+            onChange={(e) => setRuSearch(e.target.value)}
+          />
+        </div>
       </div>
-      <div className="dashEmpty">
-        <RestrictIcon />
-        <p>This feature is coming soon.</p>
-        <p style={{ fontSize: 13, color: "#b0b0b0", marginTop: 4 }}>
-          You will be able to view all members from your groups and tutoring sessions, and restrict specific members from future participation.
-        </p>
+
+      {ruSearch.trim().length >= 2 && (
+        <div className="ruSearchResults">
+          <h3 className="ruSectionTitle">Search Results</h3>
+          {searching && <p className="dashMsg">Searching…</p>}
+          {!searching && searchResults.length === 0 && <p className="dashMsg">No users found.</p>}
+          {!searching && searchResults.length > 0 && (
+            <RestrictUsersTable rows={searchResults} actionId={actionId} onRestrict={handleRestrict} onAllow={handleAllow} />
+          )}
+        </div>
+      )}
+
+      <div className="ruSection">
+        <h3 className="ruSectionTitle">Restricted Members ({restrictedList.length})</h3>
+        {ruLoading && <p className="dashMsg">Loading…</p>}
+        {!ruLoading && restrictedList.length === 0 && (
+          <div className="dashEmpty">
+            <RestrictIcon />
+            <p>No restricted members. Users you restrict will appear here.</p>
+          </div>
+        )}
+        {!ruLoading && restrictedList.length > 0 && (
+          <RestrictUsersTable rows={restrictedList} actionId={actionId} onRestrict={handleRestrict} onAllow={handleAllow} showRestrictedOn />
+        )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -870,6 +1076,7 @@ function FeedbackPickerModal({
    ═══════════════════════════════════════════════════ */
 function DashboardHome() {
   const nav = useNavigate();
+  const location = useLocation();
   const { instance, accounts } = useMsal();
 
   const [groups, setGroups] = useState([]);
@@ -878,7 +1085,7 @@ function DashboardHome() {
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(location.state?.avatarUrl ?? "");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -889,7 +1096,7 @@ function DashboardHome() {
     description: "", approvalRequired: false,
   });
   const [creating, setCreating] = useState(false);
-  const [activeModule, setActiveModule] = useState("studyGroups");
+  const [activeModule, setActiveModule] = useState(location.state?.activeModule || "studyGroups");
   const [myGroupsOnly, setMyGroupsOnly] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -928,7 +1135,8 @@ function DashboardHome() {
         if (cancelled) return;
         const profileData = await fetchFirstAvailableProfile();
         if (cancelled || !profileData) return;
-        if (profileData.avatarUrl) setAvatarUrl(profileData.avatarUrl);
+        const profileAvatar = extractAvatarUrl(profileData);
+        if (profileAvatar !== null) setAvatarUrl(profileAvatar);
         const displayName = getProfileDisplayName(profileData);
         if (displayName) setProfileName(displayName);
       } catch {
@@ -938,6 +1146,15 @@ function DashboardHome() {
     loadProfile();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    return subscribeProfileUpdated((detail) => {
+      if (typeof detail.avatarUrl === "string") setAvatarUrl(detail.avatarUrl);
+      if (typeof detail.profileName === "string" && detail.profileName.trim()) {
+        setProfileName(detail.profileName.trim());
+      }
+    });
   }, []);
 
   /* fetch groups */
@@ -1251,7 +1468,7 @@ function DashboardHome() {
         <h1 className="dashTopTitle">Dashboard</h1>
         <div className="dashTopRight">
           <button className="dashTopAvatar" onClick={() => nav("/profile")}>
-            {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
+            <AvatarContent avatarUrl={avatarUrl} userInitial={userInitial} />
           </button>
         </div>
       </div>
@@ -1265,9 +1482,10 @@ function DashboardHome() {
             className="dashUserCardBtn"
             onClick={() => { nav("/profile"); closeSidebar(); }}
             aria-label="Go to profile"
+            style={{ background: "transparent", border: "none", padding: 0 }}
           >
             <div className="dashAvatar">
-              {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="dashAvatarImg" /> : userInitial}
+              <AvatarContent avatarUrl={avatarUrl} userInitial={userInitial} />
             </div>
             <div className="dashUserInfo">
               <h3 className="dashUserName">{userName}</h3>
@@ -1281,7 +1499,7 @@ function DashboardHome() {
           <span className="dashNavLabel">MODULES</span>
           <button className={`dashNavItem ${activeModule === "studyGroups" ? "active" : ""}`} onClick={() => { setActiveModule("studyGroups"); closeSidebar(); }}><GroupsIcon /> Study Groups</button>
           <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
-          <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { nav("/restrict-user"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
+          <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
           <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
         </nav>
@@ -1322,7 +1540,7 @@ function DashboardHome() {
             <PeerTutoringSection onGiveFeedback={handleTutoringFeedback} onViewTutorFeedbacks={handleViewTutorFeedbacks} />
           </>
         )}
-        {activeModule === "restrictedMembers" && <RestrictedMemberSection />}
+        {activeModule === "restrictedMembers" && <RestrictedMemberSection showToast={showToast} setConfirmDialog={setConfirmDialog} />}
       </section>
 
       <CreateGroupModal

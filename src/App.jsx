@@ -12,7 +12,6 @@ import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
-import RestrictUser from "./pages/RestrictUser";
 import GroupDetail from "./pages/GroupDetail";
 import PrivateRoute from "./components/PrivateRoute"
 import PublicRoute from "./components/PublicRoute";
@@ -98,7 +97,7 @@ export default function App() {
             path="/restrict-user"
             element={
               <PrivateRoute>
-                <RestrictUser />
+                <Navigate to="/" replace state={{ activeModule: "restrictedMembers" }} />
               </PrivateRoute>
             }
           />

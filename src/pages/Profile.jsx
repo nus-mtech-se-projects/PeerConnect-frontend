@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import { API_BASE, authHeaders } from "../utils/auth";
+import { emitProfileUpdated } from "../utils/profileSync";
 import "../styles/pages/Profile.css";
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg"]);
 
@@ -181,6 +182,7 @@ export default function Profile() {
       const data = await res.json();
       // Backend returns the stored URL, e.g. { avatarUrl: "https://..." }
       setForm((prev) => ({ ...prev, avatarUrl: data.avatarUrl }));
+      emitProfileUpdated({ avatarUrl: data.avatarUrl || "" });
       setAvatarPreview("");
     } catch (err) {
       setMessage(err.message);
@@ -217,6 +219,7 @@ export default function Profile() {
   async function handleRemoveAvatar() {
     setForm((prev) => ({ ...prev, avatarUrl: "" }));
     setAvatarPreview("");
+    emitProfileUpdated({ avatarUrl: "" });
 
     // Also delete the blob from Azure Storage
     try {

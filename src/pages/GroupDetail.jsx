@@ -1,9 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE, authHeaders } from "../utils/auth";
+import { AvatarContent } from "../components/DashboardLayout";
+import { extractAvatarUrl } from "../utils/profileSync";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
 import "../styles/pages/GroupDetail.css";
+
+function getMemberInitials(member) {
+  if (!member) return "?";
+  const names = [member.firstName || "", member.lastName || ""].filter(Boolean).join(" ");
+  return names.charAt(0).toUpperCase() || "?";
+}
 
 function formatDateTime(iso) {
   if (!iso) return "";
@@ -707,6 +715,9 @@ export default function GroupDetail() {
               <div className="gdMemberList">
                 {(previewOnly ? members.filter((m) => m.role === "owner") : [...members].sort(ownerFirstSort)).map((m) => (
                   <div key={`${m.userId}-${m.role}`} className="gdMemberRow">
+                    <div className="gdMemberAvatar">
+                      <AvatarContent avatarUrl={extractAvatarUrl(m) || ""} userInitial={getMemberInitials(m)} />
+                    </div>
                     <div>
                       <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</strong>
                       <div className="gdMemberMeta">{m.role}{m.role === "owner" ? "" : ` · ${m.membershipStatus}`}</div>
