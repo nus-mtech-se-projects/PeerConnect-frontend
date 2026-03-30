@@ -11,6 +11,14 @@ import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
+import {
+  getRuMemberInitials,
+  ruAuthRequestOptions,
+  ruParseJsonOrEmpty,
+  formatRestrictedUserName,
+  createAllowConfirmDialog,
+  loadRestrictedUsers,
+} from "../utils/restrictedUsers";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
 import "../styles/pages/Dashboard.css";
@@ -601,36 +609,7 @@ function StarRating({ value, onChange, label }) {
   );
 }
 
-/* ──────────── Restricted Members helpers ──────────── */
-function getRuMemberInitials(user) {
-  if (!user) return "?";
-  const names = [user.firstName || "", user.lastName || ""].filter(Boolean).join(" ");
-  return names.charAt(0).toUpperCase() || "?";
-}
-
-function ruAuthRequestOptions(options = {}) {
-  return { headers: authHeaders(), credentials: "include", ...options };
-}
-
-async function ruParseJsonOrEmpty(response) {
-  return response.json().catch(() => ({}));
-}
-
-function formatRestrictedUserName(user) {
-  return [user.firstName, user.lastName].filter(Boolean).join(" ") || "—";
-}
-
-function createAllowConfirmDialog(userId, setConfirmDialog, executeAllow, showToast) {
-  return {
-    message: "Are you sure you want to allow this user? They will be able to join your groups again.",
-    confirmBtnClass: "confirmBtnGreen",
-    cancelBtnClass: "confirmBtnOutline",
-    confirmLabel: "Allow",
-    cancelLabel: "Cancel",
-    onConfirm: () => { setConfirmDialog(null); executeAllow(userId, showToast); },
-    onCancel: () => setConfirmDialog(null),
-  };
-}
+/* ──────────── Restricted Members Section ──────────── */
 
 RestrictionActionButton.propTypes = {
   userId: PropTypes.string.isRequired,
@@ -744,9 +723,7 @@ function RestrictedMemberSection({ showToast, setConfirmDialog }) {
 
   async function loadRestricted() {
     try {
-      const res = await fetch(`${API_BASE}/api/restricted-users`, ruAuthRequestOptions());
-      if (!res.ok) throw new Error(`Failed (${res.status})`);
-      const data = await res.json();
+      const data = await loadRestrictedUsers();
       setRestrictedList(Array.isArray(data) ? data : []);
     } catch (err) { showToast(err.message, "error"); }
     finally { setRuLoading(false); }
