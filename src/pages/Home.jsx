@@ -37,6 +37,9 @@ function createFeedbackForm() {
   };
 }
 
+const TEAMS_FREE_URL = "https://teams.live.com/";
+const TEAMS_MEETING_GUIDANCE = "Open Teams Free, create the meeting there, then paste the join link below.";
+
 function getNamePartsLabel(firstName, lastName, fallback = "") {
   const fullName = [firstName, lastName]
     .map(cleanDisplayText)
@@ -148,6 +151,11 @@ function filterDashboardGroups(groups, search, myGroupsOnly) {
   });
 }
 
+function openMeetingLink(url) {
+  if (!url) return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function getReviewableMembers(members, userEmail) {
   return members.filter((member) => member.membershipStatus === "approved" && member.email !== userEmail);
 }
@@ -234,8 +242,10 @@ function LandingHome() {
 TutorDashboard.propTypes = {
   onClassCreated: PropTypes.func,
   onViewFeedbacks: PropTypes.func,
+  showToast: PropTypes.func.isRequired,
+  setConfirmDialog: PropTypes.func.isRequired,
 };
-function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
+function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirmDialog }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -245,6 +255,42 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
     title: "", moduleCode: "", topic: "", description: "",
     schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5,
   });
+  const [formErrors, setFormErrors] = useState({});
+
+  function validateNewClass(cls) {
+    const errors = {};
+    if (!cls.title.trim())
+      errors.title = 'Class title is required. Try something like "CS2030 Weekly Tutoring" or "MA1521 Calculus Help".';
+    else if (cls.title.trim().length < 3)
+      errors.title = 'Title is too short. Use at least 3 characters (e.g. "CS2040 Tutoring").';
+
+    if (!cls.moduleCode.trim())
+      errors.moduleCode = "Module code is required. Format: 2-3 letters + 4 digits + optional letter (e.g. CS2030, MA1521, CS2030S).";
+    else if (!/^[A-Z]{2,3}\d{4}[A-Z]{0,2}$/i.test(cls.moduleCode.trim()))
+      errors.moduleCode = `"${cls.moduleCode.trim()}" is not a valid NUS module code. Expected: 2-3 letters + 4 digits + optional letter (e.g. CS2030, MA1521, GEA1000N).`;
+
+    if (!cls.schedule.trim())
+      errors.schedule = 'Schedule is required. Describe when sessions run (e.g. "Every Sat 2-4pm" or "Mon & Wed 6-7:30pm").';
+    else if (cls.schedule.trim().length < 5)
+      errors.schedule = 'Schedule is too vague. Try something like "Every Friday 3-5pm" or "Sundays 10am-12pm".';
+
+    if (cls.maxStudents < 1 || cls.maxStudents > 20)
+      errors.maxStudents = "Max students must be between 1 and 20.";
+
+    if ((cls.mode === "online" || cls.mode === "hybrid") && !cls.meetingLink.trim())
+      errors.meetingLink = "A meeting link is required for online/hybrid classes. Paste your Zoom, Teams, or Google Meet link (e.g. https://zoom.us/j/123456789).";
+    else if ((cls.mode === "online" || cls.mode === "hybrid") && cls.meetingLink.trim() &&
+      !/^https?:\/\/.+/i.test(cls.meetingLink.trim()))
+      errors.meetingLink = `"${cls.meetingLink.trim()}" doesn't look like a valid link. It should start with https:// (e.g. https://zoom.us/j/123456789 or https://teams.microsoft.com/...).`;
+
+    if ((cls.mode === "in-person" || cls.mode === "hybrid") && !cls.location.trim())
+      errors.location = "Location is required for in-person/hybrid classes. Include the building and room (e.g. COM1-B103 or CLB Seminar Room 6).";
+
+    if (cls.description && cls.description.length > 500)
+      errors.description = `Description is ${cls.description.length} characters. Please shorten it to 500 or fewer.`;
+
+    return errors;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -273,6 +319,9 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
 
   async function handleCreate(e) {
     e.preventDefault();
+    const errors = validateNewClass(newClass);
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
+    setFormErrors({});
     setCreating(true);
     try {
       const res = await fetch(`${API_BASE}/api/tutoring/classes`, {
@@ -283,14 +332,17 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
       if (!res.ok) throw new Error(data?.error || `Create failed (${res.status})`);
       setClasses((prev) => [data, ...prev]);
       onClassCreated?.(data);
+      showToast("Tutor group created successfully. Notification emails were sent automatically.");
       setShowCreate(false);
       setNewClass({ title: "", moduleCode: "", topic: "", description: "", schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5 });
-    } catch (err) { alert(err.message); }
+    } catch (err) {
+      setFormErrors({ _submit: err.message });
+      showToast(err.message, "error");
+    }
     finally { setCreating(false); }
   }
 
-  async function handleDelete(classId) {
-    if (!globalThis.confirm("Delete this tutoring class?")) return;
+  async function executeDelete(classId) {
     try {
       const res = await fetch(`${API_BASE}/api/tutoring/classes/${classId}`, {
         method: "DELETE", headers: authHeaders(), credentials: "include",
@@ -300,7 +352,23 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
         throw new Error(data?.error || `Delete failed (${res.status})`);
       }
       setClasses((prev) => prev.filter((c) => c.id !== classId));
-    } catch (err) { alert(err.message); }
+      showToast("Tutor group deleted successfully. Notification emails were sent automatically.");
+    } catch (err) { showToast(err.message, "error"); }
+  }
+
+  function handleDelete(classId) {
+    setConfirmDialog({
+      message: "Are you sure you want to delete this tutoring class?",
+      confirmBtnClass: "ptUnifiedBtn",
+      cancelBtnClass: "confirmBtnOutline",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      onConfirm: () => {
+        setConfirmDialog(null);
+        executeDelete(classId);
+      },
+      onCancel: () => setConfirmDialog(null),
+    });
   }
 
   return (
@@ -329,14 +397,23 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
               <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
             </div>
             <h3 className="groupName">{c.title}</h3>
-            <p className="groupTopic">{c.topic || "No topic specified"}</p>
-            {c.description && <p className="groupDesc">{c.description}</p>}
-            {c.schedule && <p className="groupTopic">Schedule: {c.schedule}</p>}
-            <div className="groupFooter">
+            {c.topic && <p className="groupTopic">Topic:{c.topic}</p>}
+            {c.description && <p className="groupDesc">Description:{c.description}</p>}
+            {c.schedule && (
+              <p className="groupTopic" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                Schedule:{c.schedule}
+              </p>
+            )}
+            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
               <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-              <div className="groupActions">
-                <button className="groupManageBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
-                <button className="groupJoinBtn ptDeleteBtn" onClick={() => handleDelete(c.id)}>Delete</button>
+              <div style={{ display: "flex", gap: 6 }}>
+                {c.meetingLink && (
+                  <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
+                     Join Meeting
+                  </button>
+                )}
+                <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>Feedbacks</button>
+                <button className="groupJoinBtn ptDeleteBtn ptUnifiedBtn" onClick={() => handleDelete(c.id)}>Delete</button>
               </div>
             </div>
           </div>
@@ -349,14 +426,17 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
           <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); setShowCreate(false); }}>
             <h2 className="modalTitle">Create Tutoring Class</h2>
             <form className="modalForm" onSubmit={handleCreate}>
+              {formErrors._submit && <p className="fieldError" style={{ marginBottom: 8 }}>{formErrors._submit}</p>}
               <label className="modalLabel">
                 <span>Class Title *</span>
-                <input className="modalInput" required value={newClass.title} onChange={(e) => setNewClass({ ...newClass, title: e.target.value })} placeholder="e.g. CS2030 Weekly Tutoring" />
+                <input className={`modalInput${formErrors.title ? " modalInput--error" : ""}`} value={newClass.title} onChange={(e) => { setNewClass({ ...newClass, title: e.target.value }); setFormErrors((p) => ({ ...p, title: "" })); }} placeholder="e.g. CS2030 Weekly Tutoring" />
+                {formErrors.title && <span className="fieldError">{formErrors.title}</span>}
               </label>
               <div className="modalRow">
                 <label className="modalLabel">
                   <span>Module Code *</span>
-                  <input className="modalInput" required value={newClass.moduleCode} onChange={(e) => setNewClass({ ...newClass, moduleCode: e.target.value })} placeholder="e.g. CS2030" />
+                  <input className={`modalInput${formErrors.moduleCode ? " modalInput--error" : ""}`} value={newClass.moduleCode} onChange={(e) => { setNewClass({ ...newClass, moduleCode: e.target.value.toUpperCase() }); setFormErrors((p) => ({ ...p, moduleCode: "" })); }} placeholder="e.g. CS2030" />
+                  {formErrors.moduleCode && <span className="fieldError">{formErrors.moduleCode}</span>}
                 </label>
                 <label className="modalLabel">
                   <span>Topic</span>
@@ -366,7 +446,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
               <div className="modalRow">
                 <label className="modalLabel">
                   <span>Mode</span>
-                  <select className="modalInput" value={newClass.mode} onChange={(e) => setNewClass({ ...newClass, mode: e.target.value })}>
+                  <select className="modalInput" value={newClass.mode} onChange={(e) => { setNewClass({ ...newClass, mode: e.target.value, meetingLink: "", location: "" }); }}>
                     <option value="online">Online</option>
                     <option value="in-person">In-Person</option>
                     <option value="hybrid">Hybrid</option>
@@ -374,31 +454,57 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
                 </label>
                 <label className="modalLabel">
                   <span>Max Students</span>
-                  <input className="modalInput" type="number" min={1} max={20} value={newClass.maxStudents} onChange={(e) => setNewClass({ ...newClass, maxStudents: Number(e.target.value) })} />
+                  <input className={`modalInput${formErrors.maxStudents ? " modalInput--error" : ""}`} type="number" min={1} max={20} value={newClass.maxStudents} onChange={(e) => { setNewClass({ ...newClass, maxStudents: Number(e.target.value) }); setFormErrors((p) => ({ ...p, maxStudents: "" })); }} />
+                  {formErrors.maxStudents && <span className="fieldError">{formErrors.maxStudents}</span>}
                 </label>
               </div>
               {(newClass.mode === "in-person" || newClass.mode === "hybrid") && (
                 <label className="modalLabel">
                   <span>Location *</span>
-                  <input className="modalInput" required value={newClass.location} onChange={(e) => setNewClass({ ...newClass, location: e.target.value })} placeholder="e.g. COM1 Level 2" />
+                  <input className={`modalInput${formErrors.location ? " modalInput--error" : ""}`} value={newClass.location} onChange={(e) => { setNewClass({ ...newClass, location: e.target.value }); setFormErrors((p) => ({ ...p, location: "" })); }} placeholder="e.g. COM1 Level 2" />
+                  {formErrors.location && <span className="fieldError">{formErrors.location}</span>}
                 </label>
               )}
               {(newClass.mode === "online" || newClass.mode === "hybrid") && (
-                <label className="modalLabel">
-                  <span>Meeting Link *</span>
-                  <input className="modalInput" required value={newClass.meetingLink} onChange={(e) => setNewClass({ ...newClass, meetingLink: e.target.value })} placeholder="e.g. https://zoom.us/j/..." />
-                </label>
+                <div className="modalLabel">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Meeting Link *</span>
+                    <button
+                      type="button"
+                      className="modalCancel"
+                      style={{ padding: "8px 12px" }}
+                      onClick={() => {
+                        window.open(TEAMS_FREE_URL, "_blank", "noopener,noreferrer");
+                        setFormErrors((p) => ({ ...p, meetingLink: TEAMS_MEETING_GUIDANCE }));
+                      }}
+                    >
+                      Open Teams Free
+                    </button>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+                    {TEAMS_MEETING_GUIDANCE}
+                  </div>
+                  <input
+                    className={`modalInput${formErrors.meetingLink ? " modalInput--error" : ""}`}
+                    value={newClass.meetingLink}
+                    onChange={(e) => { setNewClass({ ...newClass, meetingLink: e.target.value }); setFormErrors((p) => ({ ...p, meetingLink: "" })); }}
+                    placeholder="e.g. https://zoom.us/j/..."
+                  />
+                  {formErrors.meetingLink && <span className="fieldError">{formErrors.meetingLink}</span>}
+                </div>
               )}
               <label className="modalLabel">
                 <span>Schedule *</span>
-                <input className="modalInput" required value={newClass.schedule} onChange={(e) => setNewClass({ ...newClass, schedule: e.target.value })} placeholder="e.g. Every Sat 2–4pm" />
+                <input className={`modalInput${formErrors.schedule ? " modalInput--error" : ""}`} value={newClass.schedule} onChange={(e) => { setNewClass({ ...newClass, schedule: e.target.value }); setFormErrors((p) => ({ ...p, schedule: "" })); }} placeholder="e.g. Every Sat 2–4pm" />
+                {formErrors.schedule && <span className="fieldError">{formErrors.schedule}</span>}
               </label>
               <label className="modalLabel">
-                <span>Description</span>
-                <textarea className="modalInput modalTextarea" rows={3} value={newClass.description} onChange={(e) => setNewClass({ ...newClass, description: e.target.value })} />
+                <span>Description <span style={{ fontWeight: 400, color: "#9ca3af" }}>({newClass.description.length}/500)</span></span>
+                <textarea className={`modalInput modalTextarea${formErrors.description ? " modalInput--error" : ""}`} rows={3} value={newClass.description} onChange={(e) => { setNewClass({ ...newClass, description: e.target.value }); setFormErrors((p) => ({ ...p, description: "" })); }} />
+                {formErrors.description && <span className="fieldError">{formErrors.description}</span>}
               </label>
               <div className="modalActions">
-                <button type="button" className="modalCancel" onClick={() => setShowCreate(false)}>Cancel</button>
+                <button type="button" className="modalCancel" onClick={() => { setShowCreate(false); setFormErrors({}); }}>Cancel</button>
                 <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Class"}</button>
               </div>
             </form>
@@ -412,8 +518,9 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks }) {
 TuteeDashboard.propTypes = {
   excludeIds: PropTypes.instanceOf(Set),
   onGiveFeedback: PropTypes.func,
+  showToast: PropTypes.func.isRequired,
 };
-function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
+function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -469,8 +576,10 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Enroll failed (${res.status})`);
       setClasses((prev) => prev.map((c) => c.id === classId ? { ...c, enrolled: true, enrolledCount: (c.enrolledCount ?? 0) + 1 } : c));
-    } catch (err) { alert(err.message); }
-    finally { setEnrollingId(null); }
+      showToast("Joined tutor group successfully. Notification emails were sent automatically.");
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally { setEnrollingId(null); }
   }
 
   async function handleLeaveClass(classId) {
@@ -482,8 +591,10 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Leave failed (${res.status})`);
       setClasses((prev) => prev.map((c) => c.id === classId ? { ...c, enrolled: false, enrolledCount: Math.max(0, (c.enrolledCount ?? 1) - 1) } : c));
-    } catch (err) { alert(err.message); }
-    finally { setEnrollingId(null); }
+      showToast("Left tutor group successfully. Notification emails were sent automatically.");
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally { setEnrollingId(null); }
   }
 
   return (
@@ -516,17 +627,26 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
             </div>
             <h3 className="groupName">{c.title}</h3>
             {c.tutorName && <p className="groupTopic">Tutor: <strong>{c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ")}</strong></p>}
-            <p className="groupTopic">{c.topic || "No topic specified"}</p>
+            {c.topic && <p className="groupTopic">{c.topic}</p>}
             {c.description && <p className="groupDesc">{c.description}</p>}
-            {c.schedule && <p className="groupTopic">Schedule: {c.schedule}</p>}
-            <div className="groupFooter">
+            {c.schedule && (
+              <p className="groupTopic" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 12 }}>🗓</span> {c.schedule}
+              </p>
+            )}
+            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
               <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                {c.enrolled && c.meetingLink && (
+                  <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
+                     Join Meeting
+                  </button>
+                )}
                 {c.enrolled && onGiveFeedback && (
-                  <button className="groupManageBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
+                  <button className="groupManageBtn ptUnifiedBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
                 )}
                 <button
-                  className="groupJoinBtn"
+                  className="groupJoinBtn ptUnifiedBtn"
                   onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
                   disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
                 >
@@ -544,8 +664,10 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback }) {
 PeerTutoringSection.propTypes = {
   onGiveFeedback: PropTypes.func,
   onViewTutorFeedbacks: PropTypes.func,
+  showToast: PropTypes.func.isRequired,
+  setConfirmDialog: PropTypes.func.isRequired,
 };
-function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
+function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks, showToast, setConfirmDialog }) {
   const [role, setRole] = useState(null);
   const [myClassIds, setMyClassIds] = useState(new Set());
 
@@ -579,8 +701,8 @@ function PeerTutoringSection({ onGiveFeedback, onViewTutorFeedbacks }) {
         </div>
       )}
 
-      {role === "tutor" && <TutorDashboard onClassCreated={handleClassCreated} onViewFeedbacks={onViewTutorFeedbacks} />}
-      {role === "tutee" && <TuteeDashboard excludeIds={myClassIds} onGiveFeedback={onGiveFeedback} />}
+      {role === "tutor" && <TutorDashboard onClassCreated={handleClassCreated} onViewFeedbacks={onViewTutorFeedbacks} showToast={showToast} setConfirmDialog={setConfirmDialog} />}
+      {role === "tutee" && <TuteeDashboard excludeIds={myClassIds} onGiveFeedback={onGiveFeedback} showToast={showToast} />}
     </div>
   );
 }
@@ -1145,7 +1267,6 @@ function DashboardHome() {
     };
     loadProfile();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1537,7 +1658,12 @@ function DashboardHome() {
                 </div>
               </div>
             </div>
-            <PeerTutoringSection onGiveFeedback={handleTutoringFeedback} onViewTutorFeedbacks={handleViewTutorFeedbacks} />
+            <PeerTutoringSection
+              onGiveFeedback={handleTutoringFeedback}
+              onViewTutorFeedbacks={handleViewTutorFeedbacks}
+              showToast={showToast}
+              setConfirmDialog={setConfirmDialog}
+            />
           </>
         )}
         {activeModule === "restrictedMembers" && <RestrictedMemberSection showToast={showToast} setConfirmDialog={setConfirmDialog} />}
@@ -1575,10 +1701,10 @@ function DashboardHome() {
                 <select className="modalInput" value={feedbackForm.revieweeId} onChange={(e) => setFeedbackForm({ ...feedbackForm, revieweeId: e.target.value })}>
                   <option value="">Select peer</option>
                   {reviewableMembers.map((m) => (
-                  <option key={m.userId || m.email} value={m.userId || m.email}>
+                    <option key={m.userId || m.email} value={m.userId || m.email}>
                       {getNamePartsLabel(m.firstName, m.lastName, m.email || m.userId || "Unknown")}
-                  </option>
-                ))}
+                    </option>
+                  ))}
                 </select>
               </label>
               {[
