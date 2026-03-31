@@ -40,6 +40,7 @@ function mockDashboardFetch({
   tutorFeedbacks = [],
   tutorFeedbackPost = null,
   tutorClassCreateResponse = null,
+  tutorClassUpdateResponse = null,
   tutorClassEnrollResponse = null,
   tutorClassLeaveResponse = null,
   tutorClassDeleteResponse = null,
@@ -55,6 +56,9 @@ function mockDashboardFetch({
     if (method === "GET" && url.endsWith("/api/tutoring/classes")) return mockJsonResponse(classes);
     if (method === "POST" && url.endsWith("/api/tutoring/classes")) {
       return tutorClassCreateResponse ?? mockJsonResponse({});
+    }
+    if (method === "PUT" && /\/api\/tutoring\/classes\/[^/]+$/.test(url)) {
+      return tutorClassUpdateResponse ?? mockJsonResponse({});
     }
     if (method === "POST" && /\/api\/tutoring\/classes\/[^/]+\/enroll$/.test(url)) {
       return tutorClassEnrollResponse ?? mockJsonResponse({});
@@ -475,6 +479,74 @@ describe("Home page", () => {
     expect(await screen.findByText(/math revision sprint/i)).toBeInTheDocument();
     expect(screen.getByText(/physics drill/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /view feedbacks/i })).toHaveLength(2);
+  });
+
+  it("shows Edit instead of Delete on tutor class cards", async () => {
+    localStorage.setItem("accessToken", makeAccessToken());
+    mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [TUTOR_CLASS_A],
+      tutorFeedbacks: [],
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    const user = userEvent.setup({ delay: null });
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+
+    expect(await screen.findByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^delete$/i })).not.toBeInTheDocument();
+  });
+
+  it("opens the edit modal with existing tutor class values and updates the class", async () => {
+    localStorage.setItem("accessToken", makeAccessToken());
+    const user = userEvent.setup({ delay: null });
+    const fetchSpy = mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [TUTOR_CLASS_A],
+      tutorFeedbacks: [],
+      tutorClassUpdateResponse: mockJsonResponse({
+        ...TUTOR_CLASS_A,
+        title: "Math Revision Sprint Updated",
+        topic: "Limits",
+      }),
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /^edit$/i }));
+
+    expect(await screen.findByRole("heading", { name: /edit tutoring class/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/class title/i)).toHaveValue(TUTOR_CLASS_A.title);
+    expect(screen.getByLabelText(/module code/i)).toHaveValue(TUTOR_CLASS_A.moduleCode);
+    expect(screen.getByLabelText(/^schedule/i)).toHaveValue(TUTOR_CLASS_A.schedule);
+
+    const titleInput = screen.getByLabelText(/class title/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, "Math Revision Sprint Updated");
+
+    const topicInput = screen.getByLabelText(/^topic$/i);
+    await user.clear(topicInput);
+    await user.type(topicInput, "Limits");
+
+    await user.click(screen.getByRole("button", { name: /^update$/i }));
+
+    expect(await screen.findByText(/tutor group updated successfully/i)).toBeInTheDocument();
+    const updateCall = fetchSpy.mock.calls.find(([url, opts]) =>
+      /\/api\/tutoring\/classes\/7$/.test(String(url)) && (opts?.method || "").toUpperCase() === "PUT"
+    );
+    expect(updateCall).toBeTruthy();
   });
 
   it("opens the tutor meeting link from the tutor dashboard", async () => {

@@ -246,15 +246,17 @@ TutorDashboard.propTypes = {
   setConfirmDialog: PropTypes.func.isRequired,
 };
 function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirmDialog }) {
+  const emptyClassForm = {
+    title: "", moduleCode: "", topic: "", description: "",
+    schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5,
+  };
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [newClass, setNewClass] = useState({
-    title: "", moduleCode: "", topic: "", description: "",
-    schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5,
-  });
+  const [editingClassId, setEditingClassId] = useState(null);
+  const [newClass, setNewClass] = useState(emptyClassForm);
   const [formErrors, setFormErrors] = useState({});
 
   function validateNewClass(cls) {
@@ -317,6 +319,37 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
     return () => { cancelled = true; };
   }, []);
 
+  function closeClassModal() {
+    setShowCreate(false);
+    setEditingClassId(null);
+    setNewClass(emptyClassForm);
+    setFormErrors({});
+  }
+
+  function openCreateModal() {
+    setEditingClassId(null);
+    setNewClass(emptyClassForm);
+    setFormErrors({});
+    setShowCreate(true);
+  }
+
+  function openEditModal(classData) {
+    setEditingClassId(classData.id);
+    setNewClass({
+      title: classData.title || "",
+      moduleCode: classData.moduleCode || "",
+      topic: classData.topic || "",
+      description: classData.description || "",
+      schedule: classData.schedule || "",
+      mode: classData.mode || "online",
+      location: classData.location || "",
+      meetingLink: classData.meetingLink || "",
+      maxStudents: classData.maxStudents ?? 5,
+    });
+    setFormErrors({});
+    setShowCreate(true);
+  }
+
   async function handleCreate(e) {
     e.preventDefault();
     const errors = validateNewClass(newClass);
@@ -324,17 +357,22 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
     setFormErrors({});
     setCreating(true);
     try {
-      const res = await fetch(`${API_BASE}/api/tutoring/classes`, {
-        method: "POST", headers: authHeaders(), credentials: "include",
+      const isEditing = !!editingClassId;
+      const res = await fetch(`${API_BASE}/api/tutoring/classes${isEditing ? `/${editingClassId}` : ""}`, {
+        method: isEditing ? "PUT" : "POST", headers: authHeaders(), credentials: "include",
         body: JSON.stringify(newClass),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Create failed (${res.status})`);
-      setClasses((prev) => [data, ...prev]);
-      onClassCreated?.(data);
-      showToast("Tutor group created successfully. Notification emails were sent automatically.");
-      setShowCreate(false);
-      setNewClass({ title: "", moduleCode: "", topic: "", description: "", schedule: "", mode: "online", location: "", meetingLink: "", maxStudents: 5 });
+      if (!res.ok) throw new Error(data?.error || `${isEditing ? "Update" : "Create"} failed (${res.status})`);
+      if (isEditing) {
+        setClasses((prev) => prev.map((c) => c.id === editingClassId ? data : c));
+        showToast("Tutor group updated successfully.");
+      } else {
+        setClasses((prev) => [data, ...prev]);
+        onClassCreated?.(data);
+        showToast("Tutor group created successfully.");
+      }
+      closeClassModal();
     } catch (err) {
       setFormErrors({ _submit: err.message });
       showToast(err.message, "error");
@@ -352,7 +390,8 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
         throw new Error(data?.error || `Delete failed (${res.status})`);
       }
       setClasses((prev) => prev.filter((c) => c.id !== classId));
-      showToast("Tutor group deleted successfully. Notification emails were sent automatically.");
+      closeClassModal();
+      showToast("Tutor group deleted successfully.");
     } catch (err) { showToast(err.message, "error"); }
   }
 
@@ -379,7 +418,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
             <h1 className="dashTitle">Tutor Dashboard</h1>
             <p className="dashSubtitle">Create and manage your tutoring classes</p>
           </div>
-          <button className="dashCreateBtn" onClick={() => setShowCreate(true)}><PlusIcon /> Create Class</button>
+          <button className="dashCreateBtn" onClick={openCreateModal}><PlusIcon /> Create Class</button>
         </div>
       </div>
 
@@ -413,7 +452,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                   </button>
                 )}
                 <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>Feedbacks</button>
-                <button className="groupJoinBtn ptDeleteBtn ptUnifiedBtn" onClick={() => handleDelete(c.id)}>Delete</button>
+                <button className="groupJoinBtn ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
               </div>
             </div>
           </div>
@@ -422,9 +461,9 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
 
       {showCreate && (
         <>
-          <button type="button" className="modalOverlay" aria-label="Close create tutoring class modal" onClick={() => setShowCreate(false)} />
-          <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); setShowCreate(false); }}>
-            <h2 className="modalTitle">Create Tutoring Class</h2>
+          <button type="button" className="modalOverlay" aria-label="Close tutoring class modal" onClick={closeClassModal} />
+          <dialog open className="modalCard" aria-modal="true" onCancel={(e) => { e.preventDefault(); closeClassModal(); }}>
+            <h2 className="modalTitle">{editingClassId ? "Edit Tutoring Class" : "Create Tutoring Class"}</h2>
             <form className="modalForm" onSubmit={handleCreate}>
               {formErrors._submit && <p className="fieldError" style={{ marginBottom: 8 }}>{formErrors._submit}</p>}
               <label className="modalLabel">
@@ -504,8 +543,11 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                 {formErrors.description && <span className="fieldError">{formErrors.description}</span>}
               </label>
               <div className="modalActions">
-                <button type="button" className="modalCancel" onClick={() => { setShowCreate(false); setFormErrors({}); }}>Cancel</button>
-                <button type="submit" className="modalSubmit" disabled={creating}>{creating ? "Creating…" : "Create Class"}</button>
+                {editingClassId && (
+                  <button type="button" className="groupJoinBtn ptDeleteBtn" onClick={() => handleDelete(editingClassId)} disabled={creating}>Delete</button>
+                )}
+                <button type="button" className="modalCancel" onClick={closeClassModal}>Cancel</button>
+                <button type="submit" className="modalSubmit" disabled={creating}>{creating ? (editingClassId ? "Updating…" : "Creating…") : (editingClassId ? "Update" : "Create Class")}</button>
               </div>
             </form>
           </dialog>
