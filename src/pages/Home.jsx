@@ -462,12 +462,12 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                 <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
                 <div style={{ display: "flex", gap: 6 }}>
                   {c.meetingLink && (
-                    <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
-                       Join Meeting
+                    <button className="ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
+                      Join Meeting
                     </button>
                   )}
-                  <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
-                  <button className="groupJoinBtn ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
+                  <button className="ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
+                  <button className="ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
                 </div>
               </div>
             </div>
@@ -499,10 +499,10 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                   <td>
                     <div className="ptTableActions">
                       {c.meetingLink && (
-                        <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>Join</button>
+                        <button className="ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>Join Meeting</button>
                       )}
-                      <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
-                      <button className="groupJoinBtn ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
+                      <button className="ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
+                      <button className="ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
                     </div>
                   </td>
                 </tr>
@@ -740,15 +740,15 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
                 <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
                 <div style={{ display: "flex", gap: 6 }}>
                   {c.enrolled && c.meetingLink && (
-                    <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
-                       Join Meeting
+                    <button className="ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
+                      Join Meeting
                     </button>
                   )}
                   {c.enrolled && onGiveFeedback && (
-                    <button className="groupManageBtn ptUnifiedBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
+                    <button className="ptUnifiedBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
                   )}
                   <button
-                    className="groupJoinBtn ptUnifiedBtn"
+                    className="ptUnifiedBtn"
                     onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
                     disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
                   >
@@ -787,13 +787,13 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
                   <td>
                     <div className="ptTableActions">
                       {c.enrolled && c.meetingLink && (
-                        <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>Join</button>
+                        <button className="ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>Join Meeting</button>
                       )}
                       {c.enrolled && onGiveFeedback && (
-                        <button className="groupManageBtn ptUnifiedBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
+                        <button className="ptUnifiedBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
                       )}
                       <button
-                        className="groupJoinBtn ptUnifiedBtn"
+                        className="ptUnifiedBtn"
                         onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
                         disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
                       >

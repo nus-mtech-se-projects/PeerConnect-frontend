@@ -841,11 +841,35 @@ dialog.modalCard {
 }
 
 
+.ptUnifiedBtn {
+  padding: 8px 12px;
+  border-radius: 15px;
+  border: 2px solid #003D7C;
+  background: #003D7C;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 120ms ease, box-shadow 150ms ease;
+}
+.ptUnifiedBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 61, 124, 0.25);
+}
+.ptUnifiedBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .ptDeleteBtn {
   background: #ef4444 !important;
+  border-color: #ef4444 !important;
 }
 .ptDeleteBtn:hover {
   background: #dc2626 !important;
+  border-color: #dc2626 !important;
 }
 
 /* Confirm dialog */
