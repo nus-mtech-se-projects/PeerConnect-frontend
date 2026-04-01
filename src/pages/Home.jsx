@@ -577,7 +577,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                     {TEAMS_MEETING_GUIDANCE}
                   </div>
                   <input
-                    aria-label="Meeting Link"
+                    aria-label="Meeting Link *"
                     className={`modalInput${formErrors.meetingLink ? " modalInput--error" : ""}`}
                     value={newClass.meetingLink}
                     onChange={(e) => { setNewClass({ ...newClass, meetingLink: e.target.value }); setFormErrors((p) => ({ ...p, meetingLink: "" })); }}
