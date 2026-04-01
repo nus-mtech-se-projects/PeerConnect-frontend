@@ -206,6 +206,12 @@ const SearchIcon = () => (
 const PlusIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
 );
+const GridViewIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
+);
+const ListViewIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><circle cx="3" cy="6" r="1" fill="currentColor" /><circle cx="3" cy="12" r="1" fill="currentColor" /><circle cx="3" cy="18" r="1" fill="currentColor" /></svg>
+);
 
 /* ═══════════════════════════════════════════════════
    Landing page (shown to guests)
@@ -258,6 +264,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
   const [editingClassId, setEditingClassId] = useState(null);
   const [newClass, setNewClass] = useState(emptyClassForm);
   const [formErrors, setFormErrors] = useState({});
+  const [viewMode, setViewMode] = useState("grid");
 
   function validateNewClass(cls) {
     const errors = {};
@@ -418,7 +425,13 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
             <h1 className="dashTitle">Tutor Dashboard</h1>
             <p className="dashSubtitle">Create and manage your tutoring classes</p>
           </div>
-          <button className="dashCreateBtn" onClick={openCreateModal}><PlusIcon /> Create Class</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="ptViewToggle">
+              <button className={`ptViewBtn${viewMode === "grid" ? " active" : ""}`} onClick={() => setViewMode("grid")} title="Grid view"><GridViewIcon /></button>
+              <button className={`ptViewBtn${viewMode === "list" ? " active" : ""}`} onClick={() => setViewMode("list")} title="List view"><ListViewIcon /></button>
+            </div>
+            <button className="dashCreateBtn" onClick={openCreateModal}><PlusIcon /> Create Class</button>
+          </div>
         </div>
       </div>
 
@@ -428,36 +441,75 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
         <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
       )}
 
-      <div className="dashGrid">
-        {classes.map((c) => (
-          <div className="groupCard" key={c.id}>
-            <div className="groupCardHeader">
-              <span className="groupCourse">{c.moduleCode || "General"}</span>
-              <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
-            </div>
-            <h3 className="groupName">{c.title}</h3>
-            {c.topic && <p className="groupTopic">Topic:{c.topic}</p>}
-            {c.description && <p className="groupDesc">Description:{c.description}</p>}
-            {c.schedule && (
-              <p className="groupTopic" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                Schedule:{c.schedule}
-              </p>
-            )}
-            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
-              <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-              <div style={{ display: "flex", gap: 6 }}>
-                {c.meetingLink && (
-                  <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
-                     Join Meeting
-                  </button>
-                )}
-                <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>Feedbacks</button>
-                <button className="groupJoinBtn ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
+      {viewMode === "grid" ? (
+        <div className="dashGrid">
+          {classes.map((c) => (
+            <div className="groupCard" key={c.id}>
+              <div className="groupCardHeader">
+                <span className="groupCourse">{c.moduleCode || "General"}</span>
+                <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
+              </div>
+              <h3 className="groupName">{c.title}</h3>
+              {c.topic && <p className="groupTopic">Topic:{c.topic}</p>}
+              {c.description && <p className="groupDesc">Description:{c.description}</p>}
+              {c.schedule && (
+                <p className="groupTopic" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  Schedule:{c.schedule}
+                </p>
+              )}
+              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
+                <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {c.meetingLink && (
+                    <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
+                       Join Meeting
+                    </button>
+                  )}
+                  <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>Feedbacks</button>
+                  <button className="groupJoinBtn ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="ptListView">
+          <table className="ptTable">
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Title</th>
+                <th>Topic</th>
+                <th>Schedule</th>
+                <th>Mode</th>
+                <th>Enrolled</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {classes.map((c) => (
+                <tr key={c.id}>
+                  <td><span className="groupCourse">{c.moduleCode || "General"}</span></td>
+                  <td className="ptTableTitle">{c.title}</td>
+                  <td>{c.topic || "—"}</td>
+                  <td>{c.schedule || "—"}</td>
+                  <td><span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span></td>
+                  <td>{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"}</td>
+                  <td>
+                    <div className="ptTableActions">
+                      {c.meetingLink && (
+                        <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>Join</button>
+                      )}
+                      <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>Feedbacks</button>
+                      <button className="groupJoinBtn ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {showCreate && (
         <>
@@ -568,6 +620,7 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [enrollingId, setEnrollingId] = useState(null);
+  const [viewMode, setViewMode] = useState("grid");
 
   useEffect(() => {
     let cancelled = false;
@@ -647,6 +700,10 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
             <h1 className="dashTitle">Tutee Dashboard</h1>
             <p className="dashSubtitle">Find and join tutoring classes</p>
           </div>
+          <div className="ptViewToggle">
+            <button className={`ptViewBtn${viewMode === "grid" ? " active" : ""}`} onClick={() => setViewMode("grid")} title="Grid view"><GridViewIcon /></button>
+            <button className={`ptViewBtn${viewMode === "list" ? " active" : ""}`} onClick={() => setViewMode("list")} title="List view"><ListViewIcon /></button>
+          </div>
         </div>
         <div className="dashSearchWrap">
           <SearchIcon />
@@ -660,45 +717,94 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
         <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
       )}
 
-      <div className="dashGrid">
-        {filtered.map((c) => (
-          <div className="groupCard" key={c.id}>
-            <div className="groupCardHeader">
-              <span className="groupCourse">{c.moduleCode || "General"}</span>
-              <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
-            </div>
-            <h3 className="groupName">{c.title}</h3>
-            {c.tutorName && <p className="groupTopic">Tutor: <strong>{c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ")}</strong></p>}
-            {c.topic && <p className="groupTopic">{c.topic}</p>}
-            {c.description && <p className="groupDesc">{c.description}</p>}
-            {c.schedule && (
-              <p className="groupTopic" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 12 }}>🗓</span> {c.schedule}
-              </p>
-            )}
-            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
-              <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-              <div style={{ display: "flex", gap: 6 }}>
-                {c.enrolled && c.meetingLink && (
-                  <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
-                     Join Meeting
+      {viewMode === "grid" ? (
+        <div className="dashGrid">
+          {filtered.map((c) => (
+            <div className="groupCard" key={c.id}>
+              <div className="groupCardHeader">
+                <span className="groupCourse">{c.moduleCode || "General"}</span>
+                <span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span>
+              </div>
+              <h3 className="groupName">{c.title}</h3>
+              {c.tutorName && <p className="groupTopic">Tutor: <strong>{c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ")}</strong></p>}
+              {c.topic && <p className="groupTopic">{c.topic}</p>}
+              {c.description && <p className="groupDesc">{c.description}</p>}
+              {c.schedule && (
+                <p className="groupTopic" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 12 }}>🗓</span> {c.schedule}
+                </p>
+              )}
+              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
+                <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {c.enrolled && c.meetingLink && (
+                    <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
+                       Join Meeting
+                    </button>
+                  )}
+                  {c.enrolled && onGiveFeedback && (
+                    <button className="groupManageBtn ptUnifiedBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
+                  )}
+                  <button
+                    className="groupJoinBtn ptUnifiedBtn"
+                    onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
+                    disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
+                  >
+                    {getTutoringActionLabel(c, enrollingId)}
                   </button>
-                )}
-                {c.enrolled && onGiveFeedback && (
-                  <button className="groupManageBtn ptUnifiedBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
-                )}
-                <button
-                  className="groupJoinBtn ptUnifiedBtn"
-                  onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
-                  disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
-                >
-                  {getTutoringActionLabel(c, enrollingId)}
-                </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="ptListView">
+          <table className="ptTable">
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Title</th>
+                <th>Tutor</th>
+                <th>Topic</th>
+                <th>Schedule</th>
+                <th>Mode</th>
+                <th>Enrolled</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c) => (
+                <tr key={c.id}>
+                  <td><span className="groupCourse">{c.moduleCode || "General"}</span></td>
+                  <td className="ptTableTitle">{c.title}</td>
+                  <td>{c.tutorName ? c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ") : "—"}</td>
+                  <td>{c.topic || "—"}</td>
+                  <td>{c.schedule || "—"}</td>
+                  <td><span className={`groupMode ${c.mode}`}>{c.mode === "online" ? "Online" : "In-Person"}</span></td>
+                  <td>{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"}</td>
+                  <td>
+                    <div className="ptTableActions">
+                      {c.enrolled && c.meetingLink && (
+                        <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>Join</button>
+                      )}
+                      {c.enrolled && onGiveFeedback && (
+                        <button className="groupManageBtn ptUnifiedBtn" onClick={() => onGiveFeedback(c)}>Feedback</button>
+                      )}
+                      <button
+                        className="groupJoinBtn ptUnifiedBtn"
+                        onClick={() => c.enrolled ? handleLeaveClass(c.id) : handleEnroll(c.id)}
+                        disabled={!c.id || enrollingId === c.id || (!c.enrolled && (c.enrolledCount ?? 0) >= (c.maxStudents ?? Infinity))}
+                      >
+                        {getTutoringActionLabel(c, enrollingId)}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
