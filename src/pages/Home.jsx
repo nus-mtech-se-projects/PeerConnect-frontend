@@ -403,6 +403,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
   }
 
   function handleDelete(classId) {
+    closeClassModal();
     setConfirmDialog({
       message: "Are you sure you want to delete this tutoring class?",
       confirmBtnClass: "ptUnifiedBtn",
@@ -465,7 +466,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                        Join Meeting
                     </button>
                   )}
-                  <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>Feedbacks</button>
+                  <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
                   <button className="groupJoinBtn ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
                 </div>
               </div>
@@ -500,7 +501,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                       {c.meetingLink && (
                         <button className="ptMeetingLinkBtn ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>Join</button>
                       )}
-                      <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>Feedbacks</button>
+                      <button className="groupManageBtn ptUnifiedBtn" onClick={() => onViewFeedbacks?.(c)}>View Feedbacks</button>
                       <button className="groupJoinBtn ptUnifiedBtn" onClick={() => openEditModal(c)}>Edit</button>
                     </div>
                   </td>
@@ -576,6 +577,7 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                     {TEAMS_MEETING_GUIDANCE}
                   </div>
                   <input
+                    aria-label="Meeting Link"
                     className={`modalInput${formErrors.meetingLink ? " modalInput--error" : ""}`}
                     value={newClass.meetingLink}
                     onChange={(e) => { setNewClass({ ...newClass, meetingLink: e.target.value }); setFormErrors((p) => ({ ...p, meetingLink: "" })); }}

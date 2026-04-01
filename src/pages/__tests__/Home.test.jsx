@@ -257,7 +257,7 @@ describe("Home page", () => {
     await user.type(screen.getByLabelText(/module code/i), "CS2030");
     await user.type(screen.getByLabelText(/meeting link/i), "https://teams.microsoft.com/l/meetup-join/new-class");
     await user.type(screen.getByLabelText(/^schedule/i), "Every Sat 2-4pm");
-    await user.click(screen.getByRole("button", { name: /^create class$/i }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /^create class$/i }));
 
     expect(await screen.findByText(/tutor group created successfully/i)).toBeInTheDocument();
     const createCall = fetchSpy.mock.calls.find(([url, opts]) =>
@@ -370,10 +370,11 @@ describe("Home page", () => {
     renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /^edit$/i }));
     await user.click(await screen.findByRole("button", { name: /^delete$/i }));
 
     expect(await screen.findByText(/are you sure you want to delete this tutoring class/i)).toBeInTheDocument();
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /^delete$/i }));
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
 
     expect(await screen.findByText(/tutor group deleted successfully/i)).toBeInTheDocument();
     const deleteCall = fetchSpy.mock.calls.find(([url, opts]) =>
@@ -387,6 +388,7 @@ describe("Home page", () => {
     title: "Math Revision Sprint",
     moduleCode: "MA1521",
     topic: "Calculus",
+    schedule: "Every Sat 2-4pm",
     mode: "online",
     meetingLink: "https://teams.microsoft.com/l/meetup-join/tutor-a",
     enrolledCount: 2,
@@ -567,7 +569,7 @@ describe("Home page", () => {
     renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
-    await user.click(await screen.findByRole("button", { name: /view meeting link/i }));
+    await user.click(await screen.findByRole("button", { name: /join meeting/i }));
 
     expect(openSpy).toHaveBeenCalledWith(TUTOR_CLASS_A.meetingLink, "_blank", "noopener,noreferrer");
   });
@@ -777,7 +779,7 @@ describe("Home page", () => {
     renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutee/i }));
-    await user.click(await screen.findByRole("button", { name: /view meeting link/i }));
+    await user.click(await screen.findByRole("button", { name: /join meeting/i }));
 
     expect(openSpy).toHaveBeenCalledWith(ENROLLED_CLASS.meetingLink, "_blank", "noopener,noreferrer");
   });
