@@ -39,6 +39,11 @@ function mockDashboardFetch({
   classes = [],
   tutorFeedbacks = [],
   tutorFeedbackPost = null,
+  tutorClassCreateResponse = null,
+  tutorClassUpdateResponse = null,
+  tutorClassEnrollResponse = null,
+  tutorClassLeaveResponse = null,
+  tutorClassDeleteResponse = null,
   groupDetails = {},
 } = {}) {
   return vi.spyOn(globalThis, "fetch").mockImplementation((input, init = {}) => {
@@ -48,7 +53,22 @@ function mockDashboardFetch({
     if (url.endsWith("/api/users/me")) return mockJsonResponse(profile);
     if (url.endsWith("/api/profile")) return mockJsonResponse({});
     if (url.endsWith("/api/groups")) return mockJsonResponse(groups);
-    if (url.endsWith("/api/tutoring/classes")) return mockJsonResponse(classes);
+    if (method === "GET" && url.endsWith("/api/tutoring/classes")) return mockJsonResponse(classes);
+    if (method === "POST" && url.endsWith("/api/tutoring/classes")) {
+      return tutorClassCreateResponse ?? mockJsonResponse({});
+    }
+    if (method === "PUT" && /\/api\/tutoring\/classes\/[^/]+$/.test(url)) {
+      return tutorClassUpdateResponse ?? mockJsonResponse({});
+    }
+    if (method === "POST" && /\/api\/tutoring\/classes\/[^/]+\/enroll$/.test(url)) {
+      return tutorClassEnrollResponse ?? mockJsonResponse({});
+    }
+    if (method === "POST" && /\/api\/tutoring\/classes\/[^/]+\/leave$/.test(url)) {
+      return tutorClassLeaveResponse ?? mockJsonResponse({});
+    }
+    if (method === "DELETE" && /\/api\/tutoring\/classes\/[^/]+$/.test(url)) {
+      return tutorClassDeleteResponse ?? mockJsonResponse({});
+    }
 
     if (method === "GET" && /\/api\/tutoring\/classes\/[^/]+\/feedback$/.test(url)) {
       return mockJsonResponse(tutorFeedbacks);
@@ -204,12 +224,173 @@ describe("Home page", () => {
 
   /* ── Tutor feedback view helpers ── */
 
+  it("creates a tutor group and shows a success toast", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    const fetchSpy = mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [],
+      tutorClassCreateResponse: mockJsonResponse({
+        id: 21,
+        title: "CS2030 Weekly Tutoring",
+        moduleCode: "CS2030",
+        schedule: "Every Sat 2-4pm",
+        mode: "online",
+        meetingLink: "https://teams.microsoft.com/l/meetup-join/new-class",
+        maxStudents: 5,
+        enrolledCount: 0,
+        isTutor: true,
+      }),
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /create class/i }));
+
+    await user.type(screen.getByLabelText(/class title/i), "CS2030 Weekly Tutoring");
+    await user.type(screen.getByLabelText(/module code/i), "CS2030");
+    await user.type(screen.getByLabelText(/meeting link/i), "https://teams.microsoft.com/l/meetup-join/new-class");
+    await user.type(screen.getByLabelText(/^schedule/i), "Every Sat 2-4pm");
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /^create class$/i }));
+
+    expect(await screen.findByText(/tutor group created successfully/i)).toBeInTheDocument();
+    const createCall = fetchSpy.mock.calls.find(([url, opts]) =>
+      /\/api\/tutoring\/classes$/.test(String(url)) && (opts?.method || "").toUpperCase() === "POST"
+    );
+    expect(createCall).toBeTruthy();
+  });
+
+  it("joins a tutor group and shows a success toast", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    const fetchSpy = mockDashboardFetch({
+      profile: { firstName: "Test", lastName: "Student" },
+      groups: [],
+      classes: [{
+        id: 31,
+        title: "Math Revision Sprint",
+        moduleCode: "MA1521",
+        topic: "Calculus",
+        tutorName: "Jamie Tan",
+        schedule: "Every Friday 3pm",
+        mode: "online",
+        enrolledCount: 2,
+        maxStudents: 6,
+        isTutor: false,
+        enrolled: false,
+      }],
+      tutorClassEnrollResponse: mockJsonResponse({ message: "ok" }),
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
+    });
+
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutee/i }));
+    await user.click(await screen.findByRole("button", { name: /^join$/i }));
+
+    expect(await screen.findByText(/joined tutor group successfully/i)).toBeInTheDocument();
+    const enrollCall = fetchSpy.mock.calls.find(([url, opts]) =>
+      /\/api\/tutoring\/classes\/31\/enroll$/.test(String(url)) && (opts?.method || "").toUpperCase() === "POST"
+    );
+    expect(enrollCall).toBeTruthy();
+  });
+
+  it("leaves a tutor group and shows a success toast", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    const fetchSpy = mockDashboardFetch({
+      profile: { firstName: "Test", lastName: "Student" },
+      groups: [],
+      classes: [{
+        id: 11,
+        title: "CS2030 Tutoring",
+        moduleCode: "CS2030",
+        tutorId: "tutor-1",
+        tutorName: "Jamie Tan",
+        tutorEmail: "jamie@u.nus.edu",
+        mode: "online",
+        meetingLink: "https://teams.microsoft.com/l/meetup-join/tutee-a",
+        enrolled: true,
+        enrolledCount: 1,
+        maxStudents: 5,
+        isTutor: false,
+      }],
+      tutorClassLeaveResponse: mockJsonResponse({ message: "ok" }),
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
+    });
+
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutee/i }));
+    await user.click(await screen.findByRole("button", { name: /^leave$/i }));
+
+    expect(await screen.findByText(/left tutor group successfully/i)).toBeInTheDocument();
+    const leaveCall = fetchSpy.mock.calls.find(([url, opts]) =>
+      /\/api\/tutoring\/classes\/11\/leave$/.test(String(url)) && (opts?.method || "").toUpperCase() === "POST"
+    );
+    expect(leaveCall).toBeTruthy();
+  });
+
+  it("deletes a tutor group through the confirmation modal and shows a success toast", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    const fetchSpy = mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [{
+        id: 7,
+        title: "Math Revision Sprint",
+        moduleCode: "MA1521",
+        topic: "Calculus",
+        mode: "online",
+        meetingLink: "https://teams.microsoft.com/l/meetup-join/tutor-a",
+        enrolledCount: 2,
+        maxStudents: 6,
+        isTutor: true,
+      }],
+      tutorClassDeleteResponse: mockJsonResponse({ message: "ok" }),
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /^edit$/i }));
+    await user.click(await screen.findByRole("button", { name: /^delete$/i }));
+
+    expect(await screen.findByText(/are you sure you want to delete this tutoring class/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    expect(await screen.findByText(/tutor group deleted successfully/i)).toBeInTheDocument();
+    const deleteCall = fetchSpy.mock.calls.find(([url, opts]) =>
+      /\/api\/tutoring\/classes\/7$/.test(String(url)) && (opts?.method || "").toUpperCase() === "DELETE"
+    );
+    expect(deleteCall).toBeTruthy();
+  });
+
   const TUTOR_CLASS_A = {
     id: 7,
     title: "Math Revision Sprint",
     moduleCode: "MA1521",
     topic: "Calculus",
+    schedule: "Every Sat 2-4pm",
     mode: "online",
+    meetingLink: "https://teams.microsoft.com/l/meetup-join/tutor-a",
     enrolledCount: 2,
     maxStudents: 6,
     isTutor: true,
@@ -261,6 +442,24 @@ describe("Home page", () => {
     expect(await screen.findByRole("heading", { name: /submitted feedbacks/i })).toBeInTheDocument();
   }
 
+  async function openCreateClassModal(user, account = { username: "tutor@hotmail.com", name: "Tutor User" }) {
+    localStorage.setItem("accessToken", makeAccessToken());
+    mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [],
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [account],
+    });
+
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /create class/i }));
+  }
+
   it("shows View Feedbacks button on each tutor class card", async () => {
     localStorage.setItem("accessToken", makeAccessToken());
     mockDashboardFetch({
@@ -282,6 +481,112 @@ describe("Home page", () => {
     expect(await screen.findByText(/math revision sprint/i)).toBeInTheDocument();
     expect(screen.getByText(/physics drill/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /view feedbacks/i })).toHaveLength(2);
+  });
+
+  it("shows Edit instead of Delete on tutor class cards", async () => {
+    localStorage.setItem("accessToken", makeAccessToken());
+    mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [TUTOR_CLASS_A],
+      tutorFeedbacks: [],
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    const user = userEvent.setup({ delay: null });
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+
+    expect(await screen.findByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^delete$/i })).not.toBeInTheDocument();
+  });
+
+  it("opens the edit modal with existing tutor class values and updates the class", async () => {
+    localStorage.setItem("accessToken", makeAccessToken());
+    const user = userEvent.setup({ delay: null });
+    const fetchSpy = mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [TUTOR_CLASS_A],
+      tutorFeedbacks: [],
+      tutorClassUpdateResponse: mockJsonResponse({
+        ...TUTOR_CLASS_A,
+        title: "Math Revision Sprint Updated",
+        topic: "Limits",
+      }),
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /^edit$/i }));
+
+    expect(await screen.findByRole("heading", { name: /edit tutoring class/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/class title/i)).toHaveValue(TUTOR_CLASS_A.title);
+    expect(screen.getByLabelText(/module code/i)).toHaveValue(TUTOR_CLASS_A.moduleCode);
+    expect(screen.getByLabelText(/^schedule/i)).toHaveValue(TUTOR_CLASS_A.schedule);
+
+    const titleInput = screen.getByLabelText(/class title/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, "Math Revision Sprint Updated");
+
+    const topicInput = screen.getByLabelText(/^topic$/i);
+    await user.clear(topicInput);
+    await user.type(topicInput, "Limits");
+
+    await user.click(screen.getByRole("button", { name: /^update$/i }));
+
+    expect(await screen.findByText(/tutor group updated successfully/i)).toBeInTheDocument();
+    const updateCall = fetchSpy.mock.calls.find(([url, opts]) =>
+      /\/api\/tutoring\/classes\/7$/.test(String(url)) && (opts?.method || "").toUpperCase() === "PUT"
+    );
+    expect(updateCall).toBeTruthy();
+  });
+
+  it("opens the tutor meeting link from the tutor dashboard", async () => {
+    localStorage.setItem("accessToken", makeAccessToken());
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    mockDashboardFetch({
+      profile: { firstName: "Tutor", lastName: "User" },
+      groups: [],
+      classes: [TUTOR_CLASS_A],
+      tutorFeedbacks: [],
+    });
+    useMsal.mockReturnValue({
+      instance: { logoutRedirect: vi.fn() },
+      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
+    });
+
+    const user = userEvent.setup({ delay: null });
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
+    await user.click(await screen.findByRole("button", { name: /join meeting/i }));
+
+    expect(openSpy).toHaveBeenCalledWith(TUTOR_CLASS_A.meetingLink, "_blank", "noopener,noreferrer");
+  });
+
+  it("shows the Teams Free meeting-link flow when creating a class", async () => {
+    const user = userEvent.setup({ delay: null });
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    await openCreateClassModal(user);
+
+    expect(screen.getByRole("button", { name: /open teams free/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/auto-generate teams link/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /open teams free/i }));
+
+    expect(openSpy).toHaveBeenCalledWith("https://teams.live.com/", "_blank", "noopener,noreferrer");
+    expect(screen.getAllByText(/open teams free, create the meeting there, then paste the join link below/i).length).toBeGreaterThan(0);
   });
 
   it("shows empty state when no feedbacks have been submitted for the class", async () => {
@@ -386,6 +691,7 @@ describe("Home page", () => {
     tutorName: "Jamie Tan",
     tutorEmail: "jamie@u.nus.edu",
     mode: "online",
+    meetingLink: "https://teams.microsoft.com/l/meetup-join/tutee-a",
     enrolled: true,
     enrolledCount: 1,
     maxStudents: 5,
@@ -462,6 +768,20 @@ describe("Home page", () => {
     await openTuteeClassFeedbackForm(user);
     // Jamie Tan appears in both the card and the select option — check the option specifically
     expect(screen.getByRole("option", { name: /jamie tan/i })).toBeInTheDocument();
+  });
+
+  it("opens the meeting link from the tutee dashboard", async () => {
+    localStorage.setItem("accessToken", makeAccessToken());
+    setupTuteeEnv();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    const user = userEvent.setup({ delay: null });
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
+    await user.click(screen.getByRole("button", { name: /i'm a tutee/i }));
+    await user.click(await screen.findByRole("button", { name: /join meeting/i }));
+
+    expect(openSpy).toHaveBeenCalledWith(ENROLLED_CLASS.meetingLink, "_blank", "noopener,noreferrer");
   });
 
   it("submits tutoring feedback with the expected payload", async () => {
