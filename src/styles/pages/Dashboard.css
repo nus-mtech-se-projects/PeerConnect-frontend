@@ -817,6 +817,52 @@ dialog.modalCard {
   background: #dc2626 !important;
 }
 
+.ptMeetingLinkBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: #e8eef6;
+  color: #003D7C;
+  border: 1px solid #b8cce4;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease;
+  white-space: nowrap;
+}
+.ptMeetingLinkBtn:hover {
+  background: #d0dff0;
+}
+
+.ptUnifiedBtn {
+  padding: 8px 12px;
+  border-radius: 15px;
+  border: 2px solid #003D7C !important;
+  background: #003D7C !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 120ms ease, box-shadow 150ms ease;
+}
+
+.ptUnifiedBtn:hover:not(:disabled) {
+  background: #003D7C !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 61, 124, 0.25);
+}
+
+.ptUnifiedBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 /* Confirm dialog */
 .confirmDialog {
   background: #fff;
