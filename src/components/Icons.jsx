@@ -26,6 +26,12 @@ export const RestrictIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="4"/><line x1="17" y1="9" x2="21" y2="13"/></svg>
 );
 
+export const WellBeingIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402C1 3.518 4.268 2 6.5 2 8.36 2 10.46 3.066 12 5.003 13.54 3.066 15.64 2 17.5 2 19.732 2 23 3.518 23 7.191c0 4.105-5.37 8.863-11 14.402z"/>
+  </svg>
+);
+
 export const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 );

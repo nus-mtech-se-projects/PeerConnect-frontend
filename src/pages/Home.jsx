@@ -11,6 +11,7 @@ import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
+import { WellBeingIcon } from "../components/Icons";
 import {
   getRuMemberInitials,
   ruAuthRequestOptions,
@@ -217,6 +218,7 @@ const ListViewIcon = () => (
    Landing page (shown to guests)
    ═══════════════════════════════════════════════════ */
 function LandingHome() {
+  const nav = useNavigate();
   const slides = [
     { title: "Find the right tutor", description: "Match with peers who have aced the same module.", imageSrc: tutoringImg, imageAlt: "Peer tutoring session" },
     { title: "Join study rooms", description: "Create or join groups that keep you consistent.", imageSrc: studyGroupImg, imageAlt: "Students in a study group" },
@@ -239,6 +241,21 @@ function LandingHome() {
           <FeatureCard key={f.title} title={f.title} description={f.desc} />
         ))}
       </section>
+
+      <div className="featureCard" style={{ marginTop: 18 }}>
+        <div className="wbBannerInner">
+          <span className="wbBannerIcon" aria-hidden="true"><WellBeingIcon size={26} /></span>
+          <div className="wbBannerBody">
+            <div className="featureCardTitle">Mental Health &amp; Well-being Resources</div>
+            <div className="featureCardDesc">
+              Access counselling services, wellness programmes, and community helplines — whether you are part of NUS or the wider Singapore community.
+            </div>
+          </div>
+          <button className="dashMyGroupsBtn" onClick={() => nav("/wellbeing")}>
+            Explore Resources
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
