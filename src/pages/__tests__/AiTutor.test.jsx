@@ -1,4 +1,3 @@
-import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -232,7 +231,7 @@ describe("AiTutor", () => {
     await clickSkipContext(user);
 
     await waitFor(() => expect(aiCalls).toHaveLength(1));
-    expect(aiCalls[0].message).toContain("Generate exactly 30");
+    expect(aiCalls[0].message).toContain("Generate exactly 20");
     expect(await screen.findByText(/exam practice/i)).toBeInTheDocument();
     expect(screen.getByText(/which algorithm is stable/i)).toBeInTheDocument();
   });

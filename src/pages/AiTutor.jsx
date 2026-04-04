@@ -7,7 +7,7 @@ import "../styles/pages/AiTutor.css";
 
 function buildQuizPrompt(ctx, difficulty) {
   const isExam = difficulty === "exam";
-  const count = isExam ? 30 : 5;
+  const count = isExam ? 20 : 5;
   const style = isExam ? "difficult, application-based, exam-style" : "introductory";
   return [
     `Generate exactly ${count} ${style} multiple choice questions${ctx ? " based on this class:" : "."}`,
@@ -930,7 +930,7 @@ export default function AiTutor({ embedded = false }) {
               { id:"wellbeing",  icon:"🌿", label:"Well-being tips",       description:"Stress management & study wellness",    feature:"wellbeing" },
               { id:"studyplan",  icon:"🗓️", label:"Build a study plan",  description:"Weekly schedule tailored to your class", feature:"studyplan" },
               { id:"flashcards", icon:"🃏", label:"Make flashcards",     description:"Self-test with Q&A cards",               feature:"flashcard" },
-              { id:"exam",       icon:"📄", label:"Exam-style questions",description:"30 harder MCQ questions for exam prep",  feature:"exam"      },
+              { id:"exam",       icon:"📄", label:"Exam-style questions",description:"20 harder MCQ questions for exam prep",  feature:"exam"      },
             ].map((r) => (
               <button key={r.id} className="atRecCard" onClick={() => {
                 if (r.feature === "wellbeing") { sendWellbeingTip(); return; }
