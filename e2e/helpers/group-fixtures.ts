@@ -41,7 +41,7 @@ export function createGroupData(overrides: Record<string, unknown> = {}) {
     maxMembers: 10,
     location: '',
     meetingLink: 'https://zoom.us/j/123',
-    preferredSchedule: '2026-04-01T14:00:00',
+    preferredSchedule: '2099-04-10T14:00:00',
     description: 'Weekly algo practice',
     approvalRequired: false,
     status: 'active',
