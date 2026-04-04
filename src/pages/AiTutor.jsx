@@ -618,13 +618,6 @@ export default function AiTutor({ embedded = false }) {
       if (type==="studyplan" && !Array.isArray(parsed.schedule)) throw new Error("Invalid study plan format");
       if (type==="topics"    && !Array.isArray(parsed.topics))   throw new Error("Invalid topics format");
 
-      // If exam returned fewer than 30 questions, retry once
-      if (type === "exam" && parsed.questions.length < 30) {
-        const retry = await callAI(prompt + `\n\nNOTE: Previously you returned only ${parsed.questions.length} questions. You MUST return exactly 30.`);
-        if (Array.isArray(retry.questions) && retry.questions.length > parsed.questions.length) {
-          parsed.questions = retry.questions.slice(0, 30);
-        }
-      }
 
       setFeatureData(parsed); setFeatureStep("active");
     } catch (err) {

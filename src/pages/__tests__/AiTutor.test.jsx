@@ -197,7 +197,7 @@ describe("AiTutor", () => {
     await clickSkipContext(user);
 
     await waitFor(() => expect(aiCalls).toHaveLength(1));
-    expect(aiCalls[0].message).toContain("Generate 5 multiple choice questions");
+    expect(aiCalls[0].message).toContain("Generate exactly 5");
     expect(await screen.findByText(/question 1 of 1/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /a\s*0/i }));
     await user.click(screen.getByRole("button", { name: /finish/i }));
@@ -232,7 +232,7 @@ describe("AiTutor", () => {
     await clickSkipContext(user);
 
     await waitFor(() => expect(aiCalls).toHaveLength(1));
-    expect(aiCalls[0].message).toContain("30 difficult, application-based, exam-style");
+    expect(aiCalls[0].message).toContain("Generate exactly 30");
     expect(await screen.findByText(/exam practice/i)).toBeInTheDocument();
     expect(screen.getByText(/which algorithm is stable/i)).toBeInTheDocument();
   });
