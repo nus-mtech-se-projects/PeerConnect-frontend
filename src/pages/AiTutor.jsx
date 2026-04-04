@@ -6,11 +6,14 @@ import "../styles/pages/AiTutor.css";
 /* ── Prompts ─────────────────────────────────────────────────── */
 
 function buildQuizPrompt(ctx, difficulty) {
-  const count = difficulty === "exam" ? "30 difficult, application-based, exam-style" : "5";
+  const isExam = difficulty === "exam";
+  const count = isExam ? 30 : 5;
+  const style = isExam ? "difficult, application-based, exam-style" : "introductory";
   return [
-    `Generate ${count} multiple choice questions${ctx ? " based on this class:" : "."}`,
+    `Generate exactly ${count} ${style} multiple choice questions${ctx ? " based on this class:" : "."}`,
     ctx || "",
     "",
+    `IMPORTANT: You MUST produce exactly ${count} questions — no more, no less. Do not stop early.`,
     "Return ONLY valid JSON (no markdown, no extra text):",
     '{"title":"...","questions":[{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"answer":"A","explanation":"One sentence max."}]}',
     "Each question needs exactly 4 options. The answer field must be only the letter A, B, C, or D. Keep explanations to one sentence.",
@@ -520,7 +523,6 @@ export default function AiTutor({ embedded = false }) {
   const [classesLoading,  setClassesLoading]  = useState(false);
   const [groupsLoading,   setGroupsLoading]   = useState(false);
   const [userProfile,     setUserProfile]     = useState(null);
-  const [groupDetails,    setGroupDetails]    = useState([]);
   const [restrictedUsers, setRestrictedUsers] = useState([]);
 
   useEffect(() => {
@@ -543,19 +545,7 @@ export default function AiTutor({ embedded = false }) {
 
     fetch(`${API_BASE}/api/groups`, { headers: authHeaders(), credentials: "include" })
       .then((r) => r.ok ? r.json() : [])
-      .then(async (list) => {
-        if (!Array.isArray(list)) return;
-        setStudyGroups(list);
-        // Fetch each group's full details (members) in parallel, cap at 10
-        const details = await Promise.all(
-          list.slice(0, 10).map((g) =>
-            fetch(`${API_BASE}/api/groups/${g.id}`, { headers: authHeaders(), credentials: "include" })
-              .then((r) => r.ok ? r.json() : null)
-              .catch(() => null)
-          )
-        );
-        setGroupDetails(details.filter(Boolean));
-      })
+      .then((d) => setStudyGroups(Array.isArray(d) ? d : []))
       .catch(() => {});
 
     fetch(`${API_BASE}/api/restricted-users`, { headers: authHeaders(), credentials: "include" })
@@ -628,6 +618,14 @@ export default function AiTutor({ embedded = false }) {
       if (type==="studyplan" && !Array.isArray(parsed.schedule)) throw new Error("Invalid study plan format");
       if (type==="topics"    && !Array.isArray(parsed.topics))   throw new Error("Invalid topics format");
 
+      // If exam returned fewer than 30 questions, retry once
+      if (type === "exam" && parsed.questions.length < 30) {
+        const retry = await callAI(prompt + `\n\nNOTE: Previously you returned only ${parsed.questions.length} questions. You MUST return exactly 30.`);
+        if (Array.isArray(retry.questions) && retry.questions.length > parsed.questions.length) {
+          parsed.questions = retry.questions.slice(0, 30);
+        }
+      }
+
       setFeatureData(parsed); setFeatureStep("active");
     } catch (err) {
       setFeatureErr("Couldn't generate content. " + err.message);
@@ -689,18 +687,7 @@ export default function AiTutor({ embedded = false }) {
       lines.push("");
     }
 
-    if (groupDetails.length > 0) {
-      lines.push("## User's Study Groups (with members)");
-      groupDetails.forEach((g) => {
-        const memberList = Array.isArray(g.members) && g.members.length > 0
-          ? g.members.map((m) => `${m.fullName || m.username || m.email || "Unknown"} (${m.role || "member"})`).join(", ")
-          : "No members listed";
-        lines.push(`- **${g.name || g.title}**${g.subject ? ` [${g.subject}]` : ""}`);
-        lines.push(`  Members: ${memberList}`);
-        if (g.description) lines.push(`  Description: ${g.description}`);
-      });
-      lines.push("");
-    } else if (studyGroups.length > 0) {
+    if (studyGroups.length > 0) {
       lines.push("## User's Study Groups");
       studyGroups.forEach((g) => {
         lines.push(`- ${g.name || g.title}${g.subject ? ` [${g.subject}]` : ""}${g.description ? `: ${g.description}` : ""}`);
