@@ -680,10 +680,25 @@ export default function AiTutor({ embedded = false }) {
       lines.push("");
     }
 
-    if (studyGroups.length > 0) {
-      lines.push("## User's Study Groups");
-      studyGroups.forEach((g) => {
-        lines.push(`- ${g.name || g.title}${g.subject ? ` [${g.subject}]` : ""}${g.description ? `: ${g.description}` : ""}`);
+    const joinedGroups = studyGroups.filter((g) => g.joined || g.isAdmin);
+    const notJoinedGroups = studyGroups.filter((g) => !g.joined && !g.isAdmin);
+
+    if (joinedGroups.length > 0) {
+      lines.push("## Study Groups the User Has Joined");
+      joinedGroups.forEach((g) => {
+        const role = g.isAdmin ? "Admin/Owner" : "Member";
+        const status = g.status ? ` | Status: ${g.status}` : "";
+        const members = g.memberCount !== undefined ? ` | ${g.memberCount}${g.maxMembers ? `/${g.maxMembers}` : ""} members` : "";
+        lines.push(`- **${g.name || g.title}**${g.subject ? ` [${g.subject}]` : ""} | Role: ${role}${members}${status}${g.description ? ` | ${g.description}` : ""}`);
+      });
+      lines.push("");
+    }
+
+    if (notJoinedGroups.length > 0) {
+      lines.push("## Other Available Study Groups (not joined)");
+      notJoinedGroups.forEach((g) => {
+        const members = g.memberCount !== undefined ? ` | ${g.memberCount}${g.maxMembers ? `/${g.maxMembers}` : ""} members` : "";
+        lines.push(`- ${g.name || g.title}${g.subject ? ` [${g.subject}]` : ""}${members}${g.description ? `: ${g.description}` : ""}`);
       });
       lines.push("");
     }
