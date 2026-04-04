@@ -680,26 +680,46 @@ export default function AiTutor({ embedded = false }) {
       lines.push("");
     }
 
-    const joinedGroups = studyGroups.filter((g) => g.joined || g.isAdmin);
-    const notJoinedGroups = studyGroups.filter((g) => !g.joined && !g.isAdmin);
+    const myGroups    = studyGroups.filter((g) => g.isAdmin);
+    const joinedGroups = studyGroups.filter((g) => g.joined && !g.isAdmin);
+    const pendingGroups = studyGroups.filter((g) => g.membershipStatus === "pending" && !g.joined && !g.isAdmin);
+    const availableGroups = studyGroups.filter((g) => !g.joined && !g.isAdmin && g.membershipStatus !== "pending");
 
-    if (joinedGroups.length > 0) {
-      lines.push("## Study Groups the User Has Joined");
-      joinedGroups.forEach((g) => {
-        const role = g.isAdmin ? "Admin/Owner" : "Member";
-        const status = g.status ? ` | Status: ${g.status}` : "";
-        const members = g.memberCount !== undefined ? ` | ${g.memberCount}${g.maxMembers ? `/${g.maxMembers}` : ""} members` : "";
-        lines.push(`- **${g.name || g.title}**${g.subject ? ` [${g.subject}]` : ""} | Role: ${role}${members}${status}${g.description ? ` | ${g.description}` : ""}`);
-      });
+    function fmtGroup(g, role) {
+      const members = g.memberCount !== undefined ? `${g.memberCount}${g.maxMembers ? `/${g.maxMembers}` : ""} members` : null;
+      const status = g.status && g.status !== "active" ? `Status: ${g.status}` : null;
+      const parts = [
+        `**${g.name || g.title}**`,
+        g.subject ? `[${g.subject}]` : null,
+        role ? `Role: ${role}` : null,
+        members,
+        status,
+        g.description || null,
+      ].filter(Boolean);
+      return `- ${parts.join(" | ")}`;
+    }
+
+    if (myGroups.length > 0) {
+      lines.push("## Study Groups Created/Managed by the User");
+      myGroups.forEach((g) => lines.push(fmtGroup(g, "Owner/Admin")));
       lines.push("");
     }
 
-    if (notJoinedGroups.length > 0) {
-      lines.push("## Other Available Study Groups (not joined)");
-      notJoinedGroups.forEach((g) => {
-        const members = g.memberCount !== undefined ? ` | ${g.memberCount}${g.maxMembers ? `/${g.maxMembers}` : ""} members` : "";
-        lines.push(`- ${g.name || g.title}${g.subject ? ` [${g.subject}]` : ""}${members}${g.description ? `: ${g.description}` : ""}`);
-      });
+    if (joinedGroups.length > 0) {
+      lines.push("## Study Groups the User Has Joined (as member)");
+      joinedGroups.forEach((g) => lines.push(fmtGroup(g, "Member")));
+      lines.push("");
+    }
+
+    if (pendingGroups.length > 0) {
+      lines.push("## Study Groups the User Has Requested to Join (pending approval)");
+      pendingGroups.forEach((g) => lines.push(fmtGroup(g, null)));
+      lines.push("");
+    }
+
+    if (availableGroups.length > 0) {
+      lines.push("## Other Available Study Groups (user has NOT joined)");
+      availableGroups.forEach((g) => lines.push(fmtGroup(g, null)));
       lines.push("");
     }
 
