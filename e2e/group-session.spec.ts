@@ -4,8 +4,8 @@ import { authenticate, setupAndGoto, fillSessionForm, mockRoute, createGroupData
 const MOCK_SESSION = {
   id: SESSION_ID,
   title: 'Week 1 - Bubble Sort',
-  startsAt: '2026-04-05T10:00:00',
-  endsAt: '2026-04-05T12:00:00',
+  startsAt: '2099-04-12T10:00:00',
+  endsAt: '2099-04-12T12:00:00',
   location: 'COM1 SR1',
   meetingLink: 'https://zoom.us/j/456',
   notes: 'Bring laptop',
@@ -36,7 +36,7 @@ test.describe('Study Sessions', () => {
   test('creates session and clears form', async ({ page }) => {
     await setupAndGoto(page, MOCK_GROUP);
     await mockRoute(page, `**/api/groups/${GROUP_ID}/sessions`, 'POST', 200, { message: 'Session created' });
-    await fillSessionForm(page, { title: 'Week 2 - Merge Sort', date: '2026-04-10', time: '14:00' });
+    await fillSessionForm(page, { title: 'Week 2 - Merge Sort', date: '2099-04-20', time: '14:00' });
     await page.getByRole('button', { name: /create session/i }).click();
     const titleInput = page.locator('.gdSection').filter({ hasText: /scheduled sessions/i }).locator('.gdForm input.gdInput[required]').first();
     await expect(titleInput).toHaveValue('', { timeout: 5000 });
@@ -45,7 +45,7 @@ test.describe('Study Sessions', () => {
   test('shows error when session creation fails', async ({ page }) => {
     await setupAndGoto(page, MOCK_GROUP);
     await mockRoute(page, `**/api/groups/${GROUP_ID}/sessions`, 'POST', 400, { error: 'Session title is required' });
-    await fillSessionForm(page, { title: 'Bad Session', date: '2026-04-20', time: '09:00' });
+    await fillSessionForm(page, { title: 'Bad Session', date: '2099-04-21', time: '09:00' });
     await page.getByRole('button', { name: /create session/i }).click();
     await expect(page.locator('.dashToastError')).toBeVisible({ timeout: 5000 });
   });
