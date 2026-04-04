@@ -21,6 +21,7 @@ import {
 } from "../utils/restrictedUsers";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
+import AiTutor from "./AiTutor";
 import "../styles/pages/Dashboard.css";
 import "../styles/pages/RestrictUser.css";
 function createFeedbackForm() {
@@ -1771,7 +1772,7 @@ function DashboardHome() {
           <button className={`dashNavItem ${activeModule === "studyGroups" ? "active" : ""}`} onClick={() => { setActiveModule("studyGroups"); closeSidebar(); }}><GroupsIcon /> Study Groups</button>
           <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
           <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
-          <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
+          <button className={`dashNavItem ${activeModule === "aiTutor" ? "active" : ""}`} onClick={() => { setActiveModule("aiTutor"); closeSidebar(); }}><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
         </nav>
 
@@ -1817,6 +1818,19 @@ function DashboardHome() {
           </>
         )}
         {activeModule === "restrictedMembers" && <RestrictedMemberSection showToast={showToast} setConfirmDialog={setConfirmDialog} />}
+        {activeModule === "aiTutor" && (
+          <>
+            <div className="dashHeader">
+              <div className="dashHeaderTop">
+                <div>
+                  <h1 className="dashTitle">AI Study Tutor</h1>
+                  <p className="dashSubtitle">Ask me anything · Generate quizzes · Explore topics</p>
+                </div>
+              </div>
+            </div>
+            <AiTutor embedded />
+          </>
+        )}
       </section>
 
       <CreateGroupModal

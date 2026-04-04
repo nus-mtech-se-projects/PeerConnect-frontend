@@ -20,7 +20,7 @@ const baseGroup = {
   studyMode: "online",
   location: "COM1-B1",
   meetingLink: "https://zoom.us/j/123",
-  preferredSchedule: "2026-04-01T10:00",
+  preferredSchedule: "2099-04-10T10:00",
   maxMembers: 10,
   approvalRequired: false,
   isAdmin: false,
@@ -31,7 +31,7 @@ const baseGroup = {
     { userId: "m-2", firstName: "Bob", lastName: "Lee", email: "bob@u.nus.edu", role: "member", membershipStatus: "approved" },
   ],
   sessions: [
-    { id: "s1", title: "Week 1", startsAt: "2026-04-05T14:00", endsAt: "2026-04-05T16:00", location: "COM1", meetingLink: "" },
+    { id: "s1", title: "Week 1", startsAt: "2099-04-12T14:00", endsAt: "2099-04-12T16:00", location: "COM1", meetingLink: "" },
   ],
 };
 
@@ -410,10 +410,10 @@ describe("GroupDetail – member view", () => {
 
   it("shows formatted schedule and session times", async () => {
     await initMemberView();
-    expect(screen.getByText("01-Apr-2026 at 10:00")).toBeInTheDocument();
+    expect(screen.getByText("10-Apr-2099 at 10:00")).toBeInTheDocument();
     expect(screen.getByText("Week 1")).toBeInTheDocument();
-    expect(screen.getByText(/05-Apr-2026 at 14:00/)).toBeInTheDocument();
-    expect(screen.getByText(/till 05-Apr-2026 at 16:00/)).toBeInTheDocument();
+    expect(screen.getByText(/12-Apr-2099 at 14:00/)).toBeInTheDocument();
+    expect(screen.getByText(/till 12-Apr-2099 at 16:00/)).toBeInTheDocument();
   });
 
   it("shows dash when no preferred schedule", async () => {
@@ -423,7 +423,7 @@ describe("GroupDetail – member view", () => {
   it("shows location in session without meeting link", async () => {
     await initMemberView({
       ...baseGroup,
-      sessions: [{ id: "s1", title: "S1", startsAt: "2026-04-05T14:00", location: "Room 5", meetingLink: "" }],
+      sessions: [{ id: "s1", title: "S1", startsAt: "2099-04-12T14:00", location: "Room 5", meetingLink: "" }],
     });
     expect(screen.getByText("Room 5")).toBeInTheDocument();
   });
@@ -431,7 +431,7 @@ describe("GroupDetail – member view", () => {
   it("shows no location/link when both empty", async () => {
     await initMemberView({
       ...baseGroup,
-      sessions: [{ id: "s1", title: "S1", startsAt: "2026-04-05T14:00", location: "", meetingLink: "" }],
+      sessions: [{ id: "s1", title: "S1", startsAt: "2099-04-12T14:00", location: "", meetingLink: "" }],
     });
     expect(screen.getByText("No location/link")).toBeInTheDocument();
   });

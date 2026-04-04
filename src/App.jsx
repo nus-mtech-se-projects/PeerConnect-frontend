@@ -13,6 +13,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
 import GroupDetail from "./pages/GroupDetail";
+import AiTutor from "./pages/AiTutor";
 import PrivateRoute from "./components/PrivateRoute"
 import PublicRoute from "./components/PublicRoute";
 
@@ -106,6 +107,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <GroupDetail />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/ai-tutor"
+            element={
+              <PrivateRoute>
+                <AiTutor />
               </PrivateRoute>
             }
           />
