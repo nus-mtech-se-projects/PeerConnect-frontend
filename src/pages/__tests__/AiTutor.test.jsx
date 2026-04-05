@@ -544,6 +544,33 @@ describe("AiTutor", () => {
     expect(await screen.findByText(/based on your history profile/i)).toBeInTheDocument();
   });
 
+  it("adds a profile source-of-truth instruction so the AI only uses fields actually present", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      profile: {
+        faculty: "Arts and Social Sciences",
+        major: "History",
+        yearOfStudy: 2,
+      },
+      aiReplies: [{ reply: "Your profile shows faculty Arts and Social Sciences, major History, and year of study 2." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "WHat is my profile?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[1].content).toContain("The user's question is about their profile.");
+    expect(aiCalls[0].history[2].content).toContain("Profile fields available now:");
+    expect(aiCalls[0].history[2].content).toContain("Faculty: Arts and Social Sciences");
+    expect(aiCalls[0].history[2].content).toContain("Major: History");
+    expect(aiCalls[0].history[2].content).toContain("Year of Study: 2");
+    expect(aiCalls[0].history[2].content).toContain("Do not say you cannot access the user's profile if the profile section is present.");
+    expect(await screen.findByText(/your profile shows faculty arts and social sciences/i)).toBeInTheDocument();
+  });
+
   it("scopes buildSystemContext to the detected profile topic", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({

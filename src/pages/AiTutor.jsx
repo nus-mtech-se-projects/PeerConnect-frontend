@@ -233,7 +233,7 @@ function buildContextFocusInstruction(message) {
   }
 
   if (/(profile|major|faculty|year of study|bio|full-time|part-time)/.test(text)) {
-    return "The user's question is about their profile. Answer from the profile section first. If profile details are already present in context, use them directly and do not ask the user to provide them again. Do not switch to study groups, restricted members, or peer tutoring unless the user explicitly asks for that connection.";
+    return "The user's question is about their profile. Answer from the profile section first. If profile details are already present in context, use them directly, summarize only the fields actually shown there, and do not ask the user to provide them again. Do not claim access to unrelated fields like name, email, enrolled modules, or avatar unless those details are explicitly present in context. Do not switch to study groups, restricted members, or peer tutoring unless the user explicitly asks for that connection.";
   }
 
   if (/(peer tutoring|peer tutor|tutoring class|tutoring classes|tutor class|tutor classes)/.test(text)) {
@@ -364,6 +364,39 @@ function buildCreatedPeerTutoringInstruction(tutoringClasses, userProfile) {
       .filter(Boolean)
       .map((name) => `- ${name}`),
     "Do not say the user has not created any peer tutoring classes if classes are listed here.",
+  ].join("\n");
+}
+
+function buildProfileInstruction(profile) {
+  if (!profile) {
+    return "For this request, no profile details were found in the current context. Say that clearly and do not claim to know profile details that are not present.";
+  }
+
+  const knownFields = [
+    profile.faculty ? `Faculty: ${profile.faculty}` : null,
+    profile.major ? `Major: ${profile.major}` : null,
+    profile.yearOfStudy !== undefined && profile.yearOfStudy !== null && profile.yearOfStudy !== ""
+      ? `Year of Study: ${profile.yearOfStudy}`
+      : null,
+    profile.fullTime !== undefined ? `Mode: ${profile.fullTime ? "Full-time" : "Part-time"}` : null,
+    profile.bio ? `Bio: ${profile.bio}` : null,
+  ].filter(Boolean);
+
+  const missingFields = [];
+  if (!profile.faculty) missingFields.push("faculty");
+  if (!profile.major) missingFields.push("major");
+  if (profile.yearOfStudy === undefined || profile.yearOfStudy === null || profile.yearOfStudy === "") missingFields.push("year of study");
+  if (profile.fullTime === undefined) missingFields.push("study mode");
+  if (!profile.bio) missingFields.push("bio");
+
+  return [
+    "For this request, answer ONLY from the profile fields present in the profile section.",
+    knownFields.length > 0 ? "Profile fields available now:" : "No structured profile fields are available now.",
+    ...knownFields.map((field) => `- ${field}`),
+    missingFields.length > 0
+      ? `Do not claim access to missing fields such as ${missingFields.join(", ")} unless they are explicitly shown in context.`
+      : "All supported profile fields are present in context.",
+    "Do not say you cannot access the user's profile if the profile section is present. Summarize only the fields actually shown there.",
   ].join("\n");
 }
 
@@ -1154,6 +1187,7 @@ export default function AiTutor({ embedded = false }) {
     lines.push("- Never use the user's faculty, major, or bio to answer questions about study groups or peer tutoring.");
     lines.push("- do not say the user has not joined any study groups if groups appear in the joined or managed sections above.");
     lines.push("- If the user asks about restricted members, answer from the provided restricted-member list and explain that restricted users cannot join the user's groups until allowed again.");
+    lines.push("- For profile questions, use ONLY the fields explicitly listed in the 'User Profile' section. Do not claim access to name, email, modules, or avatar unless those details are actually present there.");
     lines.push("- For all other questions, use the full context above to give personalised, accurate answers.");
     return lines.join("\n");
   }
@@ -1200,6 +1234,10 @@ export default function AiTutor({ embedded = false }) {
 
       if (topic === "peertutoring" && isCreatedPeerTutoringQuestion(aiMessage)) {
         additionalInstruction = buildCreatedPeerTutoringInstruction(tutoringClassesForContext, profileForContext);
+      }
+
+      if (topic === "profile") {
+        additionalInstruction = buildProfileInstruction(profileForContext);
       }
 
       const history = [
