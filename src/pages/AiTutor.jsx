@@ -153,7 +153,8 @@ function getStudyGroupBucket(group, userProfile) {
 }
 
 function partitionStudyGroups(studyGroups, userProfile) {
-  return (Array.isArray(studyGroups) ? studyGroups : []).reduce(
+  const sourceGroups = Array.isArray(studyGroups) ? studyGroups : [];
+  const partitioned = sourceGroups.reduce(
     (acc, group) => {
       const bucket = getStudyGroupBucket(group, userProfile);
       acc[bucket].push(group);
@@ -161,6 +162,15 @@ function partitionStudyGroups(studyGroups, userProfile) {
     },
     { owner: [], joined: [], pending: [], available: [] }
   );
+  console.log("[AiTutor] partitionStudyGroups", {
+    total: sourceGroups.length,
+    owner: partitioned.owner.length,
+    joined: partitioned.joined.length,
+    pending: partitioned.pending.length,
+    available: partitioned.available.length,
+    groups: sourceGroups,
+  });
+  return partitioned;
 }
 
 function normalizePeerTutoringQuestion(message) {
@@ -176,26 +186,164 @@ function normalizePeerTutoringQuestion(message) {
     .replace(/\bpeer tutoring group\b/gi, "peer tutoring class");
 }
 
+function isStudyGroupMessage(message) {
+  const text = normalizeLower(message);
+  if (!text) return false;
+
+  const mentionsPeerTutoring = /(peer tutoring|peer tutor|tutoring class|tutoring classes|tutor class|tutor classes)/.test(text);
+  if (mentionsPeerTutoring) return false;
+
+  const explicitStudyGroups = /(study\s*groups?|study\s*group)/.test(text);
+  const genericGroupsWithStudyIntent =
+    /\bgroups?\b/.test(text) &&
+    /(join|joined|manage|managed|created|pending|approval|available|not joined|open groups|my groups|what groups|which groups|groups i can join|groups do i have)/.test(text);
+
+  return explicitStudyGroups || genericGroupsWithStudyIntent;
+}
+
+function isAvailableStudyGroupQuestion(message) {
+  const text = normalizeLower(message);
+  return (
+    isStudyGroupMessage(text) &&
+    (
+      /(can i join|can join|available|not joined|have not joined|haven't joined|joinable|open study groups|open groups|study groups to join|groups to join|suggest study groups i can join)/.test(text) ||
+      /\bwhat\b[\s\S]{0,20}\bjoin\b/.test(text) ||
+      /\bwhich\b[\s\S]{0,20}\bjoin\b/.test(text)
+    )
+  );
+}
+
 function buildContextFocusInstruction(message) {
   const text = normalizeLower(message);
+  const asksAboutAvailableStudyGroups = isAvailableStudyGroupQuestion(text);
 
   if (/(restricted|blocked|restrict|restricted members?)/.test(text)) {
-    return "The user's question is about restricted members. Answer from the restricted-members section first. Do not switch to profile, study groups, or peer tutoring unless the user explicitly asks for that connection.";
+    return "The user's question is about restricted members. Answer from the restricted-members section first. Use the restricted-member details already present in context when available, and do not ask the user to repeat them. Do not switch to profile, study groups, or peer tutoring unless the user explicitly asks for that connection.";
   }
 
   if (/(profile|major|faculty|year of study|bio|full-time|part-time)/.test(text)) {
-    return "The user's question is about their profile. Answer from the profile section first. Do not switch to study groups, restricted members, or peer tutoring unless the user explicitly asks for that connection.";
+    return "The user's question is about their profile. Answer from the profile section first. If profile details are already present in context, use them directly and do not ask the user to provide them again. Do not switch to study groups, restricted members, or peer tutoring unless the user explicitly asks for that connection.";
   }
 
   if (/(peer tutoring|peer tutor|tutoring class|tutoring classes|tutor class|tutor classes)/.test(text)) {
-    return "The user's question is about peer tutoring. Answer from the peer-tutoring classes section first. Do not switch to study groups or profile unless the user explicitly asks for that connection.";
+    if (isAvailablePeerTutoringQuestion(text)) {
+      return "The user's question is about peer tutoring classes they can still join. Answer ONLY from the available peer-tutoring classes section. Do NOT list classes the user is already enrolled in as joinable. If available classes are listed, name those actual classes directly. Only give navigation or browsing advice if the available peer-tutoring section explicitly says no classes were found in the current context.";
+    }
+    return "The user's question is about peer tutoring. Answer from the peer-tutoring classes section first. Use the tutoring details already present in context when available, and do not ask the user to repeat them. Do not switch to study groups or profile unless the user explicitly asks for that connection.";
   }
 
-  if (/(study\s*groups?|study\s*group)/.test(text)) {
-    return "The user's question is about study groups. Answer from the study-groups sections first. Only mention profile details if they are directly needed to answer the question, and do not base topic suggestions primarily on the profile when study-group data is available.";
+  if (asksAboutAvailableStudyGroups) {
+    return "The user's question is about study groups they can still join. Answer ONLY from the 'Other Available Study Groups (user has NOT joined)' section. Treat that section as the source of truth for joinable groups. Do NOT list joined groups, managed groups, or pending requests as groups the user can join. If available groups are listed, name those actual groups directly. Only give navigation or browsing advice if that available-groups section explicitly says no groups were found in the current context.";
   }
 
-  return "Answer using the most relevant section of context for the user's question. Do not drift into unrelated profile, study-group, peer-tutoring, or restricted-member details unless they directly help answer the question.";
+  if (isStudyGroupMessage(text)) {
+    return "The user's question is about study groups. Answer EXCLUSIVELY from the study-groups sections (Joined, Created/Managed, Pending, Available). Use the study-group details already present in context when available, and do not ask the user to repeat them. If the user asks what study groups they can join, have not joined, what is available, or asks to suggest joinable study groups, prioritize ONLY the 'Other Available Study Groups (user has NOT joined)' section, list the actual available groups directly, and do not list pending requests as joinable groups. Do not give generic navigation or browsing steps if available groups are already present in context; only give navigation guidance when no available groups are listed. The peer tutoring classes section is IRRELEVANT to this question and profile details should only be mentioned if directly needed.";
+  }
+
+  return "Answer using the most relevant section of context for the user's question. If the needed details are already present in context, use them directly and do not ask the user to repeat them. Do not drift into unrelated profile, study-group, peer-tutoring, or restricted-member details unless they directly help answer the question.";
+}
+
+function buildAvailableStudyGroupsInstruction(studyGroups, userProfile) {
+  const availableGroups = partitionStudyGroups(studyGroups, userProfile).available;
+
+  if (availableGroups.length === 0) {
+    return "For this request, there are currently no joinable study groups in the available-groups section. Say that clearly and do not invent any additional groups.";
+  }
+
+  const names = availableGroups
+    .map((group) => group?.name || group?.title)
+    .filter(Boolean);
+
+  return [
+    "For this request, the available study groups the user can still join are listed below. Treat this list as the source of truth and mention these groups directly.",
+    ...names.map((name) => `- ${name}`),
+    "Do not say there are no available study groups, and do not replace this with generic browsing advice.",
+  ].join("\n");
+}
+
+function partitionTutoringClasses(tutoringClasses, userProfile) {
+  const sourceClasses = Array.isArray(tutoringClasses) ? tutoringClasses : [];
+  const userIdentifiers = getUserIdentifiers(userProfile);
+  return sourceClasses.reduce(
+    (acc, tutoringClass) => {
+      const enrolled = tutoringClass?.enrolled === true;
+      const isTutorOwned =
+        tutoringClass?.isTutor === true ||
+        normalizeLower(tutoringClass?.role) === "tutor" ||
+        normalizeLower(tutoringClass?.userRole) === "tutor" ||
+        [tutoringClass?.createdBy, tutoringClass?.tutorId, tutoringClass?.ownerId]
+          .filter(Boolean)
+          .some((value) => userIdentifiers.has(String(value).trim().toLowerCase()));
+      const maxStudents = tutoringClass?.maxStudents ?? Infinity;
+      const enrolledCount = tutoringClass?.enrolledCount ?? 0;
+      const isFull = Number.isFinite(maxStudents) ? enrolledCount >= maxStudents : false;
+
+      if (enrolled) {
+        acc.enrolled.push(tutoringClass);
+      } else if (!isTutorOwned && !isFull) {
+        acc.available.push(tutoringClass);
+      }
+
+      return acc;
+    },
+    { enrolled: [], available: [] }
+  );
+}
+
+function isAvailablePeerTutoringQuestion(message) {
+  const text = normalizeLower(message);
+  return (
+    /(peer tutoring|peer tutor|tutoring class|tutoring classes|tutor class|tutor classes)/.test(text) &&
+    (
+      /(can i join|can join|available|not joined|have not joined|joinable|open tutoring classes|peer tutoring classes to join|classes to join|what.*join|which.*join)/.test(text)
+    )
+  );
+}
+
+function buildAvailablePeerTutoringInstruction(tutoringClasses, userProfile) {
+  const availableClasses = partitionTutoringClasses(tutoringClasses, userProfile).available;
+
+  if (availableClasses.length === 0) {
+    return "For this request, there are currently no joinable peer tutoring classes in the available peer-tutoring section. Say that clearly and do not invent any additional classes.";
+  }
+
+  return [
+    "For this request, the peer tutoring classes the user can still join are listed below. Treat this list as the source of truth and mention these classes directly.",
+    ...availableClasses
+      .map((tutoringClass) => tutoringClass?.title || tutoringClass?.name)
+      .filter(Boolean)
+      .map((name) => `- ${name}`),
+    "Do not say there are no available peer tutoring classes, and do not replace this with generic browsing advice.",
+  ].join("\n");
+}
+
+function buildChatRequestMeta(message, isWellbeing = false, detectTopicFn = () => "general") {
+  if (isWellbeing) {
+    return {
+      aiMessage: message,
+      topic: "general",
+      focusInstruction: "The user's question is about well-being. Answer only with a short, practical well-being tip.",
+    };
+  }
+
+  const aiMessage = normalizePeerTutoringQuestion(message);
+  return {
+    aiMessage,
+    topic: detectTopicFn(aiMessage),
+    focusInstruction: buildContextFocusInstruction(aiMessage),
+  };
+}
+
+function hasProfileContextData(profile) {
+  return Boolean(
+    profile && (
+      profile.faculty ||
+      profile.major ||
+      profile.yearOfStudy !== undefined && profile.yearOfStudy !== null && profile.yearOfStudy !== "" ||
+      profile.fullTime !== undefined ||
+      profile.bio
+    )
+  );
 }
 
 /* ── Shared chat bubbles ─────────────────────────────────────── */
@@ -641,11 +789,20 @@ export default function AiTutor({ embedded = false }) {
   }, [messages, chatLoading]);
 
   /* Fetch profile + context data on mount */
+  async function fetchUserProfile() {
+    try {
+      const res = await fetch(`${API_BASE}/api/profile`, { headers: authHeaders(), credentials: "include" });
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => null);
+      if (data) setUserProfile(data);
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
   useEffect(() => {
-    fetch(`${API_BASE}/api/profile`, { headers: authHeaders(), credentials: "include" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) setUserProfile(d); })
-      .catch(() => {});
+    fetchUserProfile();
 
     fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" })
       .then((r) => r.ok ? r.json() : [])
@@ -665,25 +822,51 @@ export default function AiTutor({ embedded = false }) {
 
   /* ── Data fetching ─────────────────────────────────────────── */
   async function fetchTutoring() {
-    if (tutoringClasses.length > 0) return;
+    if (tutoringClasses.length > 0) return tutoringClasses;
     setClassesLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers:authHeaders(), credentials:"include" });
       const d   = await res.json().catch(() => []);
-      setTutoringClasses(Array.isArray(d) ? d : []);
-    } catch { setTutoringClasses([]); }
-    finally   { setClassesLoading(false); }
+      const nextClasses = Array.isArray(d) ? d : [];
+      setTutoringClasses(nextClasses);
+      return nextClasses;
+    } catch {
+      setTutoringClasses([]);
+      return [];
+    } finally {
+      setClassesLoading(false);
+    }
   }
 
   async function fetchGroups() {
-    if (studyGroups.length > 0) return;
+    if (studyGroups.length > 0) return studyGroups;
     setGroupsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/groups`, { headers:authHeaders(), credentials:"include" });
       const d   = await res.json().catch(() => []);
-      setStudyGroups(Array.isArray(d) ? d : []);
-    } catch { setStudyGroups([]); }
-    finally   { setGroupsLoading(false); }
+      const nextGroups = Array.isArray(d) ? d : [];
+      setStudyGroups(nextGroups);
+      return nextGroups;
+    } catch {
+      setStudyGroups([]);
+      return [];
+    } finally {
+      setGroupsLoading(false);
+    }
+  }
+
+  async function fetchRestrictedUsers() {
+    if (restrictedUsers.length > 0) return restrictedUsers;
+    try {
+      const res = await fetch(`${API_BASE}/api/restricted-users`, { headers:authHeaders(), credentials:"include" });
+      const d   = await res.json().catch(() => []);
+      const nextRestrictedUsers = Array.isArray(d) ? d : [];
+      setRestrictedUsers(nextRestrictedUsers);
+      return nextRestrictedUsers;
+    } catch {
+      setRestrictedUsers([]);
+      return [];
+    }
   }
 
   /* ── Feature launch ────────────────────────────────────────── */
@@ -745,7 +928,27 @@ export default function AiTutor({ embedded = false }) {
   }
 
   /* ── System context ────────────────────────────────────────── */
-  function buildSystemContext() {
+  function detectTopic(message) {
+    const text = normalizeLower(message);
+    let detected = "general";
+    if (isStudyGroupMessage(text)) detected = "studygroup";
+    else if (/(peer tutoring|peer tutor|tutoring class)/.test(text)) detected = "peertutoring";
+    else if (/(restricted|blocked|restrict|restricted members?)/.test(text)) detected = "restrictedmembers";
+    else if (/(profile|major|faculty|year of study|bio|full-time|part-time)/.test(text)) detected = "profile";
+    console.log("[AiTutor] detectTopic", { message, normalized: text, detected });
+    return detected;
+  }
+
+  function buildSystemContext(topic = "general", profileOverride = userProfile, contextOverrides = {}) {
+    const includeTutoring = topic === "general" || topic === "peertutoring";
+    const includeStudyGroups = topic === "general" || topic === "studygroup";
+    const includeRestrictedMembers = topic === "general" || topic === "restrictedmembers";
+    const includeProfile = topic === "general" || topic === "profile";
+    const activeProfile = profileOverride || userProfile;
+    const activeTutoringClasses = Array.isArray(contextOverrides.tutoringClasses) ? contextOverrides.tutoringClasses : tutoringClasses;
+    const activeStudyGroups = Array.isArray(contextOverrides.studyGroups) ? contextOverrides.studyGroups : studyGroups;
+    const activeRestrictedUsers = Array.isArray(contextOverrides.restrictedUsers) ? contextOverrides.restrictedUsers : restrictedUsers;
+
     const lines = [
       "You are an AI Study Tutor embedded in PeerConnect, a university peer learning platform.",
       "",
@@ -760,38 +963,83 @@ export default function AiTutor({ embedded = false }) {
       "",
     ];
 
-    if (tutoringClasses.length > 0) {
+    if (includeTutoring) {
+      const groupedTutoringClasses = partitionTutoringClasses(activeTutoringClasses, activeProfile);
+
       lines.push("## User's Peer Tutoring Classes");
-      tutoringClasses.forEach((c) => {
-        const role = c.isTutor ? "Tutor" : "Tutee";
-        const tutor = c.tutorName ? `Tutor: ${c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ")}` : null;
-        const enrollment = c.enrolledCount !== undefined ? `${c.enrolledCount}${c.maxStudents ? `/${c.maxStudents}` : ""} enrolled` : null;
-        const parts = [
-          `[${c.moduleCode || "N/A"}] ${c.title || c.name}`,
-          `Role: ${role}`,
-          tutor,
-          c.topic ? `Topic: ${c.topic}` : null,
-          c.description ? `Description: ${c.description}` : null,
-          enrollment,
-        ].filter(Boolean);
-        lines.push(`- ${parts.join(" | ")}`);
-      });
+      if (groupedTutoringClasses.enrolled.length === 0) {
+        lines.push("- No peer tutoring classes found in the current context.");
+      } else {
+        groupedTutoringClasses.enrolled.forEach((c) => {
+          const role = c.isTutor ? "Tutor" : "Tutee";
+          const tutor = c.tutorName ? `Tutor: ${c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ")}` : null;
+          const enrollment = c.enrolledCount !== undefined ? `${c.enrolledCount}${c.maxStudents ? `/${c.maxStudents}` : ""} enrolled` : null;
+          const parts = [
+            `[${c.moduleCode || "N/A"}] ${c.title || c.name}`,
+            `Role: ${role}`,
+            tutor,
+            c.topic ? `Topic: ${c.topic}` : null,
+            c.description ? `Description: ${c.description}` : null,
+            enrollment,
+          ].filter(Boolean);
+          lines.push(`- ${parts.join(" | ")}`);
+        });
+      }
+      lines.push("");
+
+      lines.push("## Other Available Peer Tutoring Classes (user can still join)");
+      if (groupedTutoringClasses.available.length === 0) {
+        lines.push("- No other available peer tutoring classes found in the current context.");
+      } else {
+        groupedTutoringClasses.available.forEach((c) => {
+          const tutor = c.tutorName ? `Tutor: ${c.tutorName.split(" ").filter((p) => p && p !== "null" && p !== "undefined").join(" ")}` : null;
+          const enrollment = c.enrolledCount !== undefined ? `${c.enrolledCount}${c.maxStudents ? `/${c.maxStudents}` : ""} enrolled` : null;
+          const parts = [
+            `[${c.moduleCode || "N/A"}] ${c.title || c.name}`,
+            tutor,
+            c.topic ? `Topic: ${c.topic}` : null,
+            c.description ? `Description: ${c.description}` : null,
+            enrollment,
+          ].filter(Boolean);
+          lines.push(`- ${parts.join(" | ")}`);
+        });
+      }
       lines.push("");
     }
 
-    const groupedStudyGroups = partitionStudyGroups(studyGroups, userProfile);
+    const groupedStudyGroups = partitionStudyGroups(activeStudyGroups, activeProfile);
     const myGroups = groupedStudyGroups.owner;
     const joinedGroups = groupedStudyGroups.joined;
     const pendingGroups = groupedStudyGroups.pending;
     const availableGroups = groupedStudyGroups.available;
+    console.log("[AiTutor] buildSystemContext", {
+      topic,
+      includeTutoring,
+      includeStudyGroups,
+      includeRestrictedMembers,
+      includeProfile,
+      tutoringClassesCount: activeTutoringClasses.length,
+      studyGroupsCount: Array.isArray(activeStudyGroups) ? activeStudyGroups.length : 0,
+      studyGroupBuckets: {
+        owner: myGroups.length,
+        joined: joinedGroups.length,
+        pending: pendingGroups.length,
+        available: availableGroups.length,
+      },
+      restrictedUsersCount: activeRestrictedUsers.length,
+      hasProfile: Boolean(activeProfile),
+    });
 
     function fmtGroup(g, role) {
       const members = g.memberCount !== undefined ? `${g.memberCount}${g.maxMembers ? `/${g.maxMembers}` : ""} members` : null;
       const status = g.status && g.status !== "active" ? `Status: ${g.status}` : null;
       const parts = [
         `**${g.name || g.title}**`,
+        g.moduleCode || g.courseCode ? `[${g.moduleCode || g.courseCode}]` : null,
         g.subject ? `[${g.subject}]` : null,
         role ? `Role: ${role}` : null,
+        g.topic ? `Topic: ${g.topic}` : null,
+        g.preferredSchedule ? `Schedule: ${g.preferredSchedule}` : null,
         members,
         status,
         g.description || null,
@@ -799,33 +1047,31 @@ export default function AiTutor({ embedded = false }) {
       return `- ${parts.join(" | ")}`;
     }
 
-    if (myGroups.length > 0) {
+    if (includeStudyGroups) {
       lines.push("## Study Groups Created/Managed by the User");
-      myGroups.forEach((g) => lines.push(fmtGroup(g, "Owner/Admin")));
+      if (myGroups.length === 0) lines.push("- No study groups created or managed by the user in the current context.");
+      else myGroups.forEach((g) => lines.push(fmtGroup(g, "Owner/Admin")));
       lines.push("");
-    }
 
-    if (joinedGroups.length > 0) {
       lines.push("## Study Groups the User Has Joined (as member)");
-      joinedGroups.forEach((g) => lines.push(fmtGroup(g, "Member")));
+      if (joinedGroups.length === 0) lines.push("- No joined study groups found in the current context.");
+      else joinedGroups.forEach((g) => lines.push(fmtGroup(g, "Member")));
       lines.push("");
-    }
 
-    if (pendingGroups.length > 0) {
       lines.push("## Study Groups the User Has Requested to Join (pending approval)");
-      pendingGroups.forEach((g) => lines.push(fmtGroup(g, null)));
+      if (pendingGroups.length === 0) lines.push("- No pending study-group requests found in the current context.");
+      else pendingGroups.forEach((g) => lines.push(fmtGroup(g, null)));
       lines.push("");
-    }
 
-    if (availableGroups.length > 0) {
       lines.push("## Other Available Study Groups (user has NOT joined)");
-      availableGroups.forEach((g) => lines.push(fmtGroup(g, null)));
+      if (availableGroups.length === 0) lines.push("- No other available study groups found in the current context.");
+      else availableGroups.forEach((g) => lines.push(fmtGroup(g, null)));
       lines.push("");
     }
 
-    if (restrictedUsers.length > 0) {
+    if (includeRestrictedMembers && activeRestrictedUsers.length > 0) {
       lines.push("## User's Restricted Members");
-      restrictedUsers.forEach((u) => {
+      activeRestrictedUsers.forEach((u) => {
         const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.fullName || u.email || "Unknown user";
         const parts = [
           name,
@@ -837,20 +1083,22 @@ export default function AiTutor({ embedded = false }) {
       lines.push("");
     }
 
-    if (userProfile) {
-      lines.push("## User Profile (for background reference only — do NOT use for study group questions)");
-      if (userProfile.faculty)     lines.push(`- Faculty: ${userProfile.faculty}`);
-      if (userProfile.major)       lines.push(`- Major: ${userProfile.major}`);
-      if (userProfile.yearOfStudy) lines.push(`- Year of Study: ${userProfile.yearOfStudy}`);
-      if (userProfile.fullTime !== undefined) lines.push(`- Mode: ${userProfile.fullTime ? "Full-time" : "Part-time"}`);
-      if (userProfile.bio)         lines.push(`- Bio: ${userProfile.bio}`);
+    if (includeProfile && activeProfile) {
+      lines.push("## User Profile");
+      if (activeProfile.faculty)     lines.push(`- Faculty: ${activeProfile.faculty}`);
+      if (activeProfile.major)       lines.push(`- Major: ${activeProfile.major}`);
+      if (activeProfile.yearOfStudy) lines.push(`- Year of Study: ${activeProfile.yearOfStudy}`);
+      if (activeProfile.fullTime !== undefined) lines.push(`- Mode: ${activeProfile.fullTime ? "Full-time" : "Part-time"}`);
+      if (activeProfile.bio)         lines.push(`- Bio: ${activeProfile.bio}`);
       lines.push("");
     }
 
     lines.push("## IMPORTANT INSTRUCTIONS — READ CAREFULLY");
     lines.push("- STUDY GROUPS vs PEER TUTORING are two completely separate features. Never mix their data.");
     lines.push("- When the user asks about STUDY GROUPS (joined, managed, topics for study groups, etc.): use ONLY the 'Study Groups' sections above. Do NOT use peer tutoring class data.");
-    lines.push("- When the user asks about PEER TUTORING (tutoring classes, tutor/tutee role, module topics): use ONLY the 'Peer Tutoring Classes' section above. Do NOT use study group data.");
+    lines.push("- When the user asks about PEER TUTORING (tutoring classes, tutor/tutee role, module topics): use ONLY the peer-tutoring sections above. Do NOT use study group data.");
+    lines.push("- Never say you do not have access to the user's peer tutoring classes if the 'User's Peer Tutoring Classes' section is present. If that section says no classes were found, say that no peer tutoring classes were found in the current context.");
+    lines.push("- If the user asks which peer tutoring classes they can still join, answer ONLY from the 'Other Available Peer Tutoring Classes (user can still join)' section and do not list already-enrolled classes as joinable.");
     lines.push("- TOPIC SUGGESTIONS FOR STUDY GROUPS: If asked to suggest topics for study groups, base suggestions ONLY on the names, subjects, and descriptions from the 'Study Groups Joined/Managed' sections. If no study groups are listed, say the user has not joined any study groups yet.");
     lines.push("- TOPIC SUGGESTIONS FOR PEER TUTORING: If asked to suggest topics for tutoring, base suggestions ONLY on the peer tutoring class data.");
     lines.push("- Never use the user's faculty, major, or bio to answer questions about study groups or peer tutoring.");
@@ -869,14 +1117,55 @@ export default function AiTutor({ embedded = false }) {
     setChatLoading(true);
     setWellbeingFollowUp(false);
     try {
-      const aiMessage = isWellbeing ? trimmed : normalizePeerTutoringQuestion(trimmed);
-      const focusInstruction = isWellbeing
-        ? "The user's question is about well-being. Answer only with a short, practical well-being tip."
-        : buildContextFocusInstruction(aiMessage);
+      const { aiMessage, topic, focusInstruction } = buildChatRequestMeta(trimmed, isWellbeing, detectTopic);
+      console.log("[AiTutor] sendChatRequest", {
+        originalMessage: trimmed,
+        aiMessage,
+        isWellbeing,
+        topic,
+        studyGroupsCount: Array.isArray(studyGroups) ? studyGroups.length : 0,
+      });
+      let profileForContext = userProfile;
+      let studyGroupsForContext = studyGroups;
+      let tutoringClassesForContext = tutoringClasses;
+      let restrictedUsersForContext = restrictedUsers;
+      let additionalInstruction = null;
+
+      if (topic === "profile" && !hasProfileContextData(profileForContext)) {
+        profileForContext = await fetchUserProfile();
+      }
+
+      if (topic === "studygroup" && studyGroupsForContext.length === 0) {
+        studyGroupsForContext = await fetchGroups();
+      }
+
+      if (topic === "peertutoring" && tutoringClassesForContext.length === 0) {
+        tutoringClassesForContext = await fetchTutoring();
+      }
+
+      if (topic === "restrictedmembers" && restrictedUsersForContext.length === 0) {
+        restrictedUsersForContext = await fetchRestrictedUsers();
+      }
+
+      if (topic === "studygroup" && isAvailableStudyGroupQuestion(aiMessage)) {
+        additionalInstruction = buildAvailableStudyGroupsInstruction(studyGroupsForContext, profileForContext);
+      }
+
+      if (topic === "peertutoring" && isAvailablePeerTutoringQuestion(aiMessage)) {
+        additionalInstruction = buildAvailablePeerTutoringInstruction(tutoringClassesForContext, profileForContext);
+      }
 
       const history = [
-        { role: "system", content: buildSystemContext() },
+        {
+          role: "system",
+          content: buildSystemContext(topic, profileForContext, {
+            studyGroups: studyGroupsForContext,
+            tutoringClasses: tutoringClassesForContext,
+            restrictedUsers: restrictedUsersForContext,
+          }),
+        },
         { role: "system", content: focusInstruction },
+        ...(additionalInstruction ? [{ role: "system", content: additionalInstruction }] : []),
         ...messages.map((m) => ({ role: m.role==="bot"?"assistant":"user", content: m.text })),
       ];
       const res  = await fetch(`${API_BASE}/api/ai-tutor/chat`, {
@@ -893,16 +1182,19 @@ export default function AiTutor({ embedded = false }) {
     } finally { setChatLoading(false); }
   }
 
+  const sendChatRequestRef = useRef(sendChatRequest);
+  useEffect(() => { sendChatRequestRef.current = sendChatRequest; });
+
   const sendMessage = useCallback(async (text) => {
     const trimmed = (text ?? input).trim();
     if (!trimmed || chatLoading) return;
     setInput("");
-    await sendChatRequest(trimmed, false);
-  }, [input, chatLoading, messages]);
+    await sendChatRequestRef.current(trimmed, false);
+  }, [input, chatLoading]);
 
   function sendWellbeingTip() {
     if (chatLoading) return;
-    sendChatRequest(WELLBEING_PROMPT, true);
+    sendChatRequestRef.current(WELLBEING_PROMPT, true);
   }
 
   function handleKeyDown(e) {

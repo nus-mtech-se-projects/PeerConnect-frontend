@@ -19,8 +19,16 @@ function mockJsonResponse(data, ok = true, status = 200) {
   });
 }
 
-function installFetchMock({ profile = {}, classes = [], groups = [], restrictedUsers = [], aiReplies = [] } = {}) {
+function installFetchMock({
+  profile = {},
+  classes = [],
+  groups = [],
+  groupsSequence,
+  restrictedUsers = [],
+  aiReplies = [],
+} = {}) {
   const aiCalls = [];
+  const queuedGroupResponses = Array.isArray(groupsSequence) ? [...groupsSequence] : null;
 
   vi.spyOn(globalThis, "fetch").mockImplementation((input, init = {}) => {
     const url = String(input);
@@ -35,7 +43,8 @@ function installFetchMock({ profile = {}, classes = [], groups = [], restrictedU
     }
 
     if (method === "GET" && url.endsWith("/api/groups")) {
-      return mockJsonResponse(groups);
+      const nextGroups = queuedGroupResponses ? queuedGroupResponses.shift() ?? groups : groups;
+      return mockJsonResponse(nextGroups);
     }
 
     if (method === "GET" && /\/api\/groups\/[^/]+$/.test(url)) {
@@ -162,7 +171,8 @@ describe("AiTutor", () => {
     const systemContext = aiCalls[0].history[0].content;
     expect(systemContext).toContain("## Study Groups the User Has Joined (as member)");
     expect(systemContext).toContain("Database Study Circle");
-    expect(systemContext).not.toContain("user has NOT joined");
+    expect(systemContext).toContain("## Other Available Study Groups (user has NOT joined)");
+    expect(systemContext).toContain("No other available study groups found in the current context.");
     expect(systemContext).toContain("do not say the user has not joined any study groups");
     expect(await screen.findByText(/database study circle/i)).toBeInTheDocument();
   });
@@ -201,7 +211,94 @@ describe("AiTutor", () => {
     expect(aiCalls[0].message).toBe("Tell me about study groups I have joined");
     expect(aiCalls[0].history[0].content).toContain("Algorithms Marathon");
     expect(aiCalls[0].history[0].content).toContain("Database Admin Circle");
+    expect(aiCalls[0].history[0].content).toContain("## Other Available Study Groups (user has NOT joined)");
+    expect(aiCalls[0].history[0].content).toContain("No other available study groups found in the current context.");
     expect(await screen.findByText(/you have joined algorithms marathon/i)).toBeInTheDocument();
+  });
+
+  it("detects generic 'my groups' phrasing as study-group context when it is not peer tutoring", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 2201,
+          name: "Algorithms Marathon",
+          moduleCode: "CS2040",
+          membershipStatus: "approved",
+        },
+      ],
+      aiReplies: [{ reply: "Algorithms Marathon is one of your groups." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What groups do I have?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[0].content).toContain("## Study Groups the User Has Joined (as member)");
+    expect(aiCalls[0].history[1].content).toContain("The user's question is about study groups.");
+    expect(await screen.findByText(/algorithms marathon is one of your groups/i)).toBeInTheDocument();
+  });
+
+  it("detects generic joinable-groups phrasing as available study-group context", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 2202,
+          name: "Security Fundamentals",
+          moduleCode: "CS2107",
+        },
+      ],
+      aiReplies: [{ reply: "You can join Security Fundamentals." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What groups can I join?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[1].content).toContain("Answer ONLY from the 'Other Available Study Groups (user has NOT joined)' section");
+    expect(aiCalls[0].history[2].content).toContain("the available study groups the user can still join are listed below");
+    expect(aiCalls[0].history[2].content).toContain("Security Fundamentals");
+    expect(await screen.findByText(/you can join security fundamentals/i)).toBeInTheDocument();
+  });
+
+  it("refetches study groups for the first study-group chat request when initial state is still empty", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groupsSequence: [
+        [],
+        [
+          {
+            id: 2203,
+            name: "Security Fundamentals",
+            moduleCode: "CS2107",
+          },
+        ],
+      ],
+      aiReplies: [{ reply: "You can join Security Fundamentals." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What study groups can I join?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/groups"),
+      expect.objectContaining({ credentials: "include" })
+    );
+    expect(aiCalls[0].history[0].content).toContain("## Other Available Study Groups (user has NOT joined)");
+    expect(aiCalls[0].history[0].content).toContain("Security Fundamentals");
+    expect(aiCalls[0].history[2].content).toContain("Security Fundamentals");
+    expect(await screen.findByText(/you can join security fundamentals/i)).toBeInTheDocument();
   });
 
   it("sends managed study-group questions to the AI", async () => {
@@ -305,6 +402,62 @@ describe("AiTutor", () => {
     expect(await screen.findByText(/open group is still available for you/i)).toBeInTheDocument();
   });
 
+  it("adds an available-groups instruction for 'can I join' study-group questions", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 1001,
+          name: "AWS Cloud Exam Practise",
+          moduleCode: "AWS001",
+          membershipStatus: "pending",
+        },
+        {
+          id: 1002,
+          name: "Security Fundamentals",
+          moduleCode: "CS2107",
+        },
+      ],
+      aiReplies: [{ reply: "You can join Security Fundamentals." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What study groups can i join?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[1].content).toContain("Answer ONLY from the 'Other Available Study Groups (user has NOT joined)' section");
+    expect(aiCalls[0].history[1].content).toContain("Do NOT list joined groups, managed groups, or pending requests as groups the user can join");
+    expect(await screen.findByText(/you can join security fundamentals/i)).toBeInTheDocument();
+  });
+
+  it("tells the AI to list actual available groups instead of generic navigation steps", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 1101,
+          name: "Security Fundamentals",
+          moduleCode: "CS2107",
+        },
+      ],
+      aiReplies: [{ reply: "You can join Security Fundamentals." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Suggest study groups i can join?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[1].content).toContain("If available groups are listed, name those actual groups directly");
+    expect(aiCalls[0].history[1].content).toContain("Only give navigation or browsing advice if that available-groups section explicitly says no groups were found in the current context");
+    expect(await screen.findByText(/you can join security fundamentals/i)).toBeInTheDocument();
+  });
+
   it("sends pending study-group questions to the AI", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({
@@ -361,8 +514,144 @@ describe("AiTutor", () => {
 
     await waitFor(() => expect(aiCalls).toHaveLength(1));
     expect(aiCalls[0].history[1].content).toContain("The user's question is about study groups.");
-    expect(aiCalls[0].history[1].content).toContain("do not base topic suggestions primarily on the profile");
+    expect(aiCalls[0].history[1].content).toContain("profile details should only be mentioned if directly needed");
     expect(await screen.findByText(/graph traversal, shortest paths, and msts/i)).toBeInTheDocument();
+  });
+
+  it("adds a profile focus instruction that tells the AI to use profile details already in context", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      profile: {
+        faculty: "Arts and Social Sciences",
+        major: "History",
+        yearOfStudy: 2,
+        bio: "Interested in Southeast Asian history",
+      },
+      aiReplies: [{ reply: "Based on your History profile, try historiography, archival research, and Southeast Asian history." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Suggest topics based on my profile?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[0].content).toContain("## User Profile");
+    expect(aiCalls[0].history[0].content).toContain("Major: History");
+    expect(aiCalls[0].history[1].content).toContain("The user's question is about their profile.");
+    expect(aiCalls[0].history[1].content).toContain("do not ask the user to provide them again");
+    expect(await screen.findByText(/based on your history profile/i)).toBeInTheDocument();
+  });
+
+  it("scopes buildSystemContext to the detected profile topic", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      profile: {
+        faculty: "Arts and Social Sciences",
+        major: "History",
+      },
+      groups: [
+        {
+          id: 901,
+          name: "Algorithms Marathon",
+          moduleCode: "CS2040",
+          membershipStatus: "approved",
+        },
+      ],
+      restrictedUsers: [
+        { firstName: "Blocked", lastName: "User", email: "blocked@u.nus.edu" },
+      ],
+      classes: [
+        {
+          id: 1,
+          title: "CS2100 Help",
+          moduleCode: "CS2100",
+          isTutor: true,
+        },
+      ],
+      aiReplies: [{ reply: "Your profile shows History." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What is in my profile?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[0].content).toContain("## User Profile");
+    expect(aiCalls[0].history[0].content).not.toContain("## Study Groups the User Has Joined");
+    expect(aiCalls[0].history[0].content).not.toContain("## User's Peer Tutoring Classes");
+    expect(aiCalls[0].history[0].content).not.toContain("## User's Restricted Members");
+  });
+
+  it("refetches profile on demand for profile questions when profile state is not ready yet", async () => {
+    const user = userEvent.setup({ delay: null });
+    const aiCalls = [];
+    let profileCallCount = 0;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init = {}) => {
+      const url = String(input);
+      const method = (init?.method || "GET").toUpperCase();
+
+      if (url.endsWith("/api/profile")) {
+        profileCallCount += 1;
+        if (profileCallCount === 1) {
+          return new Promise(() => {});
+        }
+        return mockJsonResponse({ faculty: "Arts and Social Sciences", major: "History" });
+      }
+
+      if (method === "GET" && url.endsWith("/api/tutoring/classes")) return mockJsonResponse([]);
+      if (method === "GET" && url.endsWith("/api/groups")) return mockJsonResponse([]);
+      if (method === "GET" && url.endsWith("/api/restricted-users")) return mockJsonResponse([]);
+
+      if (method === "POST" && url.endsWith("/api/ai-tutor/chat")) {
+        const payload = JSON.parse(init.body);
+        aiCalls.push(payload);
+        return mockJsonResponse({ reply: "Your profile shows History." });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    renderAiTutor();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What is in my profile?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(profileCallCount).toBeGreaterThanOrEqual(2);
+    expect(aiCalls[0].history[0].content).toContain("## User Profile");
+    expect(aiCalls[0].history[0].content).toContain("Major: History");
+  });
+
+  it("detects profile and restricted-member topics for chat context routing", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      profile: { major: "History" },
+      restrictedUsers: [
+        { firstName: "Blocked", lastName: "User", email: "blocked@u.nus.edu" },
+      ],
+      aiReplies: [
+        { reply: "Your profile shows History." },
+        { reply: "You have Blocked User restricted." },
+      ],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What is in my profile?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[1].content).toContain("The user's question is about their profile.");
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Who have I restricted?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+    await waitFor(() => expect(aiCalls).toHaveLength(2));
+    expect(aiCalls[1].history[1].content).toContain("The user's question is about restricted members.");
   });
 
   it("does not hijack peer-tutoring prompts that mention groups", async () => {
@@ -390,6 +679,156 @@ describe("AiTutor", () => {
     expect(await screen.findByText(/topic suggestions for your peer tutoring classes/i)).toBeInTheDocument();
     expect(screen.queryByText(/study groups you have joined/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/study group that should not be returned/i)).not.toBeInTheDocument();
+  });
+
+  it("always includes a peer-tutoring context section for peer-tutoring questions", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      classes: [],
+      aiReplies: [{ reply: "No peer tutoring classes were found in your current context." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What peer tutoring groups do i have?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].message).toBe("What peer tutoring classes do i have?");
+    expect(aiCalls[0].history[0].content).toContain("## User's Peer Tutoring Classes");
+    expect(aiCalls[0].history[0].content).toContain("No peer tutoring classes found in the current context.");
+    expect(aiCalls[0].history[0].content).toContain("Never say you do not have access to the user's peer tutoring classes");
+    expect(await screen.findByText(/no peer tutoring classes were found in your current context/i)).toBeInTheDocument();
+  });
+
+  it("includes available peer-tutoring classes for joinable peer-tutoring questions", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      classes: [
+        {
+          id: "pt-1",
+          moduleCode: "AM1011",
+          title: "Audit Monitoring",
+          tutorName: "Mark Teo",
+          description: "Audit monitoring",
+          enrolled: true,
+          enrolledCount: 0,
+          maxStudents: 5,
+        },
+        {
+          id: "pt-2",
+          moduleCode: "AUDIT5000",
+          title: "Audit Smoke Tutoring",
+          tutorName: "Mark Teo",
+          description: "Smoke Test",
+          enrolled: false,
+          enrolledCount: 1,
+          maxStudents: 5,
+        },
+        {
+          id: "pt-3",
+          moduleCode: "MC1",
+          title: "PT Tet1",
+          tutorName: "Ruby Ferdianto",
+          description: "OOP",
+          enrolled: false,
+          enrolledCount: 1,
+          maxStudents: 5,
+        },
+      ],
+      aiReplies: [{ reply: "You can still join Audit Smoke Tutoring and PT Tet1." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What peer tutoring groups can i join?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].message).toBe("What peer tutoring classes can i join?");
+    expect(aiCalls[0].history[0].content).toContain("## Other Available Peer Tutoring Classes (user can still join)");
+    expect(aiCalls[0].history[0].content).toContain("Audit Smoke Tutoring");
+    expect(aiCalls[0].history[0].content).toContain("PT Tet1");
+    expect(aiCalls[0].history[1].content).toContain("peer tutoring classes they can still join");
+    expect(aiCalls[0].history[2].content).toContain("Audit Smoke Tutoring");
+    expect(aiCalls[0].history[2].content).toContain("PT Tet1");
+    expect(await screen.findByText(/audit smoke tutoring and pt tet1/i)).toBeInTheDocument();
+  });
+
+  it("excludes tutor-owned peer-tutoring classes from joinable peer-tutoring answers", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      profile: { id: "user-1", email: "me@example.com" },
+      classes: [
+        {
+          id: "pt-own-1",
+          moduleCode: "CS4050",
+          title: "Azure cloud",
+          isTutor: true,
+          createdBy: "user-1",
+          tutorName: "fcyong519",
+          enrolled: false,
+          enrolledCount: 0,
+          maxStudents: 5,
+        },
+        {
+          id: "pt-open-1",
+          moduleCode: "AM1011",
+          title: "Audit Monitoring",
+          tutorName: "Mark Teo",
+          enrolled: false,
+          enrolledCount: 0,
+          maxStudents: 5,
+        },
+      ],
+      aiReplies: [{ reply: "You can still join Audit Monitoring." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What peer tutoring classes can i join?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[0].content).toContain("Audit Monitoring");
+    expect(aiCalls[0].history[0].content).not.toContain("Azure cloud");
+    expect(aiCalls[0].history[2].content).toContain("Audit Monitoring");
+    expect(aiCalls[0].history[2].content).not.toContain("Azure cloud");
+  });
+
+  it("always includes study-group sections and richer study-group details in study-group context", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 1201,
+          name: "Algorithms Marathon",
+          moduleCode: "CS2040",
+          topic: "Graphs",
+          preferredSchedule: "Every Tuesday 7pm",
+          membershipStatus: "approved",
+        },
+      ],
+      aiReplies: [{ reply: "Algorithms Marathon is one of your joined study groups." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What study groups do I have?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[0].content).toContain("## Study Groups Created/Managed by the User");
+    expect(aiCalls[0].history[0].content).toContain("## Study Groups the User Has Joined (as member)");
+    expect(aiCalls[0].history[0].content).toContain("## Study Groups the User Has Requested to Join (pending approval)");
+    expect(aiCalls[0].history[0].content).toContain("## Other Available Study Groups (user has NOT joined)");
+    expect(aiCalls[0].history[0].content).toContain("[CS2040]");
+    expect(aiCalls[0].history[0].content).toContain("Topic: Graphs");
+    expect(aiCalls[0].history[0].content).toContain("Schedule: Every Tuesday 7pm");
   });
 
   it("sends the built-in navigation question from the suggestion chip", async () => {

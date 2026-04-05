@@ -459,9 +459,9 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                   Schedule:{c.schedule}
                 </p>
               )}
-              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
+              <div className="ptCardFooter">
                 <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className="ptCardActions">
                   {c.meetingLink && (
                     <button className="ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
                       Join Meeting
@@ -737,9 +737,9 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
                   <span style={{ fontSize: 12 }}>🗓</span> {c.schedule}
                 </p>
               )}
-              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
+              <div className="ptCardFooter">
                 <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className="ptCardActions">
                   {c.enrolled && c.meetingLink && (
                     <button className="ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
                       Join Meeting

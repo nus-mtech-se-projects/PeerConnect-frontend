@@ -338,7 +338,7 @@
 
 .dashGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 18px;
 }
 
@@ -349,9 +349,11 @@
   padding: 22px;
   display: flex;
   flex-direction: column;
-  width:fit-content;
+  width: 100%;
+  min-width: 0;
   gap: 8px;
   transition: box-shadow 250ms ease, transform 250ms ease, border-color 250ms ease;
+  box-sizing: border-box;
 }
 .groupCard:hover {
   box-shadow: 0 8px 28px rgba(0, 61, 124, 0.1);
@@ -361,8 +363,10 @@
 
 .groupCardHeader {
   display: flex;
-  gap:190px;
+  justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
 .groupCourse {
@@ -429,6 +433,28 @@
   font-size: 13px;
   color: #6b7280;
   font-weight: 500;
+}
+
+.ptCardFooter {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.ptCardActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.ptCardActions .ptUnifiedBtn {
+  padding: 8px 14px;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .groupActions {
@@ -1227,6 +1253,14 @@ dialog.modalCard {
 }
 
 @media (max-width: 768px) {
+  .dashGrid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
+  .ptCardActions {
+    flex-wrap: wrap;
+  }
+
   .ptListView {
     font-size: 13px;
   }
