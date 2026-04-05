@@ -198,12 +198,49 @@ describe("AiTutor", () => {
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/study groups you manage/i)).toBeInTheDocument();
       expect(screen.getByText(/study groups you have joined/i)).toBeInTheDocument();
     });
 
     expect(screen.getByText(/algorithms marathon/i)).toBeInTheDocument();
-    expect(screen.getByText(/database admin circle/i)).toBeInTheDocument();
+    expect(screen.queryByText(/study groups you manage/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/database admin circle/i)).not.toBeInTheDocument();
+    expect(aiCalls).toHaveLength(0);
+  });
+
+  it("answers managed study-group questions without listing joined or pending groups", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 301,
+          name: "Operating Systems Leaders",
+          moduleCode: "CS2106",
+          isAdmin: true,
+          preferredSchedule: "Monday 6pm",
+        },
+        {
+          id: 302,
+          name: "Networks Review",
+          moduleCode: "CS2105",
+          membershipStatus: "approved",
+        },
+      ],
+      aiReplies: [{ reply: "This should not be used." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Which study groups do I manage?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/study groups you manage/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/operating systems leaders/i)).toBeInTheDocument();
+    expect(screen.queryByText(/study groups you have joined/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/networks review/i)).not.toBeInTheDocument();
     expect(aiCalls).toHaveLength(0);
   });
 

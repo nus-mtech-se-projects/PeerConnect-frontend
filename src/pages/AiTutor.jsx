@@ -171,41 +171,84 @@ function isStudyGroupQuestion(message) {
   return mentionsGroups && asksAboutMembership;
 }
 
-function formatGroupSummaryLine(group, roleLabel) {
-  const code = group.moduleCode || group.courseCode || group.subject || "General";
-  const topic = group.topic ? `, topic: ${group.topic}` : "";
-  const schedule = group.preferredSchedule ? `, schedule: ${group.preferredSchedule}` : "";
-  const description = group.description ? `, ${group.description}` : "";
-  return `- ${group.name || group.title} (${code}, ${roleLabel}${topic}${schedule}${description})`;
+function getStudyGroupIntent(message) {
+  const text = normalizeLower(message);
+
+  if (/(pending|requested|request to join|waiting|awaiting|approval)/.test(text)) {
+    return "pending";
+  }
+
+  if (/(manage|managed|manageing|created|create|created by me|own|owner|admin|running)/.test(text)) {
+    return "owner";
+  }
+
+  if (/(joined|did i join|have i joined|am i in|member of|joined study groups|study groups i joined)/.test(text)) {
+    return "joined";
+  }
+
+  return "all";
 }
 
-function buildStudyGroupReply(studyGroups, userProfile) {
+function formatGroupSummaryLine(group) {
+  const code = group.moduleCode || group.courseCode || group.subject || "General";
+  const parts = [
+    code,
+    group.topic ? `topic: ${group.topic}` : null,
+    group.preferredSchedule ? `schedule: ${group.preferredSchedule}` : null,
+  ].filter(Boolean);
+  return `- ${group.name || group.title}${parts.length ? ` (${parts.join(", ")})` : ""}`;
+}
+
+function buildStudyGroupReply(studyGroups, userProfile, message) {
   const grouped = partitionStudyGroups(studyGroups, userProfile);
-  const lines = [];
+  const intent = getStudyGroupIntent(message);
 
+  if (intent === "joined") {
+    if (grouped.joined.length === 0) return "You haven't joined any study groups yet.";
+    return [
+      "Study groups you have joined:",
+      ...grouped.joined.map((group) => formatGroupSummaryLine(group)),
+    ].join("\n");
+  }
+
+  if (intent === "owner") {
+    if (grouped.owner.length === 0) return "You aren't managing any study groups right now.";
+    return [
+      "Study groups you manage:",
+      ...grouped.owner.map((group) => formatGroupSummaryLine(group)),
+    ].join("\n");
+  }
+
+  if (intent === "pending") {
+    if (grouped.pending.length === 0) return "You don't have any pending study-group requests right now.";
+    return [
+      "Pending study-group requests:",
+      ...grouped.pending.map((group) => formatGroupSummaryLine(group)),
+    ].join("\n");
+  }
+
+  const sections = [];
   if (grouped.owner.length > 0) {
-    lines.push("Study groups you manage:");
-    grouped.owner.forEach((group) => lines.push(formatGroupSummaryLine(group, "owner/admin")));
-    lines.push("");
+    sections.push("Study groups you manage:");
+    grouped.owner.forEach((group) => sections.push(formatGroupSummaryLine(group)));
+    sections.push("");
   }
-
   if (grouped.joined.length > 0) {
-    lines.push("Study groups you have joined:");
-    grouped.joined.forEach((group) => lines.push(formatGroupSummaryLine(group, "member")));
-    lines.push("");
+    sections.push("Study groups you have joined:");
+    grouped.joined.forEach((group) => sections.push(formatGroupSummaryLine(group)));
+    sections.push("");
   }
-
   if (grouped.pending.length > 0) {
-    lines.push("Pending study-group requests:");
-    grouped.pending.forEach((group) => lines.push(formatGroupSummaryLine(group, "pending")));
-    lines.push("");
+    sections.push("Pending study-group requests:");
+    grouped.pending.forEach((group) => sections.push(formatGroupSummaryLine(group)));
+    sections.push("");
   }
 
-  if (lines.length === 0) {
+  if (sections.length === 0) {
     return "I couldn't find any study groups that you manage, have joined, or have pending requests for yet.";
   }
 
-  return lines.join("\n").trim();
+  return sections.join("\n").trim();
 }
 
 /* ── Shared chat bubbles ─────────────────────────────────────── */
@@ -873,7 +916,7 @@ export default function AiTutor({ embedded = false }) {
     setWellbeingFollowUp(false);
     try {
       if (!isWellbeing && isStudyGroupQuestion(trimmed)) {
-        const localReply = buildStudyGroupReply(studyGroups, userProfile);
+        const localReply = buildStudyGroupReply(studyGroups, userProfile, trimmed);
         setMessages((p) => [...p, { role:"bot", text:localReply }]);
         return;
       }
