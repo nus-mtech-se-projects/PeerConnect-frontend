@@ -799,6 +799,109 @@ describe("AiTutor", () => {
     expect(aiCalls[0].history[2].content).not.toContain("Azure cloud");
   });
 
+  it("uses created peer-tutoring classes for created/manage peer-tutoring questions", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      profile: { id: "user-1", email: "me@example.com" },
+      classes: [
+        {
+          id: "pt-own-1",
+          moduleCode: "CS4050",
+          title: "Azure cloud",
+          isTutor: true,
+          createdBy: "user-1",
+          enrolled: false,
+          enrolledCount: 0,
+          maxStudents: 5,
+        },
+        {
+          id: "pt-own-2",
+          moduleCode: "CS3010",
+          title: "Unity Game Development",
+          isTutor: true,
+          createdBy: "user-1",
+          enrolled: false,
+          enrolledCount: 0,
+          maxStudents: 5,
+        },
+        {
+          id: "pt-own-3",
+          moduleCode: "CS2400",
+          title: "Design Patterns",
+          isTutor: true,
+          createdBy: "user-1",
+          enrolled: false,
+          enrolledCount: 0,
+          maxStudents: 5,
+        },
+        {
+          id: "pt-enrolled-1",
+          moduleCode: "MC1",
+          title: "PT Tet1",
+          enrolled: true,
+          enrolledCount: 1,
+          maxStudents: 5,
+        },
+      ],
+      aiReplies: [{ reply: "You created Azure cloud, Unity Game Development, and Design Patterns." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "WHat peer tutor groups have i created?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[0].content).toContain("## Peer Tutoring Classes Created/Taught by the User");
+    expect(aiCalls[0].history[0].content).toContain("Azure cloud");
+    expect(aiCalls[0].history[0].content).toContain("Unity Game Development");
+    expect(aiCalls[0].history[0].content).toContain("Design Patterns");
+    expect(aiCalls[0].history[1].content).toContain("created or teach");
+    expect(aiCalls[0].history[2].content).toContain("Azure cloud");
+    expect(aiCalls[0].history[2].content).not.toContain("PT Tet1");
+    expect(await screen.findByText(/you created azure cloud, unity game development, and design patterns/i)).toBeInTheDocument();
+  });
+
+  it("detects created peer-tutoring classes from tutor display name when owner ids are missing", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      profile: { firstName: "fcyong519", lastName: "", email: "fcyong519@example.com" },
+      classes: [
+        {
+          id: "pt-own-1",
+          moduleCode: "CS4050",
+          title: "Azure cloud",
+          tutorName: "fcyong519",
+          enrolled: false,
+          enrolledCount: 0,
+          maxStudents: 5,
+        },
+        {
+          id: "pt-enrolled-1",
+          moduleCode: "MC1",
+          title: "PT Tet1",
+          tutorName: "Ruby Ferdianto",
+          enrolled: true,
+          enrolledCount: 1,
+          maxStudents: 5,
+        },
+      ],
+      aiReplies: [{ reply: "You created Azure cloud." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What peer tutor groups have i created?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[0].content).toContain("Azure cloud");
+    expect(aiCalls[0].history[2].content).toContain("Azure cloud");
+    expect(aiCalls[0].history[2].content).not.toContain("PT Tet1");
+  });
+
   it("always includes study-group sections and richer study-group details in study-group context", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({

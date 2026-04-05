@@ -107,6 +107,26 @@ function getUserIdentifiers(userProfile) {
   );
 }
 
+function getUserDisplayAliases(userProfile) {
+  const fullName = [userProfile?.firstName, userProfile?.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+    .toLowerCase();
+  const emailLocalPart = typeof userProfile?.email === "string"
+    ? userProfile.email.split("@")[0]?.trim().toLowerCase()
+    : "";
+
+  return new Set(
+    [
+      fullName,
+      normalizeLower(userProfile?.name),
+      normalizeLower(userProfile?.displayName),
+      emailLocalPart,
+    ].filter(Boolean)
+  );
+}
+
 function memberMatchesUser(member, identifiers) {
   if (!member || identifiers.size === 0) return false;
   return [member.userId, member.id, member.email]
@@ -154,7 +174,7 @@ function getStudyGroupBucket(group, userProfile) {
 
 function partitionStudyGroups(studyGroups, userProfile) {
   const sourceGroups = Array.isArray(studyGroups) ? studyGroups : [];
-  const partitioned = sourceGroups.reduce(
+  return sourceGroups.reduce(
     (acc, group) => {
       const bucket = getStudyGroupBucket(group, userProfile);
       acc[bucket].push(group);
@@ -162,15 +182,6 @@ function partitionStudyGroups(studyGroups, userProfile) {
     },
     { owner: [], joined: [], pending: [], available: [] }
   );
-  console.log("[AiTutor] partitionStudyGroups", {
-    total: sourceGroups.length,
-    owner: partitioned.owner.length,
-    joined: partitioned.joined.length,
-    pending: partitioned.pending.length,
-    available: partitioned.available.length,
-    groups: sourceGroups,
-  });
-  return partitioned;
 }
 
 function normalizePeerTutoringQuestion(message) {
@@ -226,6 +237,9 @@ function buildContextFocusInstruction(message) {
   }
 
   if (/(peer tutoring|peer tutor|tutoring class|tutoring classes|tutor class|tutor classes)/.test(text)) {
+    if (isCreatedPeerTutoringQuestion(text)) {
+      return "The user's question is about peer tutoring classes they created or teach. Answer ONLY from the created peer-tutoring classes section. Do NOT switch to enrolled or available classes unless the user explicitly asks for them.";
+    }
     if (isAvailablePeerTutoringQuestion(text)) {
       return "The user's question is about peer tutoring classes they can still join. Answer ONLY from the available peer-tutoring classes section. Do NOT list classes the user is already enrolled in as joinable. If available classes are listed, name those actual classes directly. Only give navigation or browsing advice if the available peer-tutoring section explicitly says no classes were found in the current context.";
     }
@@ -264,13 +278,22 @@ function buildAvailableStudyGroupsInstruction(studyGroups, userProfile) {
 function partitionTutoringClasses(tutoringClasses, userProfile) {
   const sourceClasses = Array.isArray(tutoringClasses) ? tutoringClasses : [];
   const userIdentifiers = getUserIdentifiers(userProfile);
+  const userDisplayAliases = getUserDisplayAliases(userProfile);
   return sourceClasses.reduce(
     (acc, tutoringClass) => {
       const enrolled = tutoringClass?.enrolled === true;
+      const tutorDisplay = [
+        tutoringClass?.tutorName,
+        tutoringClass?.createdByName,
+        tutoringClass?.ownerName,
+      ]
+        .map(normalizeLower)
+        .find(Boolean);
       const isTutorOwned =
         tutoringClass?.isTutor === true ||
         normalizeLower(tutoringClass?.role) === "tutor" ||
         normalizeLower(tutoringClass?.userRole) === "tutor" ||
+        (tutorDisplay ? userDisplayAliases.has(tutorDisplay) : false) ||
         [tutoringClass?.createdBy, tutoringClass?.tutorId, tutoringClass?.ownerId]
           .filter(Boolean)
           .some((value) => userIdentifiers.has(String(value).trim().toLowerCase()));
@@ -278,7 +301,9 @@ function partitionTutoringClasses(tutoringClasses, userProfile) {
       const enrolledCount = tutoringClass?.enrolledCount ?? 0;
       const isFull = Number.isFinite(maxStudents) ? enrolledCount >= maxStudents : false;
 
-      if (enrolled) {
+      if (isTutorOwned) {
+        acc.created.push(tutoringClass);
+      } else if (enrolled) {
         acc.enrolled.push(tutoringClass);
       } else if (!isTutorOwned && !isFull) {
         acc.available.push(tutoringClass);
@@ -286,7 +311,15 @@ function partitionTutoringClasses(tutoringClasses, userProfile) {
 
       return acc;
     },
-    { enrolled: [], available: [] }
+    { created: [], enrolled: [], available: [] }
+  );
+}
+
+function isCreatedPeerTutoringQuestion(message) {
+  const text = normalizeLower(message);
+  return (
+    /(peer tutoring|peer tutor|tutoring class|tutoring classes|tutor class|tutor classes)/.test(text) &&
+    /(created|create|made|teach|teaching|my classes|my tutoring classes|classes i created|classes i teach|have i created|what.*created|which.*created|manage)/.test(text)
   );
 }
 
@@ -314,6 +347,23 @@ function buildAvailablePeerTutoringInstruction(tutoringClasses, userProfile) {
       .filter(Boolean)
       .map((name) => `- ${name}`),
     "Do not say there are no available peer tutoring classes, and do not replace this with generic browsing advice.",
+  ].join("\n");
+}
+
+function buildCreatedPeerTutoringInstruction(tutoringClasses, userProfile) {
+  const createdClasses = partitionTutoringClasses(tutoringClasses, userProfile).created;
+
+  if (createdClasses.length === 0) {
+    return "For this request, there are currently no created peer tutoring classes in the created peer-tutoring section. Say that clearly and do not invent any additional classes.";
+  }
+
+  return [
+    "For this request, the peer tutoring classes created or taught by the user are listed below. Treat this list as the source of truth and mention these classes directly.",
+    ...createdClasses
+      .map((tutoringClass) => tutoringClass?.title || tutoringClass?.name)
+      .filter(Boolean)
+      .map((name) => `- ${name}`),
+    "Do not say the user has not created any peer tutoring classes if classes are listed here.",
   ].join("\n");
 }
 
@@ -935,7 +985,6 @@ export default function AiTutor({ embedded = false }) {
     else if (/(peer tutoring|peer tutor|tutoring class)/.test(text)) detected = "peertutoring";
     else if (/(restricted|blocked|restrict|restricted members?)/.test(text)) detected = "restrictedmembers";
     else if (/(profile|major|faculty|year of study|bio|full-time|part-time)/.test(text)) detected = "profile";
-    console.log("[AiTutor] detectTopic", { message, normalized: text, detected });
     return detected;
   }
 
@@ -965,6 +1014,23 @@ export default function AiTutor({ embedded = false }) {
 
     if (includeTutoring) {
       const groupedTutoringClasses = partitionTutoringClasses(activeTutoringClasses, activeProfile);
+
+      lines.push("## Peer Tutoring Classes Created/Taught by the User");
+      if (groupedTutoringClasses.created.length === 0) {
+        lines.push("- No created peer tutoring classes found in the current context.");
+      } else {
+        groupedTutoringClasses.created.forEach((c) => {
+          const enrollment = c.enrolledCount !== undefined ? `${c.enrolledCount}${c.maxStudents ? `/${c.maxStudents}` : ""} enrolled` : null;
+          const parts = [
+            `[${c.moduleCode || "N/A"}] ${c.title || c.name}`,
+            c.topic ? `Topic: ${c.topic}` : null,
+            c.description ? `Description: ${c.description}` : null,
+            enrollment,
+          ].filter(Boolean);
+          lines.push(`- ${parts.join(" | ")}`);
+        });
+      }
+      lines.push("");
 
       lines.push("## User's Peer Tutoring Classes");
       if (groupedTutoringClasses.enrolled.length === 0) {
@@ -1012,23 +1078,6 @@ export default function AiTutor({ embedded = false }) {
     const joinedGroups = groupedStudyGroups.joined;
     const pendingGroups = groupedStudyGroups.pending;
     const availableGroups = groupedStudyGroups.available;
-    console.log("[AiTutor] buildSystemContext", {
-      topic,
-      includeTutoring,
-      includeStudyGroups,
-      includeRestrictedMembers,
-      includeProfile,
-      tutoringClassesCount: activeTutoringClasses.length,
-      studyGroupsCount: Array.isArray(activeStudyGroups) ? activeStudyGroups.length : 0,
-      studyGroupBuckets: {
-        owner: myGroups.length,
-        joined: joinedGroups.length,
-        pending: pendingGroups.length,
-        available: availableGroups.length,
-      },
-      restrictedUsersCount: activeRestrictedUsers.length,
-      hasProfile: Boolean(activeProfile),
-    });
 
     function fmtGroup(g, role) {
       const members = g.memberCount !== undefined ? `${g.memberCount}${g.maxMembers ? `/${g.maxMembers}` : ""} members` : null;
@@ -1099,6 +1148,7 @@ export default function AiTutor({ embedded = false }) {
     lines.push("- When the user asks about PEER TUTORING (tutoring classes, tutor/tutee role, module topics): use ONLY the peer-tutoring sections above. Do NOT use study group data.");
     lines.push("- Never say you do not have access to the user's peer tutoring classes if the 'User's Peer Tutoring Classes' section is present. If that section says no classes were found, say that no peer tutoring classes were found in the current context.");
     lines.push("- If the user asks which peer tutoring classes they can still join, answer ONLY from the 'Other Available Peer Tutoring Classes (user can still join)' section and do not list already-enrolled classes as joinable.");
+    lines.push("- If the user asks which peer tutoring classes they created, teach, or manage, answer ONLY from the 'Peer Tutoring Classes Created/Taught by the User' section.");
     lines.push("- TOPIC SUGGESTIONS FOR STUDY GROUPS: If asked to suggest topics for study groups, base suggestions ONLY on the names, subjects, and descriptions from the 'Study Groups Joined/Managed' sections. If no study groups are listed, say the user has not joined any study groups yet.");
     lines.push("- TOPIC SUGGESTIONS FOR PEER TUTORING: If asked to suggest topics for tutoring, base suggestions ONLY on the peer tutoring class data.");
     lines.push("- Never use the user's faculty, major, or bio to answer questions about study groups or peer tutoring.");
@@ -1118,13 +1168,6 @@ export default function AiTutor({ embedded = false }) {
     setWellbeingFollowUp(false);
     try {
       const { aiMessage, topic, focusInstruction } = buildChatRequestMeta(trimmed, isWellbeing, detectTopic);
-      console.log("[AiTutor] sendChatRequest", {
-        originalMessage: trimmed,
-        aiMessage,
-        isWellbeing,
-        topic,
-        studyGroupsCount: Array.isArray(studyGroups) ? studyGroups.length : 0,
-      });
       let profileForContext = userProfile;
       let studyGroupsForContext = studyGroups;
       let tutoringClassesForContext = tutoringClasses;
@@ -1153,6 +1196,10 @@ export default function AiTutor({ embedded = false }) {
 
       if (topic === "peertutoring" && isAvailablePeerTutoringQuestion(aiMessage)) {
         additionalInstruction = buildAvailablePeerTutoringInstruction(tutoringClassesForContext, profileForContext);
+      }
+
+      if (topic === "peertutoring" && isCreatedPeerTutoringQuestion(aiMessage)) {
+        additionalInstruction = buildCreatedPeerTutoringInstruction(tutoringClassesForContext, profileForContext);
       }
 
       const history = [
