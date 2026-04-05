@@ -173,8 +173,17 @@ function isStudyGroupQuestion(message) {
 
 function getStudyGroupIntent(message) {
   const text = normalizeLower(message);
+  const asksAboutAvailable =
+    /(not joined|haven't joined|have not joined|didn't join|did not join|not in|available to join|can i join|can join|open groups|groups available|which groups are available|what groups are available|study groups available|available groups|groups i can join)/.test(text) ||
+    /\b(?:not|never)\b[\s\S]{0,20}\bjoin(?:ed)?\b/.test(text) ||
+    /\b(?:haven't|have not|didn't|did not)\b[\s\S]{0,20}\bjoin(?:ed)?\b/.test(text) ||
+    /\bnot\b[\s\S]{0,15}\bin\b/.test(text);
 
-  if (/(pending|requested|request to join|waiting|awaiting|approval)/.test(text)) {
+  if (asksAboutAvailable) {
+    return "available";
+  }
+
+  if (/(pending|requested|request to join|requested to join|waiting|awaiting|approval|under review|waiting for approval|awaiting approval|pending approval|asked to join|applied to join|join requests?)/.test(text)) {
     return "pending";
   }
 
@@ -227,6 +236,14 @@ function buildStudyGroupReply(studyGroups, userProfile, message) {
     ].join("\n");
   }
 
+  if (intent === "available") {
+    if (grouped.available.length === 0) return "I couldn't find any study groups you haven't joined yet.";
+    return [
+      "Study groups you haven't joined yet:",
+      ...grouped.available.map((group) => formatGroupSummaryLine(group)),
+    ].join("\n");
+  }
+
   const sections = [];
   if (grouped.owner.length > 0) {
     sections.push("Study groups you manage:");
@@ -243,9 +260,14 @@ function buildStudyGroupReply(studyGroups, userProfile, message) {
     grouped.pending.forEach((group) => sections.push(formatGroupSummaryLine(group)));
     sections.push("");
   }
+  if (grouped.available.length > 0) {
+    sections.push("Study groups you haven't joined yet:");
+    grouped.available.forEach((group) => sections.push(formatGroupSummaryLine(group)));
+    sections.push("");
+  }
 
   if (sections.length === 0) {
-    return "I couldn't find any study groups that you manage, have joined, or have pending requests for yet.";
+    return "I couldn't find any study groups that you manage, have joined, are pending, or haven't joined yet.";
   }
 
   return sections.join("\n").trim();

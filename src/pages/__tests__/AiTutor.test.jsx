@@ -244,6 +244,117 @@ describe("AiTutor", () => {
     expect(aiCalls).toHaveLength(0);
   });
 
+  it("answers not-joined study-group questions with available groups instead of joined ones", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 401,
+          name: "Python Developers",
+          moduleCode: "CS0034",
+          membershipStatus: "approved",
+        },
+        {
+          id: 402,
+          name: "AWS Cloud Exam Practise",
+          moduleCode: "AWS001",
+          membershipStatus: "pending",
+        },
+        {
+          id: 403,
+          name: "Security Fundamentals",
+          moduleCode: "CS2107",
+          topic: "Security",
+        },
+      ],
+      aiReplies: [{ reply: "This should not be used." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What study groups i have not joined?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/study groups you haven't joined yet/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/security fundamentals/i)).toBeInTheDocument();
+    expect(screen.queryByText(/python developers/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/aws cloud exam practise/i)).not.toBeInTheDocument();
+    expect(aiCalls).toHaveLength(0);
+  });
+
+  it("treats broader negative join phrasing as available-groups intent", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 601,
+          name: "Joined Group",
+          moduleCode: "CS1010",
+          membershipStatus: "approved",
+        },
+        {
+          id: 602,
+          name: "Open Group",
+          moduleCode: "CS2030",
+        },
+      ],
+      aiReplies: [{ reply: "This should not be used." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Which study groups did I not join yet?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/study groups you haven't joined yet/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/open group/i)).toBeInTheDocument();
+    expect(screen.queryByText(/joined group/i)).not.toBeInTheDocument();
+    expect(aiCalls).toHaveLength(0);
+  });
+
+  it("recognizes more common pending-study-group phrases", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 501,
+          name: "AWS Cloud Exam Practise",
+          moduleCode: "AWS001",
+          membershipStatus: "pending",
+        },
+        {
+          id: 502,
+          name: "Testing Group",
+          moduleCode: "CS1010",
+          membershipStatus: "approved",
+        },
+      ],
+      aiReplies: [{ reply: "This should not be used." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Which study groups are awaiting approval?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/pending study-group requests/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/aws cloud exam practise/i)).toBeInTheDocument();
+    expect(screen.queryByText(/testing group/i)).not.toBeInTheDocument();
+    expect(aiCalls).toHaveLength(0);
+  });
+
   it("sends the built-in navigation question from the suggestion chip", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({
