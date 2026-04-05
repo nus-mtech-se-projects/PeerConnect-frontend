@@ -842,7 +842,7 @@ describe("AiTutor", () => {
 
     await waitFor(() => expect(aiCalls).toHaveLength(1));
     expect(aiCalls[0].history[0].content).toContain("Audit Monitoring");
-    expect(aiCalls[0].history[0].content).not.toContain("Azure cloud");
+    expect(aiCalls[0].history[1].content).toContain("peer tutoring classes they can still join");
     expect(aiCalls[0].history[2].content).toContain("Audit Monitoring");
     expect(aiCalls[0].history[2].content).not.toContain("Azure cloud");
   });
