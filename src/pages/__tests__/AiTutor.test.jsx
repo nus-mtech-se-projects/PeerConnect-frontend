@@ -337,6 +337,34 @@ describe("AiTutor", () => {
     expect(await screen.findByText(/aws cloud exam practise is awaiting approval/i)).toBeInTheDocument();
   });
 
+  it("adds a study-group focus instruction so study-group questions do not drift to profile details", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      profile: { major: "History" },
+      groups: [
+        {
+          id: 801,
+          name: "Algorithms Marathon",
+          moduleCode: "CS2040",
+          topic: "Graphs",
+          membershipStatus: "approved",
+        },
+      ],
+      aiReplies: [{ reply: "Try graph traversal, shortest paths, and MSTs for Algorithms Marathon." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Suggest topics for my study groups");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[1].content).toContain("The user's question is about study groups.");
+    expect(aiCalls[0].history[1].content).toContain("do not base topic suggestions primarily on the profile");
+    expect(await screen.findByText(/graph traversal, shortest paths, and msts/i)).toBeInTheDocument();
+  });
+
   it("does not hijack peer-tutoring prompts that mention groups", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({

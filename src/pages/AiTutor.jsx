@@ -176,6 +176,28 @@ function normalizePeerTutoringQuestion(message) {
     .replace(/\bpeer tutoring group\b/gi, "peer tutoring class");
 }
 
+function buildContextFocusInstruction(message) {
+  const text = normalizeLower(message);
+
+  if (/(restricted|blocked|restrict|restricted members?)/.test(text)) {
+    return "The user's question is about restricted members. Answer from the restricted-members section first. Do not switch to profile, study groups, or peer tutoring unless the user explicitly asks for that connection.";
+  }
+
+  if (/(profile|major|faculty|year of study|bio|full-time|part-time)/.test(text)) {
+    return "The user's question is about their profile. Answer from the profile section first. Do not switch to study groups, restricted members, or peer tutoring unless the user explicitly asks for that connection.";
+  }
+
+  if (/(peer tutoring|peer tutor|tutoring class|tutoring classes|tutor class|tutor classes)/.test(text)) {
+    return "The user's question is about peer tutoring. Answer from the peer-tutoring classes section first. Do not switch to study groups or profile unless the user explicitly asks for that connection.";
+  }
+
+  if (/(study\s*groups?|study\s*group)/.test(text)) {
+    return "The user's question is about study groups. Answer from the study-groups sections first. Only mention profile details if they are directly needed to answer the question, and do not base topic suggestions primarily on the profile when study-group data is available.";
+  }
+
+  return "Answer using the most relevant section of context for the user's question. Do not drift into unrelated profile, study-group, peer-tutoring, or restricted-member details unless they directly help answer the question.";
+}
+
 /* ── Shared chat bubbles ─────────────────────────────────────── */
 
 function UserBubble({ text }) {
@@ -841,9 +863,13 @@ export default function AiTutor({ embedded = false }) {
     setWellbeingFollowUp(false);
     try {
       const aiMessage = isWellbeing ? trimmed : normalizePeerTutoringQuestion(trimmed);
+      const focusInstruction = isWellbeing
+        ? "The user's question is about well-being. Answer only with a short, practical well-being tip."
+        : buildContextFocusInstruction(aiMessage);
 
       const history = [
         { role: "system", content: buildSystemContext() },
+        { role: "system", content: focusInstruction },
         ...messages.map((m) => ({ role: m.role==="bot"?"assistant":"user", content: m.text })),
       ];
       const res  = await fetch(`${API_BASE}/api/ai-tutor/chat`, {
