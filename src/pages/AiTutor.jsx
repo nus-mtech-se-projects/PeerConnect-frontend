@@ -163,114 +163,17 @@ function partitionStudyGroups(studyGroups, userProfile) {
   );
 }
 
-function isStudyGroupQuestion(message) {
-  const text = normalizeLower(message);
-  if (!text) return false;
-  const mentionsGroups = /(study\s*groups?|groups?)/.test(text);
-  const asksAboutMembership = /(joined|join|my|mine|am i in|have i|which|what|tell me about|list)/.test(text);
-  return mentionsGroups && asksAboutMembership;
-}
+function normalizePeerTutoringQuestion(message) {
+  if (typeof message !== "string" || !message.trim()) return message;
 
-function getStudyGroupIntent(message) {
-  const text = normalizeLower(message);
-  const asksAboutAvailable =
-    /(not joined|haven't joined|have not joined|didn't join|did not join|not in|available to join|can i join|can join|open groups|groups available|which groups are available|what groups are available|study groups available|available groups|groups i can join)/.test(text) ||
-    /\b(?:not|never)\b[\s\S]{0,20}\bjoin(?:ed)?\b/.test(text) ||
-    /\b(?:haven't|have not|didn't|did not)\b[\s\S]{0,20}\bjoin(?:ed)?\b/.test(text) ||
-    /\bnot\b[\s\S]{0,15}\bin\b/.test(text);
-
-  if (asksAboutAvailable) {
-    return "available";
-  }
-
-  if (/(pending|requested|request to join|requested to join|waiting|awaiting|approval|under review|waiting for approval|awaiting approval|pending approval|asked to join|applied to join|join requests?)/.test(text)) {
-    return "pending";
-  }
-
-  if (/(manage|managed|manageing|created|create|created by me|own|owner|admin|running)/.test(text)) {
-    return "owner";
-  }
-
-  if (/(joined|did i join|have i joined|am i in|member of|joined study groups|study groups i joined)/.test(text)) {
-    return "joined";
-  }
-
-  return "all";
-}
-
-function formatGroupSummaryLine(group) {
-  const code = group.moduleCode || group.courseCode || group.subject || "General";
-  const parts = [
-    code,
-    group.topic ? `topic: ${group.topic}` : null,
-    group.preferredSchedule ? `schedule: ${group.preferredSchedule}` : null,
-  ].filter(Boolean);
-  return `- ${group.name || group.title}${parts.length ? ` (${parts.join(", ")})` : ""}`;
-}
-
-function buildStudyGroupReply(studyGroups, userProfile, message) {
-  const grouped = partitionStudyGroups(studyGroups, userProfile);
-  const intent = getStudyGroupIntent(message);
-
-  if (intent === "joined") {
-    if (grouped.joined.length === 0) return "You haven't joined any study groups yet.";
-    return [
-      "Study groups you have joined:",
-      ...grouped.joined.map((group) => formatGroupSummaryLine(group)),
-    ].join("\n");
-  }
-
-  if (intent === "owner") {
-    if (grouped.owner.length === 0) return "You aren't managing any study groups right now.";
-    return [
-      "Study groups you manage:",
-      ...grouped.owner.map((group) => formatGroupSummaryLine(group)),
-    ].join("\n");
-  }
-
-  if (intent === "pending") {
-    if (grouped.pending.length === 0) return "You don't have any pending study-group requests right now.";
-    return [
-      "Pending study-group requests:",
-      ...grouped.pending.map((group) => formatGroupSummaryLine(group)),
-    ].join("\n");
-  }
-
-  if (intent === "available") {
-    if (grouped.available.length === 0) return "I couldn't find any study groups you haven't joined yet.";
-    return [
-      "Study groups you haven't joined yet:",
-      ...grouped.available.map((group) => formatGroupSummaryLine(group)),
-    ].join("\n");
-  }
-
-  const sections = [];
-  if (grouped.owner.length > 0) {
-    sections.push("Study groups you manage:");
-    grouped.owner.forEach((group) => sections.push(formatGroupSummaryLine(group)));
-    sections.push("");
-  }
-  if (grouped.joined.length > 0) {
-    sections.push("Study groups you have joined:");
-    grouped.joined.forEach((group) => sections.push(formatGroupSummaryLine(group)));
-    sections.push("");
-  }
-  if (grouped.pending.length > 0) {
-    sections.push("Pending study-group requests:");
-    grouped.pending.forEach((group) => sections.push(formatGroupSummaryLine(group)));
-    sections.push("");
-  }
-  if (grouped.available.length > 0) {
-    sections.push("Study groups you haven't joined yet:");
-    grouped.available.forEach((group) => sections.push(formatGroupSummaryLine(group)));
-    sections.push("");
-  }
-
-  if (sections.length === 0) {
-    return "I couldn't find any study groups that you manage, have joined, are pending, or haven't joined yet.";
-  }
-
-  return sections.join("\n").trim();
+  return message
+    .replace(/\bpeer tutor groups\b/gi, "peer tutoring classes")
+    .replace(/\bpeer tutor group\b/gi, "peer tutoring class")
+    .replace(/\btutor groups\b/gi, "tutoring classes")
+    .replace(/\btutor group\b/gi, "tutoring class")
+    .replace(/\bpeer tutor\b/gi, "peer tutoring")
+    .replace(/\bpeer tutoring groups\b/gi, "peer tutoring classes")
+    .replace(/\bpeer tutoring group\b/gi, "peer tutoring class");
 }
 
 /* ── Shared chat bubbles ─────────────────────────────────────── */
@@ -937,11 +840,7 @@ export default function AiTutor({ embedded = false }) {
     setChatLoading(true);
     setWellbeingFollowUp(false);
     try {
-      if (!isWellbeing && isStudyGroupQuestion(trimmed)) {
-        const localReply = buildStudyGroupReply(studyGroups, userProfile, trimmed);
-        setMessages((p) => [...p, { role:"bot", text:localReply }]);
-        return;
-      }
+      const aiMessage = isWellbeing ? trimmed : normalizePeerTutoringQuestion(trimmed);
 
       const history = [
         { role: "system", content: buildSystemContext() },
@@ -949,7 +848,7 @@ export default function AiTutor({ embedded = false }) {
       ];
       const res  = await fetch(`${API_BASE}/api/ai-tutor/chat`, {
         method:"POST", headers:authHeaders(), credentials:"include",
-        body: JSON.stringify({ message:trimmed, history }),
+        body: JSON.stringify({ message:aiMessage, history }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);

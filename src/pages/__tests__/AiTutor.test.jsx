@@ -167,7 +167,7 @@ describe("AiTutor", () => {
     expect(await screen.findByText(/database study circle/i)).toBeInTheDocument();
   });
 
-  it("answers joined study-group questions locally from actual group data", async () => {
+  it("sends joined study-group questions to the AI with study-group context", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({
       groups: [
@@ -188,7 +188,7 @@ describe("AiTutor", () => {
           preferredSchedule: "Friday 5pm",
         },
       ],
-      aiReplies: [{ reply: "This should not be used." }],
+      aiReplies: [{ reply: "You have joined Algorithms Marathon." }],
     });
 
     renderAiTutor();
@@ -197,17 +197,14 @@ describe("AiTutor", () => {
     await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Tell me about study groups I have joined");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText(/study groups you have joined/i)).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/algorithms marathon/i)).toBeInTheDocument();
-    expect(screen.queryByText(/study groups you manage/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/database admin circle/i)).not.toBeInTheDocument();
-    expect(aiCalls).toHaveLength(0);
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].message).toBe("Tell me about study groups I have joined");
+    expect(aiCalls[0].history[0].content).toContain("Algorithms Marathon");
+    expect(aiCalls[0].history[0].content).toContain("Database Admin Circle");
+    expect(await screen.findByText(/you have joined algorithms marathon/i)).toBeInTheDocument();
   });
 
-  it("answers managed study-group questions without listing joined or pending groups", async () => {
+  it("sends managed study-group questions to the AI", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({
       groups: [
@@ -225,7 +222,7 @@ describe("AiTutor", () => {
           membershipStatus: "approved",
         },
       ],
-      aiReplies: [{ reply: "This should not be used." }],
+      aiReplies: [{ reply: "You manage Operating Systems Leaders." }],
     });
 
     renderAiTutor();
@@ -234,17 +231,13 @@ describe("AiTutor", () => {
     await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Which study groups do I manage?");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText(/study groups you manage/i)).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/operating systems leaders/i)).toBeInTheDocument();
-    expect(screen.queryByText(/study groups you have joined/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/networks review/i)).not.toBeInTheDocument();
-    expect(aiCalls).toHaveLength(0);
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].message).toBe("Which study groups do I manage?");
+    expect(aiCalls[0].history[0].content).toContain("Operating Systems Leaders");
+    expect(await screen.findByText(/you manage operating systems leaders/i)).toBeInTheDocument();
   });
 
-  it("answers not-joined study-group questions with available groups instead of joined ones", async () => {
+  it("sends not-joined study-group questions to the AI", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({
       groups: [
@@ -267,7 +260,7 @@ describe("AiTutor", () => {
           topic: "Security",
         },
       ],
-      aiReplies: [{ reply: "This should not be used." }],
+      aiReplies: [{ reply: "You have not joined Security Fundamentals yet." }],
     });
 
     renderAiTutor();
@@ -276,17 +269,13 @@ describe("AiTutor", () => {
     await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What study groups i have not joined?");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText(/study groups you haven't joined yet/i)).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/security fundamentals/i)).toBeInTheDocument();
-    expect(screen.queryByText(/python developers/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/aws cloud exam practise/i)).not.toBeInTheDocument();
-    expect(aiCalls).toHaveLength(0);
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].message).toBe("What study groups i have not joined?");
+    expect(aiCalls[0].history[0].content).toContain("Security Fundamentals");
+    expect(await screen.findByText(/you have not joined security fundamentals yet/i)).toBeInTheDocument();
   });
 
-  it("treats broader negative join phrasing as available-groups intent", async () => {
+  it("sends broader negative join phrasing to the AI", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({
       groups: [
@@ -302,7 +291,7 @@ describe("AiTutor", () => {
           moduleCode: "CS2030",
         },
       ],
-      aiReplies: [{ reply: "This should not be used." }],
+      aiReplies: [{ reply: "Open Group is still available for you." }],
     });
 
     renderAiTutor();
@@ -311,16 +300,12 @@ describe("AiTutor", () => {
     await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Which study groups did I not join yet?");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText(/study groups you haven't joined yet/i)).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/open group/i)).toBeInTheDocument();
-    expect(screen.queryByText(/joined group/i)).not.toBeInTheDocument();
-    expect(aiCalls).toHaveLength(0);
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].message).toBe("Which study groups did I not join yet?");
+    expect(await screen.findByText(/open group is still available for you/i)).toBeInTheDocument();
   });
 
-  it("recognizes more common pending-study-group phrases", async () => {
+  it("sends pending study-group questions to the AI", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({
       groups: [
@@ -337,7 +322,7 @@ describe("AiTutor", () => {
           membershipStatus: "approved",
         },
       ],
-      aiReplies: [{ reply: "This should not be used." }],
+      aiReplies: [{ reply: "AWS Cloud Exam Practise is awaiting approval." }],
     });
 
     renderAiTutor();
@@ -346,13 +331,37 @@ describe("AiTutor", () => {
     await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Which study groups are awaiting approval?");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText(/pending study-group requests/i)).toBeInTheDocument();
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].message).toBe("Which study groups are awaiting approval?");
+    expect(aiCalls[0].history[0].content).toContain("AWS Cloud Exam Practise");
+    expect(await screen.findByText(/aws cloud exam practise is awaiting approval/i)).toBeInTheDocument();
+  });
+
+  it("does not hijack peer-tutoring prompts that mention groups", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 701,
+          name: "Study Group That Should Not Be Returned",
+          moduleCode: "CS2040",
+          membershipStatus: "approved",
+        },
+      ],
+      aiReplies: [{ reply: "Here are topic suggestions for your peer tutoring classes." }],
     });
 
-    expect(screen.getByText(/aws cloud exam practise/i)).toBeInTheDocument();
-    expect(screen.queryByText(/testing group/i)).not.toBeInTheDocument();
-    expect(aiCalls).toHaveLength(0);
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Suggest topics for my peer tutor groups");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].message).toBe("Suggest topics for my peer tutoring classes");
+    expect(await screen.findByText(/topic suggestions for your peer tutoring classes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/study groups you have joined/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/study group that should not be returned/i)).not.toBeInTheDocument();
   });
 
   it("sends the built-in navigation question from the suggestion chip", async () => {
