@@ -1043,6 +1043,8 @@ export default function AiTutor({ embedded = false }) {
     const includeStudyGroups = topic === "general" || topic === "studygroup";
     const includeRestrictedMembers = topic === "general" || topic === "restrictedmembers";
     const includeProfile = topic === "general" || topic === "profile";
+    const peerTutoringScope = contextOverrides.peerTutoringScope || "full";
+    const includeCreatedPeerTutoring = peerTutoringScope !== "joinableOnly";
     const activeProfile = profileOverride || userProfile;
     const activeTutoringClasses = Array.isArray(contextOverrides.tutoringClasses) ? contextOverrides.tutoringClasses : tutoringClasses;
     const activeStudyGroups = Array.isArray(contextOverrides.studyGroups) ? contextOverrides.studyGroups : studyGroups;
@@ -1065,22 +1067,24 @@ export default function AiTutor({ embedded = false }) {
     if (includeTutoring) {
       const groupedTutoringClasses = partitionTutoringClasses(activeTutoringClasses, activeProfile);
 
-      lines.push("## Peer Tutoring Classes Created/Taught by the User");
-      if (groupedTutoringClasses.created.length === 0) {
-        lines.push("- No created peer tutoring classes found in the current context.");
-      } else {
-        groupedTutoringClasses.created.forEach((c) => {
-          const enrollment = c.enrolledCount !== undefined ? `${c.enrolledCount}${c.maxStudents ? `/${c.maxStudents}` : ""} enrolled` : null;
-          const parts = [
-            `[${c.moduleCode || "N/A"}] ${c.title || c.name}`,
-            c.topic ? `Topic: ${c.topic}` : null,
-            c.description ? `Description: ${c.description}` : null,
-            enrollment,
-          ].filter(Boolean);
-          lines.push(`- ${parts.join(" | ")}`);
-        });
+      if (includeCreatedPeerTutoring) {
+        lines.push("## Peer Tutoring Classes Created/Taught by the User");
+        if (groupedTutoringClasses.created.length === 0) {
+          lines.push("- No created peer tutoring classes found in the current context.");
+        } else {
+          groupedTutoringClasses.created.forEach((c) => {
+            const enrollment = c.enrolledCount !== undefined ? `${c.enrolledCount}${c.maxStudents ? `/${c.maxStudents}` : ""} enrolled` : null;
+            const parts = [
+              `[${c.moduleCode || "N/A"}] ${c.title || c.name}`,
+              c.topic ? `Topic: ${c.topic}` : null,
+              c.description ? `Description: ${c.description}` : null,
+              enrollment,
+            ].filter(Boolean);
+            lines.push(`- ${parts.join(" | ")}`);
+          });
+        }
+        lines.push("");
       }
-      lines.push("");
 
       lines.push("## User's Peer Tutoring Classes");
       if (groupedTutoringClasses.enrolled.length === 0) {
@@ -1272,6 +1276,9 @@ export default function AiTutor({ embedded = false }) {
             studyGroups: studyGroupsForContext,
             tutoringClasses: tutoringClassesForContext,
             restrictedUsers: restrictedUsersForContext,
+            peerTutoringScope: topic === "peertutoring" && isAvailablePeerTutoringQuestion(aiMessage)
+              ? "joinableOnly"
+              : "full",
           }),
         },
         { role: "system", content: focusInstruction },

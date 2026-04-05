@@ -322,6 +322,114 @@
   padding: 10px 0;
   border-bottom: 1px solid #f3f4f6;
 }
+
+/* ── Group Chat ── */
+.gdChatPanel {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.gdChatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eef2f7;
+  background: #f9fafb;
+}
+
+.gdChatHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.gdChatHeader p {
+  margin: 2px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.gdChatMessages {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: linear-gradient(180deg, #fcfdff, #f8fafc);
+}
+
+.gdChatBubbleWrap {
+  display: flex;
+}
+
+.gdChatBubbleWrap.mine {
+  justify-content: flex-end;
+}
+
+.gdChatBubble {
+  max-width: min(78%, 560px);
+  background: #eef2ff;
+  border: 1px solid #dbe4ff;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.gdChatBubble.mine {
+  background: #e6f3ff;
+  border-color: #bfdbfe;
+}
+
+.gdChatMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #4b5563;
+  margin-bottom: 6px;
+}
+
+.gdChatBubble p {
+  margin: 0;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.gdChatComposer {
+  border-top: 1px solid #eef2f7;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gdChatInput {
+  min-height: 70px;
+}
+
+.gdChatState {
+  margin: 10px 14px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.gdChatError {
+  margin: 10px 14px 0;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .gdChatBubble {
+    max-width: 90%;
+  }
+}
 .gdSessionRow:last-child { border-bottom: none; }
 
 .gdSessionMeta {
