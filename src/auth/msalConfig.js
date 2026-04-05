@@ -9,16 +9,15 @@ import { LogLevel } from "@azure/msal-browser";
  *  1. Go to https://entra.microsoft.com → App registrations → New registration
  *  2. Set Redirect URI to window.location.origin (SPA platform)
  *  3. Copy the Application (client) ID → paste as VITE_MSAL_CLIENT_ID
- *  4. Copy the Directory (tenant) ID  → paste as VITE_MSAL_TENANT_ID
- *     (or use "common" / "organizations" / "consumers" for multi-tenant)
+ *  4. This project is configured for personal Microsoft accounts,
+ *     so the authority uses "consumers".
  *
  * Store them in a .env file at the project root:
  *   VITE_MSAL_CLIENT_ID=<your-client-id>
- *   VITE_MSAL_TENANT_ID=<your-tenant-id>
  */
 
 const clientId = import.meta.env.VITE_MSAL_CLIENT_ID || "REPLACE_WITH_YOUR_CLIENT_ID";
-const tenantId = import.meta.env.VITE_MSAL_TENANT_ID || "organizations";
+const tenantId = "consumers";
 
 export const msalConfig = {
   auth: {

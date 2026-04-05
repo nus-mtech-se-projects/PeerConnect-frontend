@@ -2,7 +2,7 @@ import { PublicClientApplication, LogLevel } from "@azure/msal-browser";
 
 const clientId =
   import.meta.env.VITE_MSAL_CLIENT_ID || "a008d21a-1ac5-4b96-83a9-1e198b24cc64";
-const tenantId = import.meta.env.VITE_MSAL_TENANT_ID || "consumers";
+const tenantId = "consumers";
 const authority = `https://login.microsoftonline.com/${tenantId}`;
 
 const msalConfig = {
@@ -54,10 +54,12 @@ export function getMicrosoftLoginErrorMessage(error) {
     `${error?.errorCode || ""} ${error?.errorMessage || ""} ${error?.message || ""}`.toLowerCase();
 
   if (
+    message.includes("unauthorized_client") ||
     message.includes("aadsts50020") ||
     message.includes("aadsts500207") ||
     message.includes("account from identity provider") ||
-    message.includes("personal microsoft accounts are not supported")
+    message.includes("personal microsoft accounts are not supported") ||
+    message.includes("not enabled for consumers")
   ) {
     return "This sign-in is now limited to personal Microsoft accounts only. Use a Hotmail, Outlook, or Live account.";
   }
