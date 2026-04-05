@@ -154,7 +154,7 @@ describe("AiTutor", () => {
     renderAiTutor();
     await waitForInitialContextLoads();
 
-    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Tell me about study groups I have joined");
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "What should I study next?");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     await waitFor(() => expect(aiCalls).toHaveLength(1));
@@ -165,6 +165,46 @@ describe("AiTutor", () => {
     expect(systemContext).not.toContain("user has NOT joined");
     expect(systemContext).toContain("do not say the user has not joined any study groups");
     expect(await screen.findByText(/database study circle/i)).toBeInTheDocument();
+  });
+
+  it("answers joined study-group questions locally from actual group data", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 201,
+          name: "Algorithms Marathon",
+          moduleCode: "CS2040",
+          topic: "Graphs",
+          membershipStatus: "approved",
+          preferredSchedule: "Every Tuesday 7pm",
+          description: "Weekly problem solving",
+        },
+        {
+          id: 202,
+          name: "Database Admin Circle",
+          moduleCode: "CS2102",
+          isAdmin: true,
+          preferredSchedule: "Friday 5pm",
+        },
+      ],
+      aiReplies: [{ reply: "This should not be used." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Tell me about study groups I have joined");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/study groups you manage/i)).toBeInTheDocument();
+      expect(screen.getByText(/study groups you have joined/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/algorithms marathon/i)).toBeInTheDocument();
+    expect(screen.getByText(/database admin circle/i)).toBeInTheDocument();
+    expect(aiCalls).toHaveLength(0);
   });
 
   it("sends the built-in navigation question from the suggestion chip", async () => {

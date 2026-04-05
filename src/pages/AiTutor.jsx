@@ -163,6 +163,51 @@ function partitionStudyGroups(studyGroups, userProfile) {
   );
 }
 
+function isStudyGroupQuestion(message) {
+  const text = normalizeLower(message);
+  if (!text) return false;
+  const mentionsGroups = /(study\s*groups?|groups?)/.test(text);
+  const asksAboutMembership = /(joined|join|my|mine|am i in|have i|which|what|tell me about|list)/.test(text);
+  return mentionsGroups && asksAboutMembership;
+}
+
+function formatGroupSummaryLine(group, roleLabel) {
+  const code = group.moduleCode || group.courseCode || group.subject || "General";
+  const topic = group.topic ? `, topic: ${group.topic}` : "";
+  const schedule = group.preferredSchedule ? `, schedule: ${group.preferredSchedule}` : "";
+  const description = group.description ? `, ${group.description}` : "";
+  return `- ${group.name || group.title} (${code}, ${roleLabel}${topic}${schedule}${description})`;
+}
+
+function buildStudyGroupReply(studyGroups, userProfile) {
+  const grouped = partitionStudyGroups(studyGroups, userProfile);
+  const lines = [];
+
+  if (grouped.owner.length > 0) {
+    lines.push("Study groups you manage:");
+    grouped.owner.forEach((group) => lines.push(formatGroupSummaryLine(group, "owner/admin")));
+    lines.push("");
+  }
+
+  if (grouped.joined.length > 0) {
+    lines.push("Study groups you have joined:");
+    grouped.joined.forEach((group) => lines.push(formatGroupSummaryLine(group, "member")));
+    lines.push("");
+  }
+
+  if (grouped.pending.length > 0) {
+    lines.push("Pending study-group requests:");
+    grouped.pending.forEach((group) => lines.push(formatGroupSummaryLine(group, "pending")));
+    lines.push("");
+  }
+
+  if (lines.length === 0) {
+    return "I couldn't find any study groups that you manage, have joined, or have pending requests for yet.";
+  }
+
+  return lines.join("\n").trim();
+}
+
 /* ── Shared chat bubbles ─────────────────────────────────────── */
 
 function UserBubble({ text }) {
@@ -827,6 +872,12 @@ export default function AiTutor({ embedded = false }) {
     setChatLoading(true);
     setWellbeingFollowUp(false);
     try {
+      if (!isWellbeing && isStudyGroupQuestion(trimmed)) {
+        const localReply = buildStudyGroupReply(studyGroups, userProfile);
+        setMessages((p) => [...p, { role:"bot", text:localReply }]);
+        return;
+      }
+
       const history = [
         { role: "system", content: buildSystemContext() },
         ...messages.map((m) => ({ role: m.role==="bot"?"assistant":"user", content: m.text })),
