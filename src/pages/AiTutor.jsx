@@ -760,16 +760,6 @@ export default function AiTutor({ embedded = false }) {
       "",
     ];
 
-    if (userProfile) {
-      lines.push("## User Profile");
-      if (userProfile.faculty)     lines.push(`- Faculty: ${userProfile.faculty}`);
-      if (userProfile.major)       lines.push(`- Major: ${userProfile.major}`);
-      if (userProfile.yearOfStudy) lines.push(`- Year of Study: ${userProfile.yearOfStudy}`);
-      if (userProfile.fullTime !== undefined) lines.push(`- Mode: ${userProfile.fullTime ? "Full-time" : "Part-time"}`);
-      if (userProfile.bio)         lines.push(`- Bio: ${userProfile.bio}`);
-      lines.push("");
-    }
-
     if (tutoringClasses.length > 0) {
       lines.push("## User's Peer Tutoring Classes");
       tutoringClasses.forEach((c) => {
@@ -847,9 +837,26 @@ export default function AiTutor({ embedded = false }) {
       lines.push("");
     }
 
-    lines.push("Use this context to give personalised, accurate answers. When the user asks how to do something on PeerConnect, refer to the actual features above.");
-    lines.push("When study groups are listed in the joined or managed sections above, do not say the user has not joined any study groups.");
-    lines.push("If the user asks about restricted members, answer from the provided restricted-member list and explain that restricted users cannot join the user's groups until allowed again.");
+    if (userProfile) {
+      lines.push("## User Profile (for background reference only — do NOT use for study group questions)");
+      if (userProfile.faculty)     lines.push(`- Faculty: ${userProfile.faculty}`);
+      if (userProfile.major)       lines.push(`- Major: ${userProfile.major}`);
+      if (userProfile.yearOfStudy) lines.push(`- Year of Study: ${userProfile.yearOfStudy}`);
+      if (userProfile.fullTime !== undefined) lines.push(`- Mode: ${userProfile.fullTime ? "Full-time" : "Part-time"}`);
+      if (userProfile.bio)         lines.push(`- Bio: ${userProfile.bio}`);
+      lines.push("");
+    }
+
+    lines.push("## IMPORTANT INSTRUCTIONS — READ CAREFULLY");
+    lines.push("- STUDY GROUPS vs PEER TUTORING are two completely separate features. Never mix their data.");
+    lines.push("- When the user asks about STUDY GROUPS (joined, managed, topics for study groups, etc.): use ONLY the 'Study Groups' sections above. Do NOT use peer tutoring class data.");
+    lines.push("- When the user asks about PEER TUTORING (tutoring classes, tutor/tutee role, module topics): use ONLY the 'Peer Tutoring Classes' section above. Do NOT use study group data.");
+    lines.push("- TOPIC SUGGESTIONS FOR STUDY GROUPS: If asked to suggest topics for study groups, base suggestions ONLY on the names, subjects, and descriptions from the 'Study Groups Joined/Managed' sections. If no study groups are listed, say the user has not joined any study groups yet.");
+    lines.push("- TOPIC SUGGESTIONS FOR PEER TUTORING: If asked to suggest topics for tutoring, base suggestions ONLY on the peer tutoring class data.");
+    lines.push("- Never use the user's faculty, major, or bio to answer questions about study groups or peer tutoring.");
+    lines.push("- do not say the user has not joined any study groups if groups appear in the joined or managed sections above.");
+    lines.push("- If the user asks about restricted members, answer from the provided restricted-member list and explain that restricted users cannot join the user's groups until allowed again.");
+    lines.push("- For all other questions, use the full context above to give personalised, accurate answers.");
     return lines.join("\n");
   }
 
