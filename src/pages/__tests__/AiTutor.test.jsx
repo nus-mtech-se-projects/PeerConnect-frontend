@@ -143,6 +143,27 @@ describe("AiTutor", () => {
     expect(await screen.findByText(/you have 1 restricted member/i)).toBeInTheDocument();
   });
 
+  it("includes an explicit empty restricted-members section so the AI does not invent users", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      restrictedUsers: [],
+      aiReplies: [{ reply: "You do not currently have any restricted members." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Who have i restricted?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+    expect(aiCalls[0].history[0].content).toContain("## User's Restricted Members");
+    expect(aiCalls[0].history[0].content).toContain("No restricted members found in the current context.");
+    expect(aiCalls[0].history[2].content).toContain("there are currently no restricted members");
+    expect(aiCalls[0].history[2].content).toContain("do not invent any user names");
+    expect(await screen.findByText(/you do not currently have any restricted members/i)).toBeInTheDocument();
+  });
+
   it("treats approved study-group memberships as joined even when the joined flag is missing", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({

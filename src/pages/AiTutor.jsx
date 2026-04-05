@@ -400,6 +400,23 @@ function buildProfileInstruction(profile) {
   ].join("\n");
 }
 
+function buildRestrictedMembersInstruction(restrictedUsers) {
+  const users = Array.isArray(restrictedUsers) ? restrictedUsers : [];
+
+  if (users.length === 0) {
+    return "For this request, there are currently no restricted members in the restricted-members section. Say that clearly and do not invent any user names.";
+  }
+
+  return [
+    "For this request, the restricted members are listed below. Treat this list as the source of truth and mention only these users.",
+    ...users.map((user) => {
+      const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.fullName || user.email || "Unknown user";
+      return `- ${name}`;
+    }),
+    "Do not invent additional restricted users beyond this list.",
+  ].join("\n");
+}
+
 function buildChatRequestMeta(message, isWellbeing = false, detectTopicFn = () => "general") {
   if (isWellbeing) {
     return {
@@ -1151,17 +1168,21 @@ export default function AiTutor({ embedded = false }) {
       lines.push("");
     }
 
-    if (includeRestrictedMembers && activeRestrictedUsers.length > 0) {
+    if (includeRestrictedMembers) {
       lines.push("## User's Restricted Members");
-      activeRestrictedUsers.forEach((u) => {
-        const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.fullName || u.email || "Unknown user";
-        const parts = [
-          name,
-          u.email ? `Email: ${u.email}` : null,
-          u.createdAt ? `Restricted since: ${u.createdAt}` : null,
-        ].filter(Boolean);
-        lines.push(`- ${parts.join(" | ")}`);
-      });
+      if (activeRestrictedUsers.length === 0) {
+        lines.push("- No restricted members found in the current context.");
+      } else {
+        activeRestrictedUsers.forEach((u) => {
+          const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.fullName || u.email || "Unknown user";
+          const parts = [
+            name,
+            u.email ? `Email: ${u.email}` : null,
+            u.createdAt ? `Restricted since: ${u.createdAt}` : null,
+          ].filter(Boolean);
+          lines.push(`- ${parts.join(" | ")}`);
+        });
+      }
       lines.push("");
     }
 
@@ -1238,6 +1259,10 @@ export default function AiTutor({ embedded = false }) {
 
       if (topic === "profile") {
         additionalInstruction = buildProfileInstruction(profileForContext);
+      }
+
+      if (topic === "restrictedmembers") {
+        additionalInstruction = buildRestrictedMembersInstruction(restrictedUsersForContext);
       }
 
       const history = [
