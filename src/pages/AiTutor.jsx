@@ -89,6 +89,80 @@ function buildContextStr(ctx) {
   ].filter(Boolean).join("\n");
 }
 
+function normalizeLower(value) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function getUserIdentifiers(userProfile) {
+  return new Set(
+    [
+      userProfile?.id,
+      userProfile?.userId,
+      userProfile?._id,
+      userProfile?.email,
+      userProfile?.userEmail,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase())
+  );
+}
+
+function memberMatchesUser(member, identifiers) {
+  if (!member || identifiers.size === 0) return false;
+  return [member.userId, member.id, member.email]
+    .filter(Boolean)
+    .some((value) => identifiers.has(String(value).trim().toLowerCase()));
+}
+
+function getStudyGroupBucket(group, userProfile) {
+  const membershipStatus = normalizeLower(group?.membershipStatus);
+  const role = normalizeLower(group?.role || group?.membershipRole);
+  const userIdentifiers = getUserIdentifiers(userProfile);
+  const currentMember = Array.isArray(group?.members)
+    ? group.members.find((member) => memberMatchesUser(member, userIdentifiers))
+    : null;
+  const currentMemberRole = normalizeLower(currentMember?.role);
+  const currentMemberStatus = normalizeLower(currentMember?.membershipStatus);
+
+  const isOwner =
+    group?.isAdmin === true ||
+    role === "owner" ||
+    role === "admin" ||
+    currentMemberRole === "owner" ||
+    currentMemberRole === "admin";
+
+  if (isOwner) return "owner";
+
+  const isJoined =
+    group?.joined === true ||
+    membershipStatus === "approved" ||
+    membershipStatus === "joined" ||
+    role === "member" ||
+    currentMemberStatus === "approved";
+
+  if (isJoined) return "joined";
+
+  const isPending =
+    membershipStatus === "pending" ||
+    membershipStatus === "invited" ||
+    membershipStatus === "requested" ||
+    currentMemberStatus === "pending" ||
+    currentMemberStatus === "invited";
+
+  return isPending ? "pending" : "available";
+}
+
+function partitionStudyGroups(studyGroups, userProfile) {
+  return (Array.isArray(studyGroups) ? studyGroups : []).reduce(
+    (acc, group) => {
+      const bucket = getStudyGroupBucket(group, userProfile);
+      acc[bucket].push(group);
+      return acc;
+    },
+    { owner: [], joined: [], pending: [], available: [] }
+  );
+}
+
 /* ── Shared chat bubbles ─────────────────────────────────────── */
 
 function UserBubble({ text }) {
@@ -414,7 +488,7 @@ function ContextPicker({ tutoringClasses, studyGroups, classesLoading, groupsLoa
           </button>
         </div>
 
-        <div className="atPickerDivider"><span>or choose from your groups</span></div>
+        <div className="atPickerDivider"><span>or choose from your classes and groups</span></div>
 
         {hasTabs && (
           <div className="atModalTabs">
@@ -425,7 +499,7 @@ function ContextPicker({ tutoringClasses, studyGroups, classesLoading, groupsLoa
 
         {isLoading && <p className="atClassPickerMsg">Loading…</p>}
         {!isLoading && items.length === 0 && (
-          <p className="atClassPickerMsg">No {tab==="tutoring" ? "tutoring classes" : "study groups"} found.</p>
+          <p className="atClassPickerMsg">No {tab==="tutoring" ? "tutoring classes" : "joined or managed study groups"} found.</p>
         )}
 
         <div className="atClassPickerList">
@@ -680,10 +754,11 @@ export default function AiTutor({ embedded = false }) {
       lines.push("");
     }
 
-    const myGroups    = studyGroups.filter((g) => g.isAdmin);
-    const joinedGroups = studyGroups.filter((g) => g.joined && !g.isAdmin);
-    const pendingGroups = studyGroups.filter((g) => g.membershipStatus === "pending" && !g.joined && !g.isAdmin);
-    const availableGroups = studyGroups.filter((g) => !g.joined && !g.isAdmin && g.membershipStatus !== "pending");
+    const groupedStudyGroups = partitionStudyGroups(studyGroups, userProfile);
+    const myGroups = groupedStudyGroups.owner;
+    const joinedGroups = groupedStudyGroups.joined;
+    const pendingGroups = groupedStudyGroups.pending;
+    const availableGroups = groupedStudyGroups.available;
 
     function fmtGroup(g, role) {
       const members = g.memberCount !== undefined ? `${g.memberCount}${g.maxMembers ? `/${g.maxMembers}` : ""} members` : null;
@@ -738,6 +813,7 @@ export default function AiTutor({ embedded = false }) {
     }
 
     lines.push("Use this context to give personalised, accurate answers. When the user asks how to do something on PeerConnect, refer to the actual features above.");
+    lines.push("When study groups are listed in the joined or managed sections above, do not say the user has not joined any study groups.");
     lines.push("If the user asks about restricted members, answer from the provided restricted-member list and explain that restricted users cannot join the user's groups until allowed again.");
     return lines.join("\n");
   }
@@ -787,6 +863,12 @@ export default function AiTutor({ embedded = false }) {
 
   /* ── Render ─────────────────────────────────────────────────── */
   const inFeature = featureType !== null;
+  const groupedStudyGroups = partitionStudyGroups(studyGroups, userProfile);
+  const contextStudyGroups = [
+    ...groupedStudyGroups.owner,
+    ...groupedStudyGroups.joined,
+    ...groupedStudyGroups.pending,
+  ];
 
   return (
     <div className={embedded ? "atEmbedded" : "atPage"}>
@@ -810,7 +892,7 @@ export default function AiTutor({ embedded = false }) {
           {inFeature && featureStep === "picker" && (
             <ContextPicker
               tutoringClasses={tutoringClasses}
-              studyGroups={studyGroups}
+              studyGroups={contextStudyGroups}
               classesLoading={classesLoading}
               groupsLoading={groupsLoading}
               onSelect={handleContextSelected}

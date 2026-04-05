@@ -134,6 +134,39 @@ describe("AiTutor", () => {
     expect(await screen.findByText(/you have 1 restricted member/i)).toBeInTheDocument();
   });
 
+  it("treats approved study-group memberships as joined even when the joined flag is missing", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { aiCalls } = installFetchMock({
+      groups: [
+        {
+          id: 101,
+          name: "Database Study Circle",
+          moduleCode: "CS2102",
+          description: "Weekly SQL practice",
+          membershipStatus: "approved",
+          memberCount: 5,
+          maxMembers: 8,
+        },
+      ],
+      aiReplies: [{ reply: "You are in Database Study Circle." }],
+    });
+
+    renderAiTutor();
+    await waitForInitialContextLoads();
+
+    await user.type(screen.getByPlaceholderText(/ask me anything about your studies/i), "Tell me about study groups I have joined");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(aiCalls).toHaveLength(1));
+
+    const systemContext = aiCalls[0].history[0].content;
+    expect(systemContext).toContain("## Study Groups the User Has Joined (as member)");
+    expect(systemContext).toContain("Database Study Circle");
+    expect(systemContext).not.toContain("user has NOT joined");
+    expect(systemContext).toContain("do not say the user has not joined any study groups");
+    expect(await screen.findByText(/database study circle/i)).toBeInTheDocument();
+  });
+
   it("sends the built-in navigation question from the suggestion chip", async () => {
     const user = userEvent.setup({ delay: null });
     const { aiCalls } = installFetchMock({
