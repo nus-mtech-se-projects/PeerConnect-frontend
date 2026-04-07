@@ -22,6 +22,10 @@ import {
 } from "../utils/restrictedUsers";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
+import GroupChatsNavList from "../components/chat/GroupChatsNavList";
+import GroupChatWorkspace from "../components/chat/GroupChatWorkspace";
+import { groupChatService } from "../services/groupChatService";
+import AiTutor from "./AiTutor";
 import "../styles/pages/Dashboard.css";
 import "../styles/pages/RestrictUser.css";
 function createFeedbackForm() {
@@ -475,9 +479,9 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
                   Schedule:{c.schedule}
                 </p>
               )}
-              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
+              <div className="ptCardFooter">
                 <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className="ptCardActions">
                   {c.meetingLink && (
                     <button className="ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
                       Join Meeting
@@ -753,9 +757,9 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
                   <span style={{ fontSize: 12 }}>🗓</span> {c.schedule}
                 </p>
               )}
-              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #f3f4f6" }}>
+              <div className="ptCardFooter">
                 <span className="groupMembers">{c.enrolledCount ?? 0}/{c.maxStudents ?? "∞"} enrolled</span>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className="ptCardActions">
                   {c.enrolled && c.meetingLink && (
                     <button className="ptUnifiedBtn" onClick={() => openMeetingLink(c.meetingLink)}>
                       Join Meeting
@@ -1386,6 +1390,9 @@ function DashboardHome() {
   });
   const [creating, setCreating] = useState(false);
   const [activeModule, setActiveModule] = useState(location.state?.activeModule || "studyGroups");
+  const [groupChats, setGroupChats] = useState([]);
+  const [groupChatsLoading, setGroupChatsLoading] = useState(false);
+  const [selectedGroupChatId, setSelectedGroupChatId] = useState("");
   const [myGroupsOnly, setMyGroupsOnly] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -1414,6 +1421,27 @@ function DashboardHome() {
   }
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  const refreshGroupChats = useCallback(async () => {
+    setGroupChatsLoading(true);
+    try {
+      const chats = await groupChatService.fetchAccessibleGroupChats();
+      const list = Array.isArray(chats) ? chats : [];
+      setGroupChats(list);
+      setSelectedGroupChatId((prev) => {
+        if (prev && list.some((chat) => chat.chatId === prev)) return prev;
+        return list[0]?.chatId || "";
+      });
+      return list;
+    } catch {
+      // Keep dashboard usable even if chat list fails to load.
+      setGroupChats([]);
+      setSelectedGroupChatId("");
+      return [];
+    } finally {
+      setGroupChatsLoading(false);
+    }
+  }, []);
 
   /* fetch user name + avatar */
   useEffect(() => {
@@ -1470,6 +1498,24 @@ function DashboardHome() {
     return () => { cancelled = true; };
   }, [nav]);
 
+  useEffect(() => {
+    let cancelled = false;
+    waitForToken()
+      .then(async () => {
+        if (cancelled) return;
+        await refreshGroupChats();
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGroupChats([]);
+          setSelectedGroupChatId("");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshGroupChats]);
+
   const filtered = useMemo(() => filterDashboardGroups(groups, search, myGroupsOnly), [groups, search, myGroupsOnly]);
 
   async function handleCreate(e) {
@@ -1489,6 +1535,12 @@ function DashboardHome() {
       if (!res.ok) throw new Error(data?.error || `Create failed (${res.status})`);
       const created = data;
       setGroups((prev) => [created, ...prev]);
+      const refreshedChats = await refreshGroupChats();
+      setActiveModule("groupChats");
+      const createdChat = refreshedChats.find((chat) => chat.groupId === created.id);
+      if (createdChat?.chatId) {
+        setSelectedGroupChatId(createdChat.chatId);
+      }
       setShowCreate(false);
       setNewGroup({
         name: "", moduleCode: "", topic: "", studyMode: "online", location: "", meetingLink: "",
@@ -1691,6 +1743,7 @@ function DashboardHome() {
       if (data.alreadyJoined) {
         showToast("You have already joined this group.", "error");
       }
+      await refreshGroupChats();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -1730,6 +1783,7 @@ function DashboardHome() {
             : Math.max(0, (g.memberCount ?? 1) - 1),
         };
       }));
+      await refreshGroupChats();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -1786,10 +1840,22 @@ function DashboardHome() {
         <nav className="dashNav">
           <span className="dashNavLabel">MODULES</span>
           <button className={`dashNavItem ${activeModule === "studyGroups" ? "active" : ""}`} onClick={() => { setActiveModule("studyGroups"); closeSidebar(); }}><GroupsIcon /> Study Groups</button>
+          <button className={`dashNavItem ${activeModule === "groupChats" ? "active" : ""}`} onClick={() => { setActiveModule("groupChats"); closeSidebar(); }}><GroupsIcon /> Group Chats</button>
           <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
           <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
-          <button className="dashNavItem" disabled><AiIcon /> AI Tutor</button>
+          <button className={`dashNavItem ${activeModule === "aiTutor" ? "active" : ""}`} onClick={() => { setActiveModule("aiTutor"); closeSidebar(); }}><AiIcon /> AI Tutor</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
+
+          <GroupChatsNavList
+            chats={groupChats}
+            activeChatId={selectedGroupChatId}
+            loading={groupChatsLoading}
+            onSelectChat={(chatId) => {
+              setSelectedGroupChatId(chatId);
+              setActiveModule("groupChats");
+              closeSidebar();
+            }}
+          />
         </nav>
 
         <div className="dashSidebarFooter">
@@ -1833,7 +1899,26 @@ function DashboardHome() {
             />
           </>
         )}
+        {activeModule === "groupChats" && (
+          <GroupChatWorkspace
+            chatId={selectedGroupChatId}
+            selectedChatName={groupChats.find((chat) => chat.chatId === selectedGroupChatId)?.groupName || ""}
+          />
+        )}
         {activeModule === "restrictedMembers" && <RestrictedMemberSection showToast={showToast} setConfirmDialog={setConfirmDialog} />}
+        {activeModule === "aiTutor" && (
+          <>
+            <div className="dashHeader">
+              <div className="dashHeaderTop">
+                <div>
+                  <h1 className="dashTitle">AI Study Tutor</h1>
+                  <p className="dashSubtitle">Ask me anything · Generate quizzes · Explore topics</p>
+                </div>
+              </div>
+            </div>
+            <AiTutor embedded />
+          </>
+        )}
       </section>
 
       <CreateGroupModal
