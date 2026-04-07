@@ -47,12 +47,12 @@ class NUSResourceStrategy extends ResourceStrategy {
             name: "University Counselling Services (UCS)",
             description:
               "Free, confidential counselling for NUS students and staff. Individual counselling, crisis support, and psychological assessments are available.",
-            url: "https://www.nus.edu.sg/osa/student-services/university-counselling-services",
+            url: "https://osa.nus.edu.sg/",
             phone: "6516 1972",
             badge: "Free",
           },
           {
-            name: "University Health Centre – Mental Health Clinic",
+            name: "University Health Centre (UHC)",
             description:
               "Medical and mental health consultations by doctors and nurses at UHC. Referrals to psychiatrists and counsellors available.",
             url: "https://www.nus.edu.sg/uhc",
@@ -63,7 +63,7 @@ class NUSResourceStrategy extends ResourceStrategy {
             name: "NUS Peer Helpers Programme",
             description:
               "A student-run initiative offering peer support and active listening. Peer helpers are trained to provide a safe space and refer members of the community to professional help when needed.",
-            url: "https://www.nus.edu.sg/osa/student-life/student-run-initiatives/peer-helpers-programme",
+            url: "https://osa.nus.edu.sg/",
             badge: "Peer Support",
           },
         ],
@@ -73,25 +73,11 @@ class NUSResourceStrategy extends ResourceStrategy {
         title: "Wellness Programmes & Initiatives",
         resources: [
           {
-            name: "OSA Campus Life & Well-being",
+            name: "OSA – Office of Student Affairs",
             description:
               "The Office of Student Affairs organises well-being workshops, mindfulness sessions, mental health talks, and community events throughout the academic year.",
-            url: "https://www.nus.edu.sg/osa/campus-life-and-wellbeing",
+            url: "https://osa.nus.edu.sg/",
             badge: "OSA",
-          },
-          {
-            name: "NUS Well-being Week & Initiatives",
-            description:
-              "Regular themed campaigns (stress management, sleep hygiene, healthy relationships) run by OSA and student wellness groups.",
-            url: "https://www.nus.edu.sg/osa/campus-life-and-wellbeing/programmes",
-            badge: "Events",
-          },
-          {
-            name: "NUS Staff Well-being (UHRS)",
-            description:
-              "Dedicated well-being support for NUS staff including workshops, counselling referrals, and work-life programmes managed by University Human Resources.",
-            url: "https://nus.edu.sg/uhrs/well-being",
-            badge: "Staff",
           },
         ],
       },
@@ -100,10 +86,9 @@ class NUSResourceStrategy extends ResourceStrategy {
         title: "Crisis & Emergency Support",
         resources: [
           {
-            name: "NUS Emergency & Campus Security",
+            name: "NUS Campus Security (24-hour)",
             description:
               "24-hour emergency response on campus. Call Campus Security for urgent on-campus safety and welfare concerns.",
-            url: "https://www.nus.edu.sg/osa/student-services/university-counselling-services/crisis-support",
             phone: "6874 1616",
             badge: "24/7",
           },
@@ -137,25 +122,18 @@ class ExternalResourceStrategy extends ResourceStrategy {
         title: "Online Platforms & Self-Help",
         resources: [
           {
-            name: "HealthHub – Mental Well-being",
+            name: "MindSG (HealthHub)",
             description:
-              "Singapore's national health portal by HPB and MOH. Offers articles, self-assessment tools, and directories of mental health services across Singapore.",
-            url: "https://www.healthhub.sg/live-healthy/mental-health",
+              "Singapore's national mental wellness platform by MOH and HPB. Offers self-assessments, guided programmes, audio exercises, and a directory of mental health services.",
+            url: "https://www.healthhub.sg/programmes/mindsg",
             badge: "Gov",
           },
           {
-            name: "MindSG",
+            name: "Institute of Mental Health (IMH)",
             description:
-              "An MOH-backed platform with evidence-based tools, guided programmes, and a mental health service locator to help you find the right support in Singapore.",
-            url: "https://www.mindsg.gov.sg",
-            badge: "Gov",
-          },
-          {
-            name: "NCSS – Mental Health Resources",
-            description:
-              "The National Council of Social Service curates a directory of social service organisations in Singapore providing mental health, crisis, and community support.",
-            url: "https://www.ncss.gov.sg/Our-Community/Mental-Health",
-            badge: "NCSS",
+              "Singapore's national psychiatric hospital. The IMH website provides information on mental health conditions, community services, and how to access specialist care.",
+            url: "https://www.imh.com.sg",
+            badge: "Specialist",
           },
         ],
       },
@@ -172,20 +150,12 @@ class ExternalResourceStrategy extends ResourceStrategy {
             badge: "24/7",
           },
           {
-            name: "Mental Health Helpline (MOH)",
+            name: "IMH Emergency Services",
             description:
-              "National mental health helpline providing information and referrals to mental health services around Singapore.",
-            url: "https://www.healthhub.sg/live-healthy/mental-health/mental-health-resources-in-singapore",
-            phone: "6389 2222",
-            badge: "Gov",
-          },
-          {
-            name: "IMH CARE Line",
-            description:
-              "The Institute of Mental Health offers a helpline for mental health enquiries and guidance on accessing specialist psychiatric care.",
-            url: "https://www.imh.com.sg/patient-care/pages/care-line.aspx",
-            phone: "6389 2222",
-            badge: "IMH",
+              "The Institute of Mental Health's 24-hour emergency department provides urgent care and assessment for people experiencing severe emotional distress.",
+            url: "https://www.imh.com.sg/Clinical-Services/Pages/Emergency-Services.aspx",
+            phone: "6389 2000",
+            badge: "24/7",
           },
         ],
       },
@@ -194,25 +164,11 @@ class ExternalResourceStrategy extends ResourceStrategy {
         title: "Specialised Services",
         resources: [
           {
-            name: "Institute of Mental Health (IMH)",
-            description:
-              "Singapore's national psychiatric hospital offering inpatient, outpatient, and community services for a wide range of mental health conditions.",
-            url: "https://www.imh.com.sg",
-            badge: "Specialist",
-          },
-          {
             name: "CHAT (Community Health Assessment Team)",
             description:
               "Free mental health screening and support for young people aged 16–30 in Singapore. Walk-in or online assessment available.",
             url: "https://www.imh.com.sg/CHAT/Pages/default.aspx",
             badge: "Ages 16–30",
-          },
-          {
-            name: "NCSS – Find a Social Service Agency",
-            description:
-              "Search for social service organisations near you that offer counselling, financial assistance, and community mental health programmes.",
-            url: "https://www.ncss.gov.sg/Our-Community/Find-Social-Service-Agencies",
-            badge: "NCSS",
           },
         ],
       },
