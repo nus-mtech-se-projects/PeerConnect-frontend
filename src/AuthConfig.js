@@ -10,8 +10,8 @@
  * (configured in the Azure Static Web Apps portal – no client-side secrets needed)
  */
 
-export const SWA_LOGIN_URL = "/auth/login/aad";
-export const SWA_LOGOUT_URL = "/auth/logout";
+export const SWA_LOGIN_URL = "/.auth/login/aad";
+export const SWA_LOGOUT_URL = "/.auth/logout";
 
 /**
  * Fetches the currently signed-in user from the SWA auth endpoint.

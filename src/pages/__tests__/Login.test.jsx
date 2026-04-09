@@ -124,6 +124,6 @@ describe("Login page", () => {
     const user = userEvent.setup({ delay: null });
     render(<MemoryRouter><Login /></MemoryRouter>);
     await user.click(screen.getByRole("button", { name: /continue with microsoft/i }));
-    expect(window.location.href).toBe("/auth/login/aad?post_login_redirect_uri=/");
+    expect(window.location.href).toBe("/.auth/login/aad?post_login_redirect_uri=/");
   });
 });
