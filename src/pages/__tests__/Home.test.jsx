@@ -1,7 +1,6 @@
 import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useMsal } from "@azure/msal-react";
 import { MemoryRouter } from "react-router-dom";
 import Home from "../Home";
 
@@ -11,13 +10,6 @@ vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return { ...actual, useNavigate: () => mockNavigate };
 });
-
-vi.mock("@azure/msal-react", () => ({
-  useMsal: vi.fn(() => ({
-    instance: { logoutRedirect: vi.fn() },
-    accounts: [],
-  })),
-}));
 
 function makeAccessToken() {
   const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }));
@@ -100,10 +92,6 @@ describe("Home page", () => {
     mockNavigate.mockClear();
     localStorage.clear();
     vi.restoreAllMocks();
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [],
-    });
   });
 
   it("renders main heading for guests", () => {
@@ -131,10 +119,6 @@ describe("Home page", () => {
       profile: { firstName: "Test", lastName: "Student" },
       groups: [],
     });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
-    });
 
     renderHome();
 
@@ -149,10 +133,6 @@ describe("Home page", () => {
     mockDashboardFetch({
       profile: { firstName: "Test", lastName: "Student" },
       groups: [],
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
     });
 
     renderHome();
@@ -169,10 +149,6 @@ describe("Home page", () => {
       profile: { firstName: "Test", lastName: "Student" },
       groups: [],
       classes: [],
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
     });
 
     renderHome();
@@ -206,10 +182,6 @@ describe("Home page", () => {
         },
       ],
     });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
-    });
 
     renderHome();
 
@@ -242,10 +214,6 @@ describe("Home page", () => {
         enrolledCount: 0,
         isTutor: true,
       }),
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
     });
 
     renderHome();
@@ -287,10 +255,6 @@ describe("Home page", () => {
       }],
       tutorClassEnrollResponse: mockJsonResponse({ message: "ok" }),
     });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
-    });
 
     renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
@@ -326,10 +290,6 @@ describe("Home page", () => {
       }],
       tutorClassLeaveResponse: mockJsonResponse({ message: "ok" }),
     });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
-    });
 
     renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
@@ -361,10 +321,6 @@ describe("Home page", () => {
         isTutor: true,
       }],
       tutorClassDeleteResponse: mockJsonResponse({ message: "ok" }),
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
     });
 
     renderHome();
@@ -431,10 +387,6 @@ describe("Home page", () => {
       classes: [tutorClass],
       tutorFeedbacks: feedbacks,
     });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
-    });
     renderHome();
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
     await user.click(screen.getByRole("button", { name: /i'm a tutor/i }));
@@ -442,16 +394,12 @@ describe("Home page", () => {
     expect(await screen.findByRole("heading", { name: /submitted feedbacks/i })).toBeInTheDocument();
   }
 
-  async function openCreateClassModal(user, account = { username: "tutor@hotmail.com", name: "Tutor User" }) {
+  async function openCreateClassModal(user) {
     localStorage.setItem("accessToken", makeAccessToken());
     mockDashboardFetch({
       profile: { firstName: "Tutor", lastName: "User" },
       groups: [],
       classes: [],
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [account],
     });
 
     renderHome();
@@ -467,10 +415,6 @@ describe("Home page", () => {
       groups: [],
       classes: [TUTOR_CLASS_A, TUTOR_CLASS_B],
       tutorFeedbacks: [],
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
     });
 
     const user = userEvent.setup({ delay: null });
@@ -490,10 +434,6 @@ describe("Home page", () => {
       groups: [],
       classes: [TUTOR_CLASS_A],
       tutorFeedbacks: [],
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
     });
 
     const user = userEvent.setup({ delay: null });
@@ -518,10 +458,6 @@ describe("Home page", () => {
         title: "Math Revision Sprint Updated",
         topic: "Limits",
       }),
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
     });
 
     renderHome();
@@ -559,10 +495,6 @@ describe("Home page", () => {
       groups: [],
       classes: [TUTOR_CLASS_A],
       tutorFeedbacks: [],
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
     });
 
     const user = userEvent.setup({ delay: null });
@@ -614,10 +546,6 @@ describe("Home page", () => {
       if (/\/api\/tutoring\/classes\/8\/feedback$/.test(url)) return mockJsonResponse([]);
       return mockJsonResponse({});
     });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
-    });
 
     const user = userEvent.setup({ delay: null });
     renderHome();
@@ -655,10 +583,6 @@ describe("Home page", () => {
       if (url.endsWith("/api/tutoring/classes")) return mockJsonResponse([TUTOR_CLASS_A]);
       if (/\/api\/tutoring\/classes\/7\/feedback$/.test(url)) return mockJsonResponse({ error: "Internal server error" }, false, 500);
       return mockJsonResponse({});
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "tutor@hotmail.com", name: "Tutor User" }],
     });
 
     const user = userEvent.setup({ delay: null });
@@ -704,10 +628,6 @@ describe("Home page", () => {
       groups: [],
       classes: [ENROLLED_CLASS],
       tutorFeedbackPost,
-    });
-    useMsal.mockReturnValue({
-      instance: { logoutRedirect: vi.fn() },
-      accounts: [{ username: "test@hotmail.com", name: "Test Student" }],
     });
     return spy;
   }

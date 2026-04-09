@@ -2,17 +2,12 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Profile from "../Profile";
-import { useMsal } from "@azure/msal-react";
 
 const mockNav = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return { ...actual, useNavigate: () => mockNav };
 });
-
-vi.mock("@azure/msal-react", () => ({
-  useMsal: vi.fn(() => ({ accounts: [] })),
-}));
 
 const emptyProfile = {
   faculty: "",
@@ -35,7 +30,6 @@ describe("Profile page", () => {
     mockNav.mockClear();
     localStorage.clear();
     vi.restoreAllMocks();
-    useMsal.mockReturnValue({ accounts: [] });
   });
 
   // ── Loading ────────────────────────────────────────────────────────────────
