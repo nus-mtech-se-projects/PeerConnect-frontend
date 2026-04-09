@@ -86,6 +86,7 @@ export default function Signup() {
             type="button"
             className="socialBtn"
             onClick={() => {
+              sessionStorage.setItem("swaLoggingIn", "true");
               window.location.href = `${SWA_LOGIN_URL}?post_login_redirect_uri=/`;
             }}
           >

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMsal } from "@azure/msal-react";
 import { API_BASE, authHeaders } from "../utils/auth";
 import { emitProfileUpdated } from "../utils/profileSync";
 import "../styles/pages/Profile.css";
@@ -53,8 +52,9 @@ const FACULTIES = Object.keys(FACULTY_MAJORS);
 
 export default function Profile() {
   const nav = useNavigate();
-  const { accounts } = useMsal();
 
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
   const [form, setForm] = useState({
     faculty: "",
     major: "",
@@ -85,6 +85,8 @@ export default function Profile() {
       })
       .then((data) => {
         if (!data) return;
+        setProfileName([data.firstName, data.lastName].filter(Boolean).join(" ") || data.name || "Student");
+        setProfileEmail(data.email || "");
         setForm({
           faculty: data.faculty || "",
           major: data.major || "",
@@ -280,12 +282,12 @@ export default function Profile() {
               <img src={avatarSrc} alt="Avatar" className="profileAvatarImg" />
             ) : (
               <span className="profileAvatarLetter">
-                {accounts[0]?.name?.charAt(0)?.toUpperCase() || "U"}
+              {profileName ? profileName.charAt(0).toUpperCase() : "U"}
               </span>
             )}
           </div>
-          <h2 className="profileName">{accounts[0]?.name || "Student"}</h2>
-          <p className="profileEmail">{accounts[0]?.username || ""}</p>
+        <h2 className="profileName">{profileName || "Student"}</h2>
+        <p className="profileEmail">{profileEmail}</p>
         </div>
 
         <form className="profileForm" onSubmit={handleSave}>

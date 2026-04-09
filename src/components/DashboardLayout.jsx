@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useMsal } from "@azure/msal-react";
 import PropTypes from "prop-types";
+import { SWA_LOGOUT_URL } from "../AuthConfig";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
 import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon, WellBeingIcon } from "./Icons";
@@ -53,7 +53,7 @@ SidebarUserCard.propTypes = {
   onClose: PropTypes.func.isRequired,
 };
 
-function applyProfileData(data, state, setAvatarUrl, setProfileName) {
+function applyProfileData(data, state, setAvatarUrl, setProfileName, setProfileEmail) {
   const avatar = extractAvatarUrl(data);
   if (avatar !== null) {
     setAvatarUrl(avatar);
@@ -63,18 +63,22 @@ function applyProfileData(data, state, setAvatarUrl, setProfileName) {
     const name = [data.firstName, data.lastName].filter(Boolean).join(" ") || data.name || "";
     if (name) { setProfileName(name); state.nameFound = true; }
   }
+  if (!state.emailFound && data.email) {
+    setProfileEmail(data.email);
+    state.emailFound = true;
+  }
 }
 
-async function fetchProfileData(h, getCancelled, setAvatarUrl, setProfileName) {
-  const state = { nameFound: false, avatarFound: false };
+async function fetchProfileData(h, getCancelled, setAvatarUrl, setProfileName, setProfileEmail) {
+  const state = { nameFound: false, avatarFound: false, emailFound: false };
   for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
     try {
       const res = await fetch(url, { headers: h, credentials: "include" });
       if (!res.ok) continue;
       const data = await res.json();
       if (getCancelled()) return;
-      applyProfileData(data, state, setAvatarUrl, setProfileName);
-      if (state.nameFound && state.avatarFound) break;
+      applyProfileData(data, state, setAvatarUrl, setProfileName, setProfileEmail);
+      if (state.nameFound && state.avatarFound && state.emailFound) break;
     } catch { /* try next */ }
   }
 }
@@ -82,9 +86,9 @@ async function fetchProfileData(h, getCancelled, setAvatarUrl, setProfileName) {
 export default function DashboardLayout({ activeNav, children }) {
   const nav = useNavigate();
   const location = useLocation();
-  const { instance, accounts } = useMsal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(location.state?.avatarUrl ?? "");
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -101,7 +105,7 @@ export default function DashboardLayout({ activeNav, children }) {
   useEffect(() => {
     let cancelled = false;
     waitForToken()
-      .then(() => fetchProfileData(authHeaders(), () => cancelled, setAvatarUrl, setProfileName))
+      .then(() => fetchProfileData(authHeaders(), () => cancelled, setAvatarUrl, setProfileName, setProfileEmail))
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -130,17 +134,11 @@ export default function DashboardLayout({ activeNav, children }) {
   async function executeLogout() {
     try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch { /* best-effort */ }
     localStorage.removeItem("accessToken");
-    if (accounts.length > 0) {
-      instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
-    } else { nav("/"); }
+    window.location.href = `${SWA_LOGOUT_URL}?post_logout_redirect_uri=/`;
   }
 
-  const account = accounts[0];
-  const accountGivenName = typeof account?.idTokenClaims?.given_name === "string" ? account.idTokenClaims.given_name : "";
-  const accountFamilyName = typeof account?.idTokenClaims?.family_name === "string" ? account.idTokenClaims.family_name : "";
-  const userName = profileName || account?.name || account?.idTokenClaims?.name ||
-    [accountGivenName, accountFamilyName].filter(Boolean).join(" ") || "Student";
-  const userEmail = account?.username || "";
+  const userName = profileName || "Student";
+  const userEmail = profileEmail || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
   return (

@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useMsal } from "@azure/msal-react";
 import Carousel from "../components/Carousel";
 import FeatureCard from "../components/FeatureCard";
 import { AvatarContent } from "../components/DashboardLayout";
@@ -9,6 +8,7 @@ import studyGroupImg from "../assets/images/study-group.jpg";
 import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
+import { SWA_LOGOUT_URL } from "../AuthConfig";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
 import { WellBeingIcon } from "../components/Icons";
@@ -1370,7 +1370,6 @@ function FeedbackPickerModal({
 function DashboardHome() {
   const nav = useNavigate();
   const location = useLocation();
-  const { instance, accounts } = useMsal();
 
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1378,6 +1377,7 @@ function DashboardHome() {
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(location.state?.avatarUrl ?? "");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -1456,6 +1456,7 @@ function DashboardHome() {
         if (profileAvatar !== null) setAvatarUrl(profileAvatar);
         const displayName = getProfileDisplayName(profileData);
         if (displayName) setProfileName(displayName);
+        if (profileData?.email) setProfileEmail(profileData.email);
       } catch {
         // Best effort profile enrichment.
       }
@@ -1702,9 +1703,7 @@ function DashboardHome() {
   async function executeLogout() {
     try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch { /* best-effort */ }
     localStorage.removeItem("accessToken");
-    if (accounts.length > 0) {
-      instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
-    } else { nav("/"); }
+    window.location.href = `${SWA_LOGOUT_URL}?post_logout_redirect_uri=/`;
   }
 
   async function handleJoin(groupId) {
@@ -1791,12 +1790,8 @@ function DashboardHome() {
     }
   }
 
-  const account = accounts[0];
-  const accountGivenName = typeof account?.idTokenClaims?.given_name === "string" ? account.idTokenClaims.given_name : "";
-  const accountFamilyName = typeof account?.idTokenClaims?.family_name === "string" ? account.idTokenClaims.family_name : "";
-  const userName = profileName || account?.name || account?.idTokenClaims?.name ||
-    [accountGivenName, accountFamilyName].filter(Boolean).join(" ") || "Student";
-  const userEmail = account?.username || "";
+  const userName = profileName || "Student";
+  const userEmail = profileEmail || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
   const reviewableMembers = getReviewableMembers(selectedMembers, userEmail);

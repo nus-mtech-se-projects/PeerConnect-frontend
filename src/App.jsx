@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { getSwaUser } from "./AuthConfig";
 import Navbar from "./components/Navbar";
@@ -21,6 +21,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function App() {
   const nav = useNavigate();
+  const [isAuthChecking, setIsAuthChecking] = useState(() => sessionStorage.getItem("swaLoggingIn") === "true");
 
   useEffect(() => {
     // Check if existing token is still valid (not expired)
@@ -38,7 +39,11 @@ export default function App() {
 
     // Check SWA Entra ID auth and exchange with backend
     getSwaUser().then((clientPrincipal) => {
-      if (!clientPrincipal) return;
+      if (!clientPrincipal) {
+        if (sessionStorage.getItem("swaLoggingIn")) sessionStorage.removeItem("swaLoggingIn");
+        setIsAuthChecking(false);
+        return;
+      }
 
       fetch(`${API_BASE}/api/auth/microsoft`, {
         method: "POST",
@@ -49,12 +54,25 @@ export default function App() {
         .then((data) => {
           if (data.accessToken) {
             localStorage.setItem("accessToken", data.accessToken);
+            sessionStorage.removeItem("swaLoggingIn");
+            setIsAuthChecking(false);
             nav("/");
+          } else {
+            sessionStorage.removeItem("swaLoggingIn");
+            setIsAuthChecking(false);
           }
         })
-        .catch((err) => console.error("Microsoft token exchange failed:", err));
+        .catch((err) => {
+          console.error("Microsoft token exchange failed:", err);
+          sessionStorage.removeItem("swaLoggingIn");
+          setIsAuthChecking(false);
+        });
     });
   }, [nav]);
+
+  if (isAuthChecking) {
+    return <div className="appShell"><main className="mainContent" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><p className="dashMsg">Authenticating...</p></main></div>;
+  }
 
   return (
     <div className="appShell">
