@@ -350,6 +350,7 @@ function openLeaveFromDetailDialog(groupId, setConfirmDialog, setLeavingGroup, s
 export default function GroupDetail() {
   const { groupId } = useParams();
   const nav = useNavigate();
+  const todayIso = new Date().toISOString().split("T")[0];
 
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
@@ -382,6 +383,7 @@ export default function GroupDetail() {
   useEffect(() => { loadGroup(); }, [loadGroup]);
 
   const isOwner = group?.isAdmin;
+  const scheduleMinDate = scheduleDate && scheduleDate < todayIso ? scheduleDate : todayIso;
 
   /* ── Owner actions ── */
 
@@ -500,7 +502,7 @@ export default function GroupDetail() {
                 <label className="gdLabel">
                   <span>Preferred Schedule *</span>
                   <div className="gdRow">
-                    <input className="gdInput" type="date" required min={new Date().toISOString().split("T")[0]} value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
+                    <input className="gdInput" type="date" required min={scheduleMinDate} value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
                     <input className="gdInput" type="time" required value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
                   </div>
                 </label>

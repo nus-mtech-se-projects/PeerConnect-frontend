@@ -4,7 +4,7 @@ import { useMsal } from "@azure/msal-react";
 import PropTypes from "prop-types";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
-import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon } from "./Icons";
+import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon, WellBeingIcon } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
 import Toast from "./Toast";
 import "../styles/pages/Dashboard.css";
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { id: "restrict", label: "Restricted Member", icon: <RestrictIcon />, path: "/", navState: { activeModule: "restrictedMembers" } },
   { id: "ai", label: "AI Tutor", icon: <AiIcon />, disabled: true },
   { id: "support", label: "Support", icon: <SupportIcon />, disabled: true },
+  { id: "wellbeing", label: "Well-being", icon: <WellBeingIcon />, path: "/wellbeing" },
 ];
 
 export function AvatarContent({ avatarUrl, userInitial }) {

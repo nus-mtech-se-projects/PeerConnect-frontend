@@ -1,0 +1,61 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   WellBeing.css — only overrides/extensions that cannot be covered by the
+   existing Home.css and Dashboard.css classes.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Resource card description — override the 2-line clamp from .groupDesc */
+.wbCardDesc {
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  display: block;           /* undo -webkit-box */
+  overflow: visible;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+  flex: 1;
+}
+
+/* Phone link — secondary action alongside .groupJoinBtn */
+.wbPhoneLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 20px;
+  border-radius: 15px;
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: var(--accent3);
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  text-decoration: none;
+  transition: background 150ms ease, color 150ms ease, transform 120ms ease;
+  white-space: nowrap;
+}
+.wbPhoneLink:hover {
+  background: var(--accent);
+  color: #fff;
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+/* Landing-page well-being banner — flex wrapper around a .featureCard */
+.wbBannerInner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.wbBannerIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.wbBannerBody { flex: 1; min-width: 0; }
+
+@media (max-width: 600px) {
+  .wbBannerInner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}

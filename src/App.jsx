@@ -13,6 +13,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
 import GroupDetail from "./pages/GroupDetail";
+import WellBeing from "./pages/WellBeing";
 import AiTutor from "./pages/AiTutor";
 import PrivateRoute from "./components/PrivateRoute"
 import PublicRoute from "./components/PublicRoute";
@@ -74,6 +75,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/contact" element={<About />} />
+          <Route path="/wellbeing" element={<WellBeing />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
