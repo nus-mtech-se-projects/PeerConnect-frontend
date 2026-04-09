@@ -11,7 +11,10 @@ const EMPTY_PROFILE = {
 
 async function authenticate(page) {
   await page.goto('/');
-  await page.evaluate(() => localStorage.setItem('accessToken', 'fake.jwt.token'));
+  await page.evaluate(() => {
+    const payload = btoa(JSON.stringify({ exp: 9999999999, sub: 'test' }));
+    localStorage.setItem('accessToken', `eyJhbGciOiJub25lIn0.${payload}.sig`);
+  });
 }
 
 async function gotoProfile(page, profileData = EMPTY_PROFILE) {

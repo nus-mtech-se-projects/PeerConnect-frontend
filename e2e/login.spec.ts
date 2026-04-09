@@ -35,7 +35,7 @@ test.describe('Login page', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ accessToken: 'fake.jwt.token' }),
+        body: JSON.stringify({ accessToken: `eyJhbGciOiJub25lIn0.${Buffer.from(JSON.stringify({exp:9999999999,sub:'test'})).toString('base64')}.sig` }),
       })
     );
     await page.getByPlaceholder('e.g. johntan@u.nus.edu or A1234567X').fill('test@u.nus.edu');

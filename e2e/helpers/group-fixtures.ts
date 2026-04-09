@@ -19,14 +19,10 @@ export function createFakeJwt(): string {
   return `${header}.${payload}.fakesig`;
 }
 
-export async function authenticate(page: Page, { fakeJwt = false } = {}) {
+export async function authenticate(page: Page) {
+  const token = createFakeJwt();
   await page.goto('/');
-  if (fakeJwt) {
-    const token = createFakeJwt();
-    await page.evaluate((t) => localStorage.setItem('accessToken', t), token);
-  } else {
-    await page.evaluate(() => localStorage.setItem('accessToken', 'fake.jwt.token'));
-  }
+  await page.evaluate((t) => localStorage.setItem('accessToken', t), token);
 }
 
 // ── Mock data factory ─────────────────────────────────────────────────────────

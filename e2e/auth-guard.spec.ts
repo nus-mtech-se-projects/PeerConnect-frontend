@@ -18,7 +18,7 @@ test.describe('Auth guard (private routes)', () => {
 
   test('allows access to /profile when token is set', async ({ page }) => {
     await page.evaluate(() =>
-      localStorage.setItem('accessToken', 'fake.jwt.token')
+      localStorage.setItem('accessToken', `eyJhbGciOiJub25lIn0.${btoa(JSON.stringify({exp:9999999999,sub:'test'}))}.sig`)
     );
     await page.goto('/profile');
     await expect(page).not.toHaveURL('/login');
@@ -26,7 +26,7 @@ test.describe('Auth guard (private routes)', () => {
 
   test('allows access to /change-password when token is set', async ({ page }) => {
     await page.evaluate(() =>
-      localStorage.setItem('accessToken', 'fake.jwt.token')
+      localStorage.setItem('accessToken', `eyJhbGciOiJub25lIn0.${btoa(JSON.stringify({exp:9999999999,sub:'test'}))}.sig`)
     );
     await page.goto('/change-password');
     await expect(page).not.toHaveURL('/login');
