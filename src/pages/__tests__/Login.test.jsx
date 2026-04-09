@@ -1,10 +1,7 @@
-import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Login from "../Login";
-import { useMsal } from "@azure/msal-react";
-import { loginRequest } from "../../AuthConfig";
 
 // Mock useNavigate
 const mockNav = vi.fn();
@@ -18,6 +15,8 @@ describe("Login page", () => {
     mockNav.mockClear();
     localStorage.clear();
     vi.restoreAllMocks();
+    delete window.location;
+    window.location = { href: "" };
   });
 
   // ── Rendering ──────────────────────────────────────────────────────────────
@@ -38,7 +37,7 @@ describe("Login page", () => {
     expect(screen.getByRole("button", { name: /^login$/i })).toBeInTheDocument();
   });
 
-  it("renders OAuth buttons for Google, Microsoft and GitHub", () => {
+  it("renders OAuth buttons for Microsoft", () => {
     render(<MemoryRouter><Login /></MemoryRouter>);
     expect(screen.getByRole("button", { name: /continue with microsoft/i })).toBeInTheDocument();
   });
@@ -119,26 +118,12 @@ describe("Login page", () => {
     resolve({ ok: true, json: async () => ({}), text: async () => "" });
   });
 
-  // ── OAuth buttons ──────────────────────────────────────────────────────────
+  // ── OAuth button ───────────────────────────────────────────────────────────
 
-  vi.mock("@azure/msal-react", () => ({
-    useMsal: vi.fn(() => ({
-      instance: { loginRedirect: vi.fn().mockResolvedValue(undefined) },
-      accounts: [],
-    })),
-  }));
-  it("OAuth buttons are clickable without throwing", async () => {
+  it("Microsoft button redirects to SWA Entra ID login", async () => {
     const user = userEvent.setup({ delay: null });
-    const mockLoginRedirect = vi.fn().mockResolvedValue(undefined);
-
-    useMsal.mockReturnValue({
-      instance: { loginRedirect: mockLoginRedirect },
-      accounts: [],
-    });
-
     render(<MemoryRouter><Login /></MemoryRouter>);
-    await user.click(screen.getByRole("button", { name: /Continue with Microsoft/i }));
-
-    expect(mockLoginRedirect).toHaveBeenCalledWith(loginRequest);
+    await user.click(screen.getByRole("button", { name: /continue with microsoft/i }));
+    expect(window.location.href).toBe("/auth/login/aad?post_login_redirect_uri=/");
   });
 });

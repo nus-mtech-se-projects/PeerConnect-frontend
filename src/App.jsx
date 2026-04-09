@@ -1,7 +1,6 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import { useMsal } from "@azure/msal-react";
-import { InteractionRequiredAuthError } from "@azure/msal-browser";
+import { getSwaUser } from "./AuthConfig";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
@@ -21,34 +20,30 @@ import PublicRoute from "./components/PublicRoute";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function App() {
-  const { instance, accounts } = useMsal();
   const nav = useNavigate();
 
   useEffect(() => {
-    if (accounts.length === 0) return;
-
     // Check if existing token is still valid (not expired)
     const existingToken = localStorage.getItem("accessToken");
     if (existingToken) {
       try {
         const payload = JSON.parse(atob(existingToken.split(".")[1]));
-        const expiresAt = payload.exp * 1000; // convert to ms
+        const expiresAt = payload.exp * 1000;
         if (Date.now() < expiresAt - 60000) return; // still valid (1 min buffer)
-        // Token expired — remove it and continue with exchange
         localStorage.removeItem("accessToken");
       } catch {
         localStorage.removeItem("accessToken");
       }
     }
 
-    instance.acquireTokenSilent({
-      scopes: ["User.Read"],
-      account: accounts[0],
-    }).then((response) => {
+    // Check SWA Entra ID auth and exchange with backend
+    getSwaUser().then((clientPrincipal) => {
+      if (!clientPrincipal) return;
+
       fetch(`${API_BASE}/api/auth/microsoft`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken: response.idToken }),
+        body: JSON.stringify({ clientPrincipal }),
       })
         .then((res) => res.json())
         .then((data) => {
@@ -58,14 +53,8 @@ export default function App() {
           }
         })
         .catch((err) => console.error("Microsoft token exchange failed:", err));
-    }).catch((err) => {
-      if (err instanceof InteractionRequiredAuthError) {
-        instance.acquireTokenRedirect({ scopes: ["User.Read"], account: accounts[0] });
-      } else {
-        console.error("acquireTokenSilent failed:", err);
-      }
     });
-  }, [accounts, instance, nav]);
+  }, [nav]);
 
   return (
     <div className="appShell">

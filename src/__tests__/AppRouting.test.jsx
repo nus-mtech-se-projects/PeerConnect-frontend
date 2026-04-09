@@ -1,8 +1,21 @@
-import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import App from "../App";
+
+// Prevent App's getSwaUser() from making real fetch calls in tests
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockImplementation((url) => {
+    if (url === "/.auth/me") {
+      return Promise.resolve({ json: async () => ({ clientPrincipal: null }) });
+    }
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("App routing", () => {
   it("navigates between pages from navbar", async () => {
