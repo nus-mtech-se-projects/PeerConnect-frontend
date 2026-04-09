@@ -53,4 +53,17 @@ test.describe('Login page', () => {
     await page.getByRole('link', { name: 'Click here' }).click();
     await expect(page).toHaveURL('/forgot-password');
   });
+
+  test('Continue with Microsoft button triggers Entra ID login redirect', async ({ page }) => {
+    // Intercept the SWA auth navigation so the test doesn't leave the app
+    await page.route('**/auth/login/aad**', (route) => route.abort());
+
+    const [request] = await Promise.all([
+      page.waitForRequest((req) => req.url().includes('/auth/login/aad')),
+      page.getByRole('button', { name: 'Continue with Microsoft' }).click(),
+    ]);
+
+    expect(request.url()).toContain('/auth/login/aad');
+    expect(request.url()).toContain('post_login_redirect_uri=/');
+  });
 });

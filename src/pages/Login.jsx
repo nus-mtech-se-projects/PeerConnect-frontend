@@ -1,7 +1,6 @@
 import { useMemo, useState} from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMsal } from "@azure/msal-react";
-import { getMicrosoftLoginErrorMessage, loginRequest } from "../AuthConfig";
+import { SWA_LOGIN_URL } from "../AuthConfig";
 import { API_BASE } from "../utils/auth";
 // Shared auth page styles (login + signup)
 import "../styles/pages/Auth.css";
@@ -9,7 +8,6 @@ import "../styles/pages/Auth.css";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { instance} = useMsal();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
@@ -74,14 +72,8 @@ export default function Login() {
           <button
             type="button"
             className="socialBtn"
-            onClick={async () => {
-              try {
-                await instance.loginRedirect(loginRequest);
-              } catch (err) {
-                if (err.errorCode !== "interaction_in_progress") {
-                  setError(getMicrosoftLoginErrorMessage(err));
-                }
-              }
+            onClick={() => {
+              window.location.href = `${SWA_LOGIN_URL}?post_login_redirect_uri=/`;
             }}
           >
             Continue with Microsoft

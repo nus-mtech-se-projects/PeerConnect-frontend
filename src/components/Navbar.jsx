@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useMsal } from "@azure/msal-react";
+import { SWA_LOGOUT_URL } from "../AuthConfig";
 import peerconnectIcon from "../assets/images/peerconnect_icon.png";
 import ConfirmDialog from "./ConfirmDialog";
 import "../styles/pages/Dashboard.css";
@@ -8,7 +8,6 @@ import "../styles/pages/Dashboard.css";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { instance, accounts } = useMsal();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const isLoggedIn = !!localStorage.getItem("accessToken");
@@ -92,11 +91,7 @@ export default function Navbar() {
                           await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
                         } catch { /* proceed anyway */ }
                         localStorage.removeItem("accessToken");
-                        if (accounts.length > 0) {
-                          instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
-                        } else {
-                          navigate("/");
-                        }
+                        window.location.href = `${SWA_LOGOUT_URL}?post_logout_redirect_uri=/`;
                       },
                       onCancel: () => setConfirmDialog(null),
                     });
