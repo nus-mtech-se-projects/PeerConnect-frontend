@@ -9,7 +9,7 @@ import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
 import { SWA_LOGOUT_URL } from "../AuthConfig";
-import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
+import { API_BASE, authHeaders } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
 import { WellBeingIcon } from "../components/Icons";
 import {
@@ -167,20 +167,13 @@ function getReviewableMembers(members, userEmail) {
 
 async function fetchFirstAvailableProfile() {
   const headers = authHeaders();
-  let fallbackProfile = null;
-  for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
-    try {
-      const res = await fetch(url, { headers, credentials: "include" });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!fallbackProfile) fallbackProfile = data;
-      const avatar = extractAvatarUrl(data);
-      if (avatar) return data;
-    } catch {
-      // Try next endpoint.
-    }
-  }
-  return fallbackProfile;
+  const results = await Promise.allSettled([
+    fetch(`${API_BASE}/api/users/me`, { headers, credentials: "include" }).then((r) => r.ok ? r.json() : null),
+    fetch(`${API_BASE}/api/profile`, { headers, credentials: "include" }).then((r) => r.ok ? r.json() : null),
+  ]);
+  const profiles = results.map((r) => r.status === "fulfilled" ? r.value : null).filter(Boolean);
+  // Prefer whichever profile has an avatar
+  return profiles.find((d) => extractAvatarUrl(d)) || profiles[0] || null;
 }
 
 /* ──────── SVG icons ──────── */
@@ -327,7 +320,6 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
     const loadTutorClasses = async () => {
       setLoading(true);
       try {
-        await waitForToken();
         const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
         if (!res.ok) throw new Error(`Failed to load (${res.status})`);
         const data = await res.json();
@@ -650,7 +642,6 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
     const loadTuteeClasses = async () => {
       setLoading(true);
       try {
-        await waitForToken();
         const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
         if (!res.ok) throw new Error(`Failed to load (${res.status})`);
         const data = await res.json();
@@ -1023,7 +1014,7 @@ function RestrictedMemberSection({ showToast, setConfirmDialog }) {
   }
 
   useEffect(() => {
-    waitForToken().then(() => loadRestricted()).catch(() => setRuLoading(false));
+    loadRestricted();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1448,7 +1439,6 @@ function DashboardHome() {
     let cancelled = false;
     const loadProfile = async () => {
       try {
-        await waitForToken();
         if (cancelled) return;
         const profileData = await fetchFirstAvailableProfile();
         if (cancelled || !profileData) return;
@@ -1478,8 +1468,7 @@ function DashboardHome() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    waitForToken().then(() => {
-      if (cancelled) return;
+    if (!cancelled) {
       fetch(`${API_BASE}/api/groups`, { headers: authHeaders(), credentials: "include" })
         .then((r) => {
           if (!r.ok) {
@@ -1495,23 +1484,18 @@ function DashboardHome() {
         .then((data) => { if (!cancelled) setGroups(Array.isArray(data) ? data : []); })
         .catch((err) => { if (!cancelled) setError(err.message); })
         .finally(() => { if (!cancelled) setLoading(false); });
-    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    }
     return () => { cancelled = true; };
   }, [nav]);
 
   useEffect(() => {
     let cancelled = false;
-    waitForToken()
-      .then(async () => {
-        if (cancelled) return;
-        await refreshGroupChats();
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setGroupChats([]);
-          setSelectedGroupChatId("");
-        }
-      });
+    refreshGroupChats().catch(() => {
+      if (!cancelled) {
+        setGroupChats([]);
+        setSelectedGroupChatId("");
+      }
+    });
     return () => {
       cancelled = true;
     };

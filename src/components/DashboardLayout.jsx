@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
 import { SWA_LOGOUT_URL } from "../AuthConfig";
-import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
+import { API_BASE, authHeaders } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
 import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon, WellBeingIcon } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
@@ -71,15 +71,16 @@ function applyProfileData(data, state, setAvatarUrl, setProfileName, setProfileE
 
 async function fetchProfileData(h, getCancelled, setAvatarUrl, setProfileName, setProfileEmail) {
   const state = { nameFound: false, avatarFound: false, emailFound: false };
-  for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
-    try {
-      const res = await fetch(url, { headers: h, credentials: "include" });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (getCancelled()) return;
-      applyProfileData(data, state, setAvatarUrl, setProfileName, setProfileEmail);
-      if (state.nameFound && state.avatarFound && state.emailFound) break;
-    } catch { /* try next */ }
+  const results = await Promise.allSettled([
+    fetch(`${API_BASE}/api/users/me`, { headers: h, credentials: "include" }).then((r) => r.ok ? r.json() : null),
+    fetch(`${API_BASE}/api/profile`, { headers: h, credentials: "include" }).then((r) => r.ok ? r.json() : null),
+  ]);
+  for (const r of results) {
+    if (getCancelled()) return;
+    const data = r.status === "fulfilled" ? r.value : null;
+    if (!data) continue;
+    applyProfileData(data, state, setAvatarUrl, setProfileName, setProfileEmail);
+    if (state.nameFound && state.avatarFound && state.emailFound) break;
   }
 }
 
@@ -104,9 +105,7 @@ export default function DashboardLayout({ activeNav, children }) {
 
   useEffect(() => {
     let cancelled = false;
-    waitForToken()
-      .then(() => fetchProfileData(authHeaders(), () => cancelled, setAvatarUrl, setProfileName, setProfileEmail))
-      .catch(() => {});
+    fetchProfileData(authHeaders(), () => cancelled, setAvatarUrl, setProfileName, setProfileEmail).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
