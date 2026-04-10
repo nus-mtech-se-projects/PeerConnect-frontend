@@ -452,11 +452,12 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
       {loading && <p className="dashMsg">Loading classes…</p>}
       {error && <p className="dashMsg dashError">{error}</p>}
 
+      {viewMode === "grid" && !loading && !error && classes.length === 0 && (
+        <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
+      )}
+
       {viewMode === "grid" ? (
         <div className="dashGrid">
-          {!loading && !error && classes.length === 0 && (
-            <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
-          )}
           {classes.map((c) => (
             <div className="groupCard" key={c.id}>
               <div className="groupCardHeader">
@@ -735,11 +736,12 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
       {loading && <p className="dashMsg">Loading classes…</p>}
       {error && <p className="dashMsg dashError">{error}</p>}
 
+      {viewMode === "grid" && !loading && !error && filtered.length === 0 && (
+        <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
+      )}
+
       {viewMode === "grid" ? (
         <div className="dashGrid">
-          {!loading && !error && filtered.length === 0 && (
-            <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
-          )}
           {filtered.map((c) => (
             <div className="groupCard" key={c.id}>
               <div className="groupCardHeader">
