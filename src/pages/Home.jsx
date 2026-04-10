@@ -451,12 +451,12 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
 
       {loading && <p className="dashMsg">Loading classes…</p>}
       {error && <p className="dashMsg dashError">{error}</p>}
-      {!loading && !error && classes.length === 0 && (
-        <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
-      )}
 
       {viewMode === "grid" ? (
         <div className="dashGrid">
+          {!loading && !error && classes.length === 0 && (
+            <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
+          )}
           {classes.map((c) => (
             <div className="groupCard" key={c.id}>
               <div className="groupCardHeader">
@@ -501,6 +501,13 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
               </tr>
             </thead>
             <tbody>
+              {!loading && !error && classes.length === 0 && (
+                <tr>
+                  <td colSpan={7}>
+                    <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
+                  </td>
+                </tr>
+              )}
               {classes.map((c) => (
                 <tr key={c.id}>
                   <td><span className="groupCourse">{c.moduleCode || "General"}</span></td>
@@ -727,12 +734,12 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
 
       {loading && <p className="dashMsg">Loading classes…</p>}
       {error && <p className="dashMsg dashError">{error}</p>}
-      {!loading && !error && filtered.length === 0 && (
-        <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
-      )}
 
       {viewMode === "grid" ? (
         <div className="dashGrid">
+          {!loading && !error && filtered.length === 0 && (
+            <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
+          )}
           {filtered.map((c) => (
             <div className="groupCard" key={c.id}>
               <div className="groupCardHeader">
@@ -787,6 +794,13 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
               </tr>
             </thead>
             <tbody>
+              {!loading && !error && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
+                  </td>
+                </tr>
+              )}
               {filtered.map((c) => (
                 <tr key={c.id}>
                   <td><span className="groupCourse">{c.moduleCode || "General"}</span></td>
