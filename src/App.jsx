@@ -21,6 +21,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function App() {
   const nav = useNavigate();
+  const [authMessage, setAuthMessage] = useState("Authenticating...");
   const [isAuthChecking, setIsAuthChecking] = useState(() => {
     // If we have a valid token, no need to check SWA auth
     const existingToken = localStorage.getItem("accessToken");
@@ -80,6 +81,7 @@ export default function App() {
             }
           } catch (err) {
             console.warn(`Backend waking up... attempt ${attempt} failed.`);
+            setAuthMessage(`Connecting securely... (attempt ${attempt} of 10)`);
           }
           
           // Wait 3 seconds before the next retry
@@ -112,7 +114,7 @@ export default function App() {
   }, [isAuthChecking, nav]);
 
   if (isAuthChecking) {
-    return <div className="appShell"><main className="mainContent" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><p className="dashMsg">Authenticating...</p></main></div>;
+    return <div className="appShell"><main className="mainContent" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><p className="dashMsg">{authMessage}</p></main></div>;
   }
 
   return (
