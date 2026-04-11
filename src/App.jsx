@@ -39,34 +39,76 @@ export default function App() {
     // Skip SWA check if not returning from a login redirect
     if (!isAuthChecking) return;
 
-    // Check SWA Entra ID auth and exchange with backend
-    getSwaUser().then((clientPrincipal) => {
-      if (!clientPrincipal) {
-        sessionStorage.removeItem("swaLoggingIn");
-        setIsAuthChecking(false);
-        return;
-      }
+    let cancelled = false;
 
-      fetch(`${API_BASE}/api/auth/microsoft`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientPrincipal }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.accessToken) {
-            localStorage.setItem("accessToken", data.accessToken);
+    const authenticateWithRetry = async () => {
+      try {
+        // 1. Get the SWA user (Microsoft Entra ID)
+        const clientPrincipal = await getSwaUser();
+        
+        if (!clientPrincipal) {
+          if (!cancelled) {
+            sessionStorage.removeItem("swaLoggingIn");
+            setIsAuthChecking(false);
           }
-        })
-        .catch((err) => {
-          console.error("Microsoft token exchange failed:", err);
-        })
-        .finally(() => {
+          return;
+        }
+
+        // 2. Retry logic for Backend Cold Start
+        // If the backend hasn't been used for a while, it takes time to wake up.
+        // We will retry the token exchange up to 10 times (30 seconds total) to guarantee a successful login.
+        let tokenExchanged = false;
+        for (let attempt = 1; attempt <= 10; attempt++) {
+          if (cancelled) return;
+          try {
+            const res = await fetch(`${API_BASE}/api/auth/microsoft`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ clientPrincipal }),
+            });
+            
+            if (res.ok) {
+              const data = await res.json();
+              if (data.accessToken) {
+                localStorage.setItem("accessToken", data.accessToken);
+                tokenExchanged = true;
+                break; // Success! Exit the retry loop.
+              }
+            } else if (res.status >= 400 && res.status < 500) {
+              // Client error (e.g. 401 unauthorized), no point in retrying.
+              break;
+            }
+          } catch (err) {
+            console.warn(`Backend waking up... attempt ${attempt} failed.`);
+          }
+          
+          // Wait 3 seconds before the next retry
+          if (attempt < 10) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+        }
+
+        if (!tokenExchanged) {
+          console.error("Microsoft token exchange failed after multiple retries.");
+        }
+      } catch (err) {
+        // This catches any errors from getSwaUser() failing or timing out
+        console.error("Microsoft SWA authentication check failed:", err);
+      } finally {
+        if (!cancelled) {
+          // Guarantee we exit the loading screen and proceed to the app
           sessionStorage.removeItem("swaLoggingIn");
           setIsAuthChecking(false);
           nav("/");
-        });
-    });
+        }
+      }
+    };
+
+    authenticateWithRetry();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthChecking, nav]);
 
   if (isAuthChecking) {
