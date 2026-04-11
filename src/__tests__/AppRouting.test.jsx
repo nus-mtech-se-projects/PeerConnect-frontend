@@ -29,7 +29,7 @@ describe("App routing", () => {
 
     // Home loaded
     expect(
-      screen.getByRole("heading", { name: /study smarter with peers/i })
+      await screen.findByRole("heading", { name: /study smarter with peers/i })
     ).toBeInTheDocument();
 
     // Helper: always scope clicks to the navbar only
@@ -42,17 +42,17 @@ describe("App routing", () => {
     // Login
     await navClick(/^login$/i);
     expect(
-      screen.getByRole("heading", { name: /^login$/i })
+      await screen.findByRole("heading", { name: /^login$/i })
     ).toBeInTheDocument();
 
     // Signup
     await navClick(/^sign up$/i);
     expect(
-      screen.getByRole("heading", { name: /create account/i })
+      await screen.findByRole("heading", { name: /create account/i })
     ).toBeInTheDocument();
 
     // Go to About/Contact via navbar
     await navClick(/about \/ contact/i);
-    expect(screen.getByText(/who are we\?/i)).toBeInTheDocument();
+    expect(await screen.findByText(/who are we\?/i)).toBeInTheDocument();
   });
 });
