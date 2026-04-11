@@ -79,7 +79,7 @@ export default function App() {
               // Client error (e.g. 401 unauthorized), no point in retrying.
               break;
             }
-          } catch (err) {
+          } catch{
             console.warn(`Backend waking up... attempt ${attempt} failed.`);
             setAuthMessage(`Connecting securely... (attempt ${attempt} of 10)`);
           }
