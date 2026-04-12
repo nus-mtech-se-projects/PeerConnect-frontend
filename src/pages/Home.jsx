@@ -8,7 +8,11 @@ import studyGroupImg from "../assets/images/study-group.jpg";
 import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
-import { SWA_LOGOUT_URL } from "../AuthConfig";
+/* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+import { useMsal } from "@azure/msal-react";
+/* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+   Preserved for reference. See main branch for active SWA implementation. */
+// import { SWA_LOGOUT_URL } from "../AuthConfig";
 import { API_BASE, authHeaders } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
 import { WellBeingIcon } from "../components/Icons";
@@ -1377,6 +1381,8 @@ function FeedbackPickerModal({
 function DashboardHome() {
   const nav = useNavigate();
   const location = useLocation();
+  /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+  const { instance, accounts } = useMsal();
 
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1703,7 +1709,12 @@ function DashboardHome() {
   async function executeLogout() {
     try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch { /* best-effort */ }
     localStorage.removeItem("accessToken");
+    /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+    instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
+    /* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+       Preserved for reference. See main branch for active SWA implementation.
     window.location.href = `${SWA_LOGOUT_URL}?post_logout_redirect_uri=/`;
+    */
   }
 
   async function handleJoin(groupId) {

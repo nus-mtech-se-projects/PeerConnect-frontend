@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
-import { SWA_LOGOUT_URL } from "../AuthConfig";
+/* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+import { useMsal } from "@azure/msal-react";
+/* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+   Preserved for reference. See main branch for active SWA implementation. */
+// import { SWA_LOGOUT_URL } from "../AuthConfig";
 import { API_BASE, authHeaders } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
 import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon, WellBeingIcon } from "./Icons";
@@ -87,6 +91,8 @@ async function fetchProfileData(h, getCancelled, setAvatarUrl, setProfileName, s
 export default function DashboardLayout({ activeNav, children }) {
   const nav = useNavigate();
   const location = useLocation();
+  /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+  const { instance, accounts } = useMsal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -133,7 +139,12 @@ export default function DashboardLayout({ activeNav, children }) {
   async function executeLogout() {
     try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch { /* best-effort */ }
     localStorage.removeItem("accessToken");
+    /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+    instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
+    /* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+       Preserved for reference. See main branch for active SWA implementation.
     window.location.href = `${SWA_LOGOUT_URL}?post_logout_redirect_uri=/`;
+    */
   }
 
   const userName = profileName || "Student";

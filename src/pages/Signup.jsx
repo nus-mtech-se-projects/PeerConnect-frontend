@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { SWA_LOGIN_URL } from "../AuthConfig";
+/* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+import { useMsal } from "@azure/msal-react";
+/* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+   Preserved for reference. See main branch for active SWA implementation. */
+// import { SWA_LOGIN_URL } from "../AuthConfig";
 import { API_BASE } from "../utils/auth";
 // Shared auth page styles (login + signup)
 import "../styles/pages/Auth.css";
@@ -8,6 +12,8 @@ import "../styles/pages/Auth.css";
 
 export default function Signup() {
   const nav = useNavigate();
+  /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+  const { instance } = useMsal();
   const [nusStudentId, setNusStudentId] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -85,9 +91,20 @@ export default function Signup() {
           <button
             type="button"
             className="socialBtn"
-            onClick={() => {
+            onClick={async () => {
+              /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+              try {
+                await instance.loginRedirect({ scopes: ["openid", "profile", "email"] });
+              } catch (err) {
+                if (err.errorCode !== "interaction_in_progress") {
+                  console.error("Microsoft login failed:", err);
+                }
+              }
+              /* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+                 Preserved for reference. See main branch for active SWA implementation.
               sessionStorage.setItem("swaLoggingIn", "true");
               window.location.href = `${SWA_LOGIN_URL}?post_login_redirect_uri=/`;
+              */
             }}
           >
             Continue with Microsoft
