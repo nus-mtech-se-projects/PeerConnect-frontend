@@ -1,6 +1,11 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import { getSwaUser } from "./AuthConfig";
+/* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+import { useMsal } from "@azure/msal-react";
+import { backendTokenRequest } from "./AuthConfig";
+/* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+   Preserved for reference. See main branch for active SWA implementation. */
+// import { getSwaUser } from "./AuthConfig";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import PrivateRoute from "./components/PrivateRoute"
@@ -21,43 +26,69 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function App() {
   const nav = useNavigate();
+  /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+  const { instance, accounts } = useMsal();
+
+  /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+  useEffect(() => {
+    if (accounts.length === 0) return;
+    if (localStorage.getItem("accessToken")) return;
+
+    /* FIXED: was scopes: ["User.Read"] — that acquires a token for Microsoft Graph,
+       not for our backend. backendTokenRequest uses api://{clientId}/access_as_user
+       so Spring Boot receives a token with the correct audience (aud) claim.
+       FIXED: was sending response.idToken — ID tokens are for client-side identity
+       only. Spring Boot must receive response.accessToken to validate audience/scope. */
+    instance.acquireTokenSilent({
+      ...backendTokenRequest,
+      account: accounts[0],
+    }).then((response) => {
+      fetch(`${API_BASE}/api/auth/microsoft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        /* FIXED: backend checks for "idToken"/"credential"/"token" keys — "accessToken"
+           is not in that list and would return 400. Sending as "token" which the
+           backend already accepts as a fallback. The value is the access token (not
+           the id token) so Spring Boot receives the correct audience/scope. */
+        body: JSON.stringify({ token: response.accessToken }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.accessToken) {
+            localStorage.setItem("accessToken", data.accessToken);
+            nav("/");
+          }
+        })
+        .catch((err) => console.error("Microsoft token exchange failed:", err));
+    }).catch((err) => console.error("acquireTokenSilent failed:", err));
+  }, [accounts, instance, nav]);
+
+  /* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+     Preserved for reference. See main branch for active SWA implementation. */
+  /*
   const [authMessage, setAuthMessage] = useState("Authenticating...");
   const [isAuthChecking, setIsAuthChecking] = useState(() => {
-    // If we have a valid token, no need to check SWA auth
     const existingToken = localStorage.getItem("accessToken");
     if (existingToken) {
       try {
         const payload = JSON.parse(atob(existingToken.split(".")[1]));
         if (payload.exp * 1000 > Date.now() + 60000) return false;
-      } catch { /* fall through */ }
+      } catch { }
       localStorage.removeItem("accessToken");
     }
-    // Only show loading state if we're returning from SWA login redirect
     return sessionStorage.getItem("swaLoggingIn") === "true";
   });
 
   useEffect(() => {
-    // Skip SWA check if not returning from a login redirect
     if (!isAuthChecking) return;
-
     let cancelled = false;
-
     const authenticateWithRetry = async () => {
       try {
-        // 1. Get the SWA user (Microsoft Entra ID)
         const clientPrincipal = await getSwaUser();
-        
         if (!clientPrincipal) {
-          if (!cancelled) {
-            sessionStorage.removeItem("swaLoggingIn");
-            setIsAuthChecking(false);
-          }
+          if (!cancelled) { sessionStorage.removeItem("swaLoggingIn"); setIsAuthChecking(false); }
           return;
         }
-
-        // 2. Retry logic for Backend Cold Start
-        // If the backend hasn't been used for a while, it takes time to wake up.
-        // We will retry the token exchange up to 10 times (30 seconds total) to guarantee a successful login.
         let tokenExchanged = false;
         for (let attempt = 1; attempt <= 10; attempt++) {
           if (cancelled) return;
@@ -67,55 +98,31 @@ export default function App() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ clientPrincipal }),
             });
-            
             if (res.ok) {
               const data = await res.json();
-              if (data.accessToken) {
-                localStorage.setItem("accessToken", data.accessToken);
-                tokenExchanged = true;
-                break; // Success! Exit the retry loop.
-              }
-            } else if (res.status >= 400 && res.status < 500) {
-              // Client error (e.g. 401 unauthorized), no point in retrying.
-              break;
-            }
-          } catch{
+              if (data.accessToken) { localStorage.setItem("accessToken", data.accessToken); tokenExchanged = true; break; }
+            } else if (res.status >= 400 && res.status < 500) { break; }
+          } catch {
             console.warn(`Backend waking up... attempt ${attempt} failed.`);
             setAuthMessage(`Connecting securely... (attempt ${attempt} of 10)`);
           }
-          
-          // Wait 3 seconds before the next retry
-          if (attempt < 10) {
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          }
+          if (attempt < 10) await new Promise(resolve => setTimeout(resolve, 3000));
         }
-
-        if (!tokenExchanged) {
-          console.error("Microsoft token exchange failed after multiple retries.");
-        }
+        if (!tokenExchanged) console.error("Microsoft token exchange failed after multiple retries.");
       } catch (err) {
-        // This catches any errors from getSwaUser() failing or timing out
         console.error("Microsoft SWA authentication check failed:", err);
       } finally {
-        if (!cancelled) {
-          // Guarantee we exit the loading screen and proceed to the app
-          sessionStorage.removeItem("swaLoggingIn");
-          setIsAuthChecking(false);
-          nav("/");
-        }
+        if (!cancelled) { sessionStorage.removeItem("swaLoggingIn"); setIsAuthChecking(false); nav("/"); }
       }
     };
-
     authenticateWithRetry();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isAuthChecking, nav]);
 
   if (isAuthChecking) {
     return <div className="appShell"><main className="mainContent" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><p className="dashMsg">{authMessage}</p></main></div>;
   }
+  */
 
   return (
     <div className="appShell">

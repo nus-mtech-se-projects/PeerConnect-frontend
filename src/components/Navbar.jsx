@@ -1,6 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { SWA_LOGOUT_URL } from "../AuthConfig";
+/* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+import { useMsal } from "@azure/msal-react";
+/* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+   Preserved for reference. See main branch for active SWA implementation. */
+// import { SWA_LOGOUT_URL } from "../AuthConfig";
 import peerconnectIcon from "../assets/images/peerconnect_icon.png";
 import ConfirmDialog from "./ConfirmDialog";
 import "../styles/pages/Dashboard.css";
@@ -8,6 +12,8 @@ import "../styles/pages/Dashboard.css";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+  const { instance, accounts } = useMsal();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const isLoggedIn = !!localStorage.getItem("accessToken");
@@ -91,7 +97,12 @@ export default function Navbar() {
                           await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
                         } catch { /* proceed anyway */ }
                         localStorage.removeItem("accessToken");
+                        /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+                        instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
+                        /* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+                           Preserved for reference. See main branch for active SWA implementation.
                         window.location.href = `${SWA_LOGOUT_URL}?post_logout_redirect_uri=/`;
+                        */
                       },
                       onCancel: () => setConfirmDialog(null),
                     });

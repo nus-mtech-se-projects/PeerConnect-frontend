@@ -1,22 +1,9 @@
-/**
- * Azure Static Web Apps built-in Entra ID authentication helpers.
- *
- * Login/logout is handled by the SWA platform at the paths below.
- * After login, /.auth/me returns the signed-in user's clientPrincipal.
- *
- * Azure App Registration used:
- *   Tenant ID : e7fd6993-e646-4b0e-a981-d38362d2d061
- *   Client ID : 57cf3921-0d5b-4c96-9277-10a54818b823
- * (configured in the Azure Static Web Apps portal – no client-side secrets needed)
- */
-
+/* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+   Preserved for reference. See main branch for active SWA implementation. */
+/*
 export const SWA_LOGIN_URL = "/.auth/login/aad";
 export const SWA_LOGOUT_URL = "/.auth/logout";
 
-/**
- * Fetches the currently signed-in user from the SWA auth endpoint.
- * Returns the clientPrincipal object, or null if the user is not authenticated.
- */
 export async function getSwaUser() {
   try {
     const res = await fetch("/.auth/me");
@@ -26,3 +13,55 @@ export async function getSwaUser() {
     return null;
   }
 }
+*/
+
+/* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+import { PublicClientApplication, LogLevel } from "@azure/msal-browser";
+
+/* FIXED: removed hardcoded fallbacks. A missing env var now fails loudly at
+   startup rather than silently using a stale/wrong App Registration. */
+const clientId = import.meta.env.VITE_MSAL_CLIENT_ID;
+const tenantId = import.meta.env.VITE_MSAL_TENANT_ID;
+
+const msalConfig = {
+  auth: {
+    clientId,
+    authority: `https://login.microsoftonline.com/${tenantId}`,
+    redirectUri: window.location.origin,
+    postLogoutRedirectUri: window.location.origin,
+    navigateToLoginRequestUrl: false,
+  },
+  cache: {
+    cacheLocation: "localStorage",
+    storeAuthStateInCookie: false,
+  },
+  system: {
+    loggerOptions: {
+      loggerCallback: (level, message, containsPii) => {
+        if (containsPii) return;
+        switch (level) {
+          case LogLevel.Error:   console.error(message); break;
+          case LogLevel.Warning: console.warn(message);  break;
+          case LogLevel.Info:    console.info(message);  break;
+          case LogLevel.Verbose: console.debug(message); break;
+        }
+      },
+      logLevel: LogLevel.Warning,
+    },
+  },
+};
+
+export const msalInstance = new PublicClientApplication(msalConfig);
+
+/* FIXED: was ["User.Read"] (a Graph scope). Changed to OIDC identity scopes so
+   the ID token contains name/email claims without a separate Graph API call.
+   "User.Read" is for calling Microsoft's API, not for reading identity claims. */
+export const loginRequest = {
+  scopes: ["openid", "profile", "email"],
+};
+
+/* Backend access token scope — used by acquireTokenSilent in App.jsx.
+   This must match a scope exposed in your App Registration under "Expose an API". */
+export const backendTokenRequest = {
+  scopes: [`api://${clientId}/access_as_user`],
+};

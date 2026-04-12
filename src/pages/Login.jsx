@@ -1,6 +1,10 @@
 import { useMemo, useState} from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { SWA_LOGIN_URL } from "../AuthConfig";
+/* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+import { useMsal } from "@azure/msal-react";
+/* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+   Preserved for reference. See main branch for active SWA implementation. */
+// import { SWA_LOGIN_URL } from "../AuthConfig";
 import { API_BASE } from "../utils/auth";
 // Shared auth page styles (login + signup)
 import "../styles/pages/Auth.css";
@@ -8,6 +12,8 @@ import "../styles/pages/Auth.css";
 
 export default function Login() {
   const navigate = useNavigate();
+  /* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */
+  const { instance } = useMsal();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
@@ -69,6 +75,24 @@ export default function Login() {
         <p className="authSubtitle">Welcome back — sign in to PeerConnect</p>
 
         <div className="socialStack">
+          {/* MSAL B2B AUTH — restored on feature/msal-b2b-auth branch. */}
+          <button
+            type="button"
+            className="socialBtn"
+            onClick={async () => {
+              try {
+                await instance.loginRedirect({ scopes: ["User.Read"] });
+              } catch (err) {
+                if (err.errorCode !== "interaction_in_progress") {
+                  setError("Microsoft login failed. Please try again.");
+                }
+              }
+            }}
+          >
+            Continue with Microsoft
+          </button>
+          {/* SWA BUILT-IN AUTH — commented out on feature/msal-b2b-auth branch.
+              Preserved for reference. See main branch for active SWA implementation.
           <button
             type="button"
             className="socialBtn"
@@ -79,6 +103,7 @@ export default function Login() {
           >
             Continue with Microsoft
           </button>
+          */}
         </div>
 
         <div className="divider" role="separator">
