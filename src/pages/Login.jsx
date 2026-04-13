@@ -81,7 +81,11 @@ export default function Login() {
             className="socialBtn"
             onClick={async () => {
               try {
-                await instance.loginRedirect({ scopes: ["User.Read"] });
+                await instance.loginRedirect({
+                  scopes: ["openid"],
+                  domainHint: "u.nus.edu",
+                  prompt: "select_account",
+                });
               } catch (err) {
                 if (err.errorCode !== "interaction_in_progress") {
                   setError("Microsoft login failed. Please try again.");

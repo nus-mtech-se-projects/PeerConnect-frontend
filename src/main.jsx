@@ -34,6 +34,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 async function bootstrap() {
   await msalInstance.initialize();
 
+  // Capture redirect errors explicitly for debugging
+  msalInstance.handleRedirectPromise().then((result) => {
+    if (result) {
+      console.log("[MSAL] handleRedirectPromise result:", result);
+    }
+  }).catch((error) => {
+    console.error("[MSAL] handleRedirectPromise error:", error);
+  });
+
   ReactDOM.createRoot(document.getElementById("root")).render(
     <React.StrictMode>
       <MsalProvider instance={msalInstance}>

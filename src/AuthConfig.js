@@ -46,7 +46,7 @@ const msalConfig = {
           case LogLevel.Verbose: console.debug(message); break;
         }
       },
-      logLevel: LogLevel.Warning,
+      logLevel: LogLevel.Verbose,
     },
   },
 };
