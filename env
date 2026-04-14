@@ -1,8 +1,0 @@
-#this is for app registration on Azure peerconnect-frontend
-VITE_MSAL_CLIENT_ID=57cf3921-0d5b-4c96-9277-10a54818b823
-VITE_MSAL_TENANT_ID=consumers
-VITE_API_BASE=https://peerconnect.azurewebsites.net
-
-#nusiss-mtech-se-projects-peerconnect-main
-#VITE_MSAL_CLIENT_ID=a008d21a-1ac5-4b96-83a9-1e198b24cc64
-#VITE_MSAL_TENANT_ID=consumers
