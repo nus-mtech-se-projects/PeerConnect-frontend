@@ -35,7 +35,17 @@ VITE_API_BASE=http://localhost:8080
 
 If backend runs elsewhere, update `VITE_API_BASE` before starting Vite.
 
-## 3. Project Layout
+## 3. Tech Stack
+
+- React 19
+- Vite 7
+- React Router 7
+- Azure MSAL (`@azure/msal-browser`, `@azure/msal-react`)
+- Vitest + Testing Library
+- Playwright (end-to-end)
+- ESLint 9
+
+## 4. Project Layout
 
 - `src/pages` : Route-level pages and large dashboard modules
 - `src/components` : Shared UI components and layout shell
@@ -44,7 +54,7 @@ If backend runs elsewhere, update `VITE_API_BASE` before starting Vite.
 - `src/__tests__` : Unit/integration tests
 - `e2e` : Playwright end-to-end specs
 
-## 4. Runtime Architecture
+## 5. Runtime Architecture
 
 ```mermaid
 flowchart LR
@@ -69,13 +79,22 @@ flowchart LR
   UI --> PF
 ```
 
-## 5. Core Module Behavior
+## 6. Main Application Flows
+
+1. Authentication via MSAL and backend session/token integration
+2. Dashboard with module switching between Study Groups, Peer Tutoring, and Restricted Members
+3. Group lifecycle operations: create, join, leave, manage
+4. Tutoring lifecycle operations: create class, join/leave, view feedback
+5. Restricted member controls: search users, restrict, allow
+6. Profile updates with avatar synchronization across dashboard modules
+
+## 7. Core Module Behavior
 
 - Study Groups and Peer Tutoring render within the same page module (`Home.jsx`) using internal `activeModule` state.
 - Restricted Members is now integrated into the same dashboard module pattern and no longer requires a separate route screen.
 - Profile avatar updates propagate across modules via profile sync utilities.
 
-## 6. Common Commands
+## 8. Common Commands
 
 ```bash
 npm run dev        # local development
@@ -87,7 +106,7 @@ npm run preview    # preview production build
 npx playwright test
 ```
 
-## 7. Daily Workflow
+## 9. Daily Workflow
 
 1. Pull latest changes.
 2. Run `npm install` if dependencies changed.
@@ -96,7 +115,7 @@ npx playwright test
 5. Run `npm run lint` and `npm run test:run`.
 6. For flow-level UI changes, run targeted Playwright specs in `e2e`.
 
-## 8. Troubleshooting
+## 10. Troubleshooting
 
 ### App does not load data
 - Verify backend is running.
@@ -116,13 +135,19 @@ npx playwright test
 - Revisit profile update flow and profile sync utility events.
 - Ensure API responses include avatar-related fields expected by frontend extraction logic.
 
-## 9. Suggested First Tasks for New Contributors
+## 11. Suggested First Tasks for New Contributors
 
 - Add or update one unit test under `src/__tests__`.
 - Fix one UI polish issue in dashboard modules.
 - Run one e2e test and document any failure patterns.
 
-## 10. Related Docs
+## 12. Deployment Notes
 
-- `README.md` : Project overview and run/test basics
+- SPA routing fallback is configured in `staticwebapp.config.json`
+- All unknown routes rewrite to `index.html` to support React Router client-side navigation
+- Static assets (`/assets/*`, `.css`, `.js`, `.svg`, etc.) and `/.auth/*` endpoints are excluded from the rewrite
+
+## 13. Related Docs
+
 - `ProjectReference.md` : Product and requirement background
+- `APP_DOCUMENTATION.md` : Full application architecture and component reference
