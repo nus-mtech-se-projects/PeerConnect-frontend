@@ -149,6 +149,7 @@
   font-family: inherit;
   cursor: pointer;
   transition: background 150ms ease, transform 120ms ease;
+  width: 90px;
 }
 .gdSubmitBtn:hover {
   background: #00509e;
