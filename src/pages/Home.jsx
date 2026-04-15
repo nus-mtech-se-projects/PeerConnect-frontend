@@ -27,6 +27,7 @@ import GroupChatWorkspace from "../components/chat/GroupChatWorkspace";
 import { groupChatService } from "../services/groupChatService";
 import AiTutor from "./AiTutor";
 import "../styles/pages/Dashboard.css";
+import "../styles/pages/GroupDetail.css";
 import "../styles/pages/RestrictUser.css";
 function createFeedbackForm() {
   return {
