@@ -9,7 +9,7 @@ import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
 import { SWA_LOGOUT_URL } from "../AuthConfig";
-import { API_BASE, authHeaders } from "../utils/auth";
+import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
 import { WellBeingIcon } from "../components/Icons";
 import {
@@ -1506,12 +1506,17 @@ function DashboardHome() {
 
   useEffect(() => {
     let cancelled = false;
-    refreshGroupChats().catch(() => {
-      if (!cancelled) {
-        setGroupChats([]);
-        setSelectedGroupChatId("");
-      }
-    });
+    waitForToken()
+      .then(async () => {
+        if (cancelled) return;
+        await refreshGroupChats();
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGroupChats([]);
+          setSelectedGroupChatId("");
+        }
+      });
     return () => {
       cancelled = true;
     };
