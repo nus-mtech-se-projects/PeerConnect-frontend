@@ -216,7 +216,6 @@ const ListViewIcon = () => (
    Landing page (shown to guests)
    ═══════════════════════════════════════════════════ */
 function LandingHome() {
-  const nav = useNavigate();
   const slides = [
     { title: "Find the right tutor", description: "Match with peers who have aced the same module.", imageSrc: tutoringImg, imageAlt: "Peer tutoring session" },
     { title: "Join study rooms", description: "Create or join groups that keep you consistent.", imageSrc: studyGroupImg, imageAlt: "Students in a study group" },
