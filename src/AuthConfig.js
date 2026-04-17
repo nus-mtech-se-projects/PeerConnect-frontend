@@ -1,68 +1,28 @@
-import { PublicClientApplication, LogLevel } from "@azure/msal-browser";
+/**
+ * Azure Static Web Apps built-in Entra ID authentication helpers.
+ *
+ * Login/logout is handled by the SWA platform at the paths below.
+ * After login, /.auth/me returns the signed-in user's clientPrincipal.
+ *
+ * Azure App Registration used:
+ *   Tenant ID : e7fd6993-e646-4b0e-a981-d38362d2d061
+ *   Client ID : 57cf3921-0d5b-4c96-9277-10a54818b823
+ * (configured in the Azure Static Web Apps portal – no client-side secrets needed)
+ */
 
-const clientId =
-  import.meta.env.VITE_MSAL_CLIENT_ID || "a008d21a-1ac5-4b96-83a9-1e198b24cc64";
-const tenantId = "consumers";
-const authority = `https://login.microsoftonline.com/${tenantId}`;
+export const SWA_LOGIN_URL = "/.auth/login/aad";
+export const SWA_LOGOUT_URL = "/.auth/logout";
 
-const msalConfig = {
-  auth: {
-    clientId,
-    authority,
-    redirectUri: globalThis.location.origin,
-    postLogoutRedirectUri: globalThis.location.origin,
-    navigateToLoginRequestUrl: false,
-  },
-  cache: {
-    cacheLocation: "localStorage",
-    storeAuthStateInCookie: true,
-  },
-  system: {
-    loggerOptions: {
-      loggerCallback: (level, message, containsPii) => {
-        if (containsPii) return;
-        switch (level) {
-          case LogLevel.Error:
-            console.error(message);
-            break;
-          case LogLevel.Warning:
-            console.warn(message);
-            break;
-          case LogLevel.Info:
-            console.info(message);
-            break;
-          case LogLevel.Verbose:
-            console.debug(message);
-            break;
-        }
-      },
-      logLevel: LogLevel.Warning,
-    },
-  },
-};
-
-export const msalInstance = new PublicClientApplication(msalConfig);
-
-export const loginRequest = {
-  scopes: ["User.Read"],
-  authority,
-  prompt: "select_account",
-};
-
-export function getMicrosoftLoginErrorMessage(error) {
-  const message =
-    `${error?.errorCode || ""} ${error?.errorMessage || ""} ${error?.message || ""}`.toLowerCase();
-
-  if (
-    message.includes("unauthorized_client") ||
-    message.includes("aadsts50020") ||
-    message.includes("aadsts500207") ||
-    message.includes("account from identity provider") ||
-    message.includes("personal microsoft accounts are not supported") ||
-    message.includes("not enabled for consumers")
-  ) {
-    return "This sign-in is now limited to personal Microsoft accounts only. Use a Hotmail, Outlook, or Live account.";
+/**
+ * Fetches the currently signed-in user from the SWA auth endpoint.
+ * Returns the clientPrincipal object, or null if the user is not authenticated.
+ */
+export async function getSwaUser() {
+  try {
+    const res = await fetch("/.auth/me");
+    const data = await res.json();
+    return data.clientPrincipal ?? null;
+  } catch {
+    return null;
   }
-
-  return "Microsoft login failed. Please try again.";
 }

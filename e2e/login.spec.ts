@@ -35,7 +35,7 @@ test.describe('Login page', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ accessToken: 'fake.jwt.token' }),
+        body: JSON.stringify({ accessToken: `eyJhbGciOiJub25lIn0.${Buffer.from(JSON.stringify({exp:9999999999,sub:'test'})).toString('base64')}.sig` }),
       })
     );
     await page.getByPlaceholder('e.g. johntan@u.nus.edu or A1234567X').fill('test@u.nus.edu');
@@ -52,5 +52,18 @@ test.describe('Login page', () => {
   test('has link to forgot password page', async ({ page }) => {
     await page.getByRole('link', { name: 'Click here' }).click();
     await expect(page).toHaveURL('/forgot-password');
+  });
+
+  test('Continue with Microsoft button triggers Entra ID login redirect', async ({ page }) => {
+    // Intercept the SWA auth navigation so the test doesn't leave the app
+    await page.route('**/.auth/login/aad**', (route) => route.abort());
+
+    const [request] = await Promise.all([
+      page.waitForRequest((req) => req.url().includes('/.auth/login/aad')),
+      page.getByRole('button', { name: 'Continue with Microsoft' }).click(),
+    ]);
+
+    expect(request.url()).toContain('/.auth/login/aad');
+    expect(request.url()).toContain('post_login_redirect_uri=/');
   });
 });

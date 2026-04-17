@@ -3,7 +3,10 @@ import { test, expect } from '@playwright/test';
 // Helper: set a token so the private route allows access
 async function authenticate(page) {
   await page.goto('/');
-  await page.evaluate(() => localStorage.setItem('accessToken', 'fake.jwt.token'));
+  await page.evaluate(() => {
+    const payload = btoa(JSON.stringify({ exp: 9999999999, sub: 'test' }));
+    localStorage.setItem('accessToken', `eyJhbGciOiJub25lIn0.${payload}.sig`);
+  });
 }
 
 test.describe('ChangePassword page', () => {

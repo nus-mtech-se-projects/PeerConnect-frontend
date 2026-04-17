@@ -27,7 +27,7 @@ async function mockRestrictedEndpoints(page) {
 
 test.describe('Restricted Members management', () => {
   test.beforeEach(async ({ page }) => {
-    await authenticate(page, { fakeJwt: true });
+    await authenticate(page);
   });
 
   test('renders restricted members page with heading', async ({ page }) => {

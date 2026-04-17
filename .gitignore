@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 my-artifacts/
 coverage/
+*.env
+env.development
+env.production
+env

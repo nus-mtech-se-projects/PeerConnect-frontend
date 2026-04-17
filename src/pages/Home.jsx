@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useMsal } from "@azure/msal-react";
 import Carousel from "../components/Carousel";
 import FeatureCard from "../components/FeatureCard";
 import { AvatarContent } from "../components/DashboardLayout";
@@ -9,8 +8,10 @@ import studyGroupImg from "../assets/images/study-group.jpg";
 import chatBotImg from "../assets/images/chatbot.jpg";
 import supportSystemImg from "../assets/images/support-system.jpg";
 import PropTypes from "prop-types";
+import { SWA_LOGOUT_URL } from "../AuthConfig";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
+import { WellBeingIcon } from "../components/Icons";
 import {
   getRuMemberInitials,
   ruAuthRequestOptions,
@@ -26,6 +27,7 @@ import GroupChatWorkspace from "../components/chat/GroupChatWorkspace";
 import { groupChatService } from "../services/groupChatService";
 import AiTutor from "./AiTutor";
 import "../styles/pages/Dashboard.css";
+import "../styles/pages/GroupDetail.css";
 import "../styles/pages/RestrictUser.css";
 function createFeedbackForm() {
   return {
@@ -166,20 +168,13 @@ function getReviewableMembers(members, userEmail) {
 
 async function fetchFirstAvailableProfile() {
   const headers = authHeaders();
-  let fallbackProfile = null;
-  for (const url of [`${API_BASE}/api/users/me`, `${API_BASE}/api/profile`]) {
-    try {
-      const res = await fetch(url, { headers, credentials: "include" });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!fallbackProfile) fallbackProfile = data;
-      const avatar = extractAvatarUrl(data);
-      if (avatar) return data;
-    } catch {
-      // Try next endpoint.
-    }
-  }
-  return fallbackProfile;
+  const results = await Promise.allSettled([
+    fetch(`${API_BASE}/api/users/me`, { headers, credentials: "include" }).then((r) => r.ok ? r.json() : null),
+    fetch(`${API_BASE}/api/profile`, { headers, credentials: "include" }).then((r) => r.ok ? r.json() : null),
+  ]);
+  const profiles = results.map((r) => r.status === "fulfilled" ? r.value : null).filter(Boolean);
+  // Prefer whichever profile has an avatar
+  return profiles.find((d) => extractAvatarUrl(d)) || profiles[0] || null;
 }
 
 /* ──────── SVG icons ──────── */
@@ -221,6 +216,7 @@ const ListViewIcon = () => (
    Landing page (shown to guests)
    ═══════════════════════════════════════════════════ */
 function LandingHome() {
+  const nav = useNavigate();
   const slides = [
     { title: "Find the right tutor", description: "Match with peers who have aced the same module.", imageSrc: tutoringImg, imageAlt: "Peer tutoring session" },
     { title: "Join study rooms", description: "Create or join groups that keep you consistent.", imageSrc: studyGroupImg, imageAlt: "Students in a study group" },
@@ -243,7 +239,6 @@ function LandingHome() {
           <FeatureCard key={f.title} title={f.title} description={f.desc} />
         ))}
       </section>
-
 
     </div>
   );
@@ -312,7 +307,6 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
     const loadTutorClasses = async () => {
       setLoading(true);
       try {
-        await waitForToken();
         const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
         if (!res.ok) throw new Error(`Failed to load (${res.status})`);
         const data = await res.json();
@@ -444,7 +438,8 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
 
       {loading && <p className="dashMsg">Loading classes…</p>}
       {error && <p className="dashMsg dashError">{error}</p>}
-      {!loading && !error && classes.length === 0 && (
+
+      {viewMode === "grid" && !loading && !error && classes.length === 0 && (
         <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
       )}
 
@@ -494,6 +489,13 @@ function TutorDashboard({ onClassCreated, onViewFeedbacks, showToast, setConfirm
               </tr>
             </thead>
             <tbody>
+              {!loading && !error && classes.length === 0 && (
+                <tr>
+                  <td colSpan={7}>
+                    <div className="dashEmpty"><TutoringIcon /><p>No classes yet. Create one to start tutoring!</p></div>
+                  </td>
+                </tr>
+              )}
               {classes.map((c) => (
                 <tr key={c.id}>
                   <td><span className="groupCourse">{c.moduleCode || "General"}</span></td>
@@ -635,7 +637,6 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
     const loadTuteeClasses = async () => {
       setLoading(true);
       try {
-        await waitForToken();
         const res = await fetch(`${API_BASE}/api/tutoring/classes`, { headers: authHeaders(), credentials: "include" });
         if (!res.ok) throw new Error(`Failed to load (${res.status})`);
         const data = await res.json();
@@ -721,7 +722,8 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
 
       {loading && <p className="dashMsg">Loading classes…</p>}
       {error && <p className="dashMsg dashError">{error}</p>}
-      {!loading && !error && filtered.length === 0 && (
+
+      {viewMode === "grid" && !loading && !error && filtered.length === 0 && (
         <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
       )}
 
@@ -781,6 +783,13 @@ function TuteeDashboard({ excludeIds = new Set(), onGiveFeedback, showToast }) {
               </tr>
             </thead>
             <tbody>
+              {!loading && !error && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="dashEmpty"><TutoringIcon /><p>No tutoring classes available yet.</p></div>
+                  </td>
+                </tr>
+              )}
               {filtered.map((c) => (
                 <tr key={c.id}>
                   <td><span className="groupCourse">{c.moduleCode || "General"}</span></td>
@@ -1008,7 +1017,7 @@ function RestrictedMemberSection({ showToast, setConfirmDialog }) {
   }
 
   useEffect(() => {
-    waitForToken().then(() => loadRestricted()).catch(() => setRuLoading(false));
+    loadRestricted();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1355,7 +1364,6 @@ function FeedbackPickerModal({
 function DashboardHome() {
   const nav = useNavigate();
   const location = useLocation();
-  const { instance, accounts } = useMsal();
 
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1363,6 +1371,7 @@ function DashboardHome() {
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(location.state?.avatarUrl ?? "");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -1433,7 +1442,6 @@ function DashboardHome() {
     let cancelled = false;
     const loadProfile = async () => {
       try {
-        await waitForToken();
         if (cancelled) return;
         const profileData = await fetchFirstAvailableProfile();
         if (cancelled || !profileData) return;
@@ -1441,6 +1449,7 @@ function DashboardHome() {
         if (profileAvatar !== null) setAvatarUrl(profileAvatar);
         const displayName = getProfileDisplayName(profileData);
         if (displayName) setProfileName(displayName);
+        if (profileData?.email) setProfileEmail(profileData.email);
       } catch {
         // Best effort profile enrichment.
       }
@@ -1462,8 +1471,7 @@ function DashboardHome() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    waitForToken().then(() => {
-      if (cancelled) return;
+    if (!cancelled) {
       fetch(`${API_BASE}/api/groups`, { headers: authHeaders(), credentials: "include" })
         .then((r) => {
           if (!r.ok) {
@@ -1479,7 +1487,7 @@ function DashboardHome() {
         .then((data) => { if (!cancelled) setGroups(Array.isArray(data) ? data : []); })
         .catch((err) => { if (!cancelled) setError(err.message); })
         .finally(() => { if (!cancelled) setLoading(false); });
-    }).catch(() => { if (!cancelled) { setError("Authentication timeout"); setLoading(false); } });
+    }
     return () => { cancelled = true; };
   }, [nav]);
 
@@ -1687,9 +1695,7 @@ function DashboardHome() {
   async function executeLogout() {
     try { await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); } catch { /* best-effort */ }
     localStorage.removeItem("accessToken");
-    if (accounts.length > 0) {
-      instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: "/" });
-    } else { nav("/"); }
+    window.location.href = `${SWA_LOGOUT_URL}?post_logout_redirect_uri=/`;
   }
 
   async function handleJoin(groupId) {
@@ -1776,12 +1782,8 @@ function DashboardHome() {
     }
   }
 
-  const account = accounts[0];
-  const accountGivenName = typeof account?.idTokenClaims?.given_name === "string" ? account.idTokenClaims.given_name : "";
-  const accountFamilyName = typeof account?.idTokenClaims?.family_name === "string" ? account.idTokenClaims.family_name : "";
-  const userName = profileName || account?.name || account?.idTokenClaims?.name ||
-    [accountGivenName, accountFamilyName].filter(Boolean).join(" ") || "Student";
-  const userEmail = account?.username || "";
+  const userName = profileName || "Student";
+  const userEmail = profileEmail || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
   const reviewableMembers = getReviewableMembers(selectedMembers, userEmail);
