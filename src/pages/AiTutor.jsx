@@ -1,56 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE, authHeaders } from "../utils/auth";
+import PromptFactory from "../factories/PromptFactory";
 import "../styles/pages/AiTutor.css";
-
-/* ── Prompts ─────────────────────────────────────────────────── */
-
-function buildQuizPrompt(ctx, difficulty) {
-  const isExam = difficulty === "exam";
-  const count = isExam ? 20 : 5;
-  const style = isExam ? "difficult, application-based, exam-style" : "introductory";
-  return [
-    `Generate exactly ${count} ${style} multiple choice questions${ctx ? " based on this class:" : "."}`,
-    ctx || "",
-    "",
-    `IMPORTANT: You MUST produce exactly ${count} questions — no more, no less. Do not stop early.`,
-    "Return ONLY valid JSON (no markdown, no extra text):",
-    '{"title":"...","questions":[{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"answer":"A","explanation":"One sentence max."}]}',
-    "Each question needs exactly 4 options. The answer field must be only the letter A, B, C, or D. Keep explanations to one sentence.",
-  ].filter(Boolean).join("\n");
-}
-
-function buildFlashcardPrompt(ctx) {
-  return [
-    `Generate 10 flashcards${ctx ? " based on this class:" : "."}`,
-    ctx || "",
-    "",
-    "Return ONLY valid JSON (no markdown, no extra text):",
-    '{"title":"...","cards":[{"question":"Short question or term?","answer":"Concise answer"}]}',
-  ].filter(Boolean).join("\n");
-}
-
-function buildStudyPlanPrompt(ctx, hours) {
-  return [
-    `Create a 7-day study plan${ctx ? " for this class" : ""} with ${hours} hour${hours !== 1 ? "s" : ""} of study per day.`,
-    ctx || "",
-    "",
-    "Return ONLY valid JSON (no markdown, no extra text):",
-    `{"title":"...","dailyHours":${hours},"schedule":[{"day":"Monday","sessions":[{"topic":"...","activity":"...","duration":"45 min"}]}]}`,
-    "Include all 7 days Monday through Sunday.",
-  ].filter(Boolean).join("\n");
-}
-
-function buildTopicsPrompt(ctx) {
-  return [
-    `Suggest 10 specific topics to study${ctx ? " based on this class/group:" : "."}`,
-    ctx || "",
-    "",
-    "Return ONLY valid JSON (no markdown, no extra text):",
-    '{"title":"...","topics":[{"name":"Topic Name","description":"Why this matters","priority":"high","subtopics":["sub 1","sub 2"]}]}',
-    'Priority must be exactly "high", "medium", or "low".',
-  ].filter(Boolean).join("\n");
-}
 
 async function callAI(prompt) {
   const res = await fetch(`${API_BASE}/api/ai-tutor/chat`, {
@@ -996,12 +948,8 @@ export default function AiTutor({ embedded = false }) {
     setFeatureStep("loading"); setFeatureErr("");
     const ctxStr = buildContextStr(ctx);
     try {
-      let prompt;
-      if      (type === "quiz")      prompt = buildQuizPrompt(ctxStr, "quiz");
-      else if (type === "exam")      prompt = buildQuizPrompt(ctxStr, "exam");
-      else if (type === "flashcard") prompt = buildFlashcardPrompt(ctxStr);
-      else if (type === "studyplan") prompt = buildStudyPlanPrompt(ctxStr, hours);
-      else if (type === "topics")    prompt = buildTopicsPrompt(ctxStr);
+      const builder = PromptFactory.create(type);
+      const prompt = builder.build(ctxStr, type === "studyplan" ? hours : type);
 
       const parsed = await callAI(prompt);
 
