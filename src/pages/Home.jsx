@@ -26,6 +26,7 @@ import GroupChatsNavList from "../components/chat/GroupChatsNavList";
 import GroupChatWorkspace from "../components/chat/GroupChatWorkspace";
 import { groupChatService } from "../services/groupChatService";
 import AiTutor from "./AiTutor";
+import WellBeing from "./WellBeing";
 import "../styles/pages/Dashboard.css";
 import "../styles/pages/GroupDetail.css";
 import "../styles/pages/RestrictUser.css";
@@ -1830,6 +1831,7 @@ function DashboardHome() {
           <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
           <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
           <button className={`dashNavItem ${activeModule === "aiTutor" ? "active" : ""}`} onClick={() => { setActiveModule("aiTutor"); closeSidebar(); }}><AiIcon /> AI Tutor</button>
+          <button className={`dashNavItem ${activeModule === "wellBeing" ? "active" : ""}`} onClick={() => { setActiveModule("wellBeing"); closeSidebar(); }}><WellBeingIcon /> Well-being</button>
           <button className="dashNavItem" disabled><SupportIcon /> Support</button>
 
           <GroupChatsNavList
@@ -1892,6 +1894,7 @@ function DashboardHome() {
           />
         )}
         {activeModule === "restrictedMembers" && <RestrictedMemberSection showToast={showToast} setConfirmDialog={setConfirmDialog} />}
+        {activeModule === "wellBeing" && <WellBeing />}
         {activeModule === "aiTutor" && (
           <>
             <div className="dashHeader">
