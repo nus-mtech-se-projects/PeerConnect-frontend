@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { id: "restrict", label: "Restricted Member", icon: <RestrictIcon />, path: "/", navState: { activeModule: "restrictedMembers" } },
   { id: "ai", label: "AI Tutor", icon: <AiIcon />, disabled: true },
   { id: "support", label: "Support", icon: <SupportIcon />, disabled: true },
-  { id: "wellbeing", label: "Well-being", icon: <WellBeingIcon />, path: "/wellbeing" },
+  { id: "wellbeing", label: "Well-being", icon: <WellBeingIcon />, path: "/", navState: { activeModule: "wellBeing" } },
 ];
 
 export function AvatarContent({ avatarUrl, userInitial }) {
