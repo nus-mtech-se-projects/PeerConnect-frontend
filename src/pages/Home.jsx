@@ -1832,7 +1832,6 @@ function DashboardHome() {
           <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
           <button className={`dashNavItem ${activeModule === "aiTutor" ? "active" : ""}`} onClick={() => { setActiveModule("aiTutor"); closeSidebar(); }}><AiIcon /> AI Tutor</button>
           <button className={`dashNavItem ${activeModule === "wellBeing" ? "active" : ""}`} onClick={() => { setActiveModule("wellBeing"); closeSidebar(); }}><WellBeingIcon /> Well-being</button>
-          <button className="dashNavItem" disabled><SupportIcon /> Support</button>
 
           <GroupChatsNavList
             chats={groupChats}
