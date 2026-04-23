@@ -365,7 +365,9 @@ describe("GroupDetail – preview (non-member)", () => {
 describe("GroupDetail – member view", () => {
   it("renders read-only view with Leave button and members", async () => {
     await initMemberView();
-    expect(screen.getByText("Members")).toBeInTheDocument();
+    // Two "Members" texts can legitimately appear: the tab button and the
+    // section heading. Asserting >= 1 keeps the test robust to that.
+    expect(screen.getAllByText("Members").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Leave This Group")).toBeInTheDocument();
     expect(screen.getByText("Alice Tan")).toBeInTheDocument();
     expect(screen.getByText("Bob Lee")).toBeInTheDocument();
@@ -662,7 +664,11 @@ describe("GroupDetail – owner view", () => {
     await user.clear(nameInput);
     await user.type(nameInput, "New Name");
     expect(nameInput).toHaveValue("New Name");
-    const checkbox = screen.getByRole("checkbox");
+    // The owner view renders several checkboxes (approval, auto-announce on
+    // group, auto-announce on session). The "approval" checkbox is the one
+    // next to its descriptive label, so we grab it through its associated text.
+    const approvalLabel = screen.getByText(/require admin approval/i);
+    const checkbox = approvalLabel.closest("label").querySelector("input[type='checkbox']");
     expect(checkbox.checked).toBe(false);
     fireEvent.click(checkbox);
     expect(checkbox.checked).toBe(true);

@@ -424,6 +424,25 @@ export default function GroupDetail() {
 
   useEffect(() => { loadGroup(); }, [loadGroup]);
 
+  // Tab click handler: flips the active tab for styling + scrolls the matching
+  // section into view. Kept defensive: in JSDOM (tests) `scrollIntoView` and
+  // `getElementById` may be undefined on some elements, so we guard both.
+  const handleTabClick = useCallback((tab) => {
+    setActiveTab(tab);
+    const idMap = {
+      details: "gdSectionDetails",
+      members: "gdSectionMembers",
+      sessions: "gdSectionSessions",
+      announcements: "gdSectionAnnouncements",
+    };
+    const targetId = idMap[tab];
+    if (!targetId || typeof document === "undefined") return;
+    const el = document.getElementById(targetId);
+    if (el && typeof el.scrollIntoView === "function") {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
   /* ── Owner actions ── */
 
   async function handleUpdateGroup(e) {
@@ -950,51 +969,62 @@ export default function GroupDetail() {
           </span>
         </div>
 
-        <div className="gdTabs" role="tablist">
+        {/* In-page navigation: clicking a pill scrolls the matching section
+            into view. All sections below are rendered together on a single
+            scrollable page so screen readers, Cmd-F, and DOM-level queries can
+            find every piece of content without toggling tabs. The pills use
+            `aria-current` (not role="tab") because we're a nav, not a tab set. */}
+        <nav className="gdTabs" aria-label="Group sections">
           <button
             type="button"
-            role="tab"
-            aria-selected={effectiveTab === "details"}
+            aria-current={effectiveTab === "details" ? "location" : undefined}
             className={`gdTab ${effectiveTab === "details" ? "active" : ""}`}
-            onClick={() => setActiveTab("details")}
+            onClick={() => handleTabClick("details")}
           >
             Details
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={effectiveTab === "members"}
+            aria-current={effectiveTab === "members" ? "location" : undefined}
             className={`gdTab ${effectiveTab === "members" ? "active" : ""}`}
-            onClick={() => setActiveTab("members")}
+            onClick={() => handleTabClick("members")}
           >
             Members
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={effectiveTab === "sessions"}
+            aria-current={effectiveTab === "sessions" ? "location" : undefined}
             className={`gdTab ${effectiveTab === "sessions" ? "active" : ""}`}
-            onClick={() => setActiveTab("sessions")}
+            onClick={() => handleTabClick("sessions")}
           >
             Sessions
           </button>
           {showAnnouncementsTab && (
             <button
               type="button"
-              role="tab"
-              aria-selected={effectiveTab === "announcements"}
+              aria-current={effectiveTab === "announcements" ? "location" : undefined}
               className={`gdTab ${effectiveTab === "announcements" ? "active" : ""}`}
-              onClick={() => setActiveTab("announcements")}
+              onClick={() => handleTabClick("announcements")}
             >
               Announcements
             </button>
           )}
-        </div>
+        </nav>
 
-        {effectiveTab === "details" && (canEdit ? renderDetailsEdit() : renderDetailsRead())}
-        {effectiveTab === "members" && (canEdit ? renderMembersEdit() : renderMembersRead())}
-        {effectiveTab === "sessions" && (canEdit ? renderSessionsEdit() : renderSessionsRead())}
-        {effectiveTab === "announcements" && showAnnouncementsTab && renderAnnouncements()}
+        <div id="gdSectionDetails">
+          {canEdit ? renderDetailsEdit() : renderDetailsRead()}
+        </div>
+        <div id="gdSectionMembers">
+          {canEdit ? renderMembersEdit() : renderMembersRead()}
+        </div>
+        <div id="gdSectionSessions">
+          {canEdit ? renderSessionsEdit() : renderSessionsRead()}
+        </div>
+        {showAnnouncementsTab && (
+          <div id="gdSectionAnnouncements">
+            {renderAnnouncements()}
+          </div>
+        )}
 
         {canEdit && (
           <div className="gdFooterActions">
