@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import PropTypes from "prop-types";
 import { createGroupAnnouncement } from "../services/announcements.js";
 
 /**
@@ -7,6 +8,8 @@ import { createGroupAnnouncement } from "../services/announcements.js";
  * Only shown to group admins/owners
  */
 export default function CreateAnnouncementForm({ groupId, onSuccess, onError }) {
+  const titleInputId = useId();
+  const contentInputId = useId();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
@@ -69,10 +72,11 @@ export default function CreateAnnouncementForm({ groupId, onSuccess, onError }) 
 
       <form className="announcementCreateForm" onSubmit={handleSubmit}>
         <div className="announcementCreateField">
-          <label className="announcementCreateLabel">
+          <label className="announcementCreateLabel" htmlFor={titleInputId}>
             Title <span className="announcementCreateRequired">*</span>
           </label>
           <input
+            id={titleInputId}
             type="text"
             className="announcementCreateInput"
             value={title}
@@ -87,10 +91,11 @@ export default function CreateAnnouncementForm({ groupId, onSuccess, onError }) 
         </div>
 
         <div className="announcementCreateField">
-          <label className="announcementCreateLabel">
+          <label className="announcementCreateLabel" htmlFor={contentInputId}>
             Content <span className="announcementCreateRequired">*</span>
           </label>
           <textarea
+            id={contentInputId}
             className="announcementCreateTextarea"
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -117,3 +122,14 @@ export default function CreateAnnouncementForm({ groupId, onSuccess, onError }) 
     </div>
   );
 }
+
+CreateAnnouncementForm.propTypes = {
+  groupId: PropTypes.string.isRequired,
+  onSuccess: PropTypes.func,
+  onError: PropTypes.func,
+};
+
+CreateAnnouncementForm.defaultProps = {
+  onSuccess: undefined,
+  onError: undefined,
+};

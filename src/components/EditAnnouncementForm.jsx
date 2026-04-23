@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useId, useState, useEffect } from "react";
+import PropTypes from "prop-types";
 import { updateGroupAnnouncement } from "../services/announcements.js";
 
 /**
@@ -7,6 +8,8 @@ import { updateGroupAnnouncement } from "../services/announcements.js";
  * Only shown to group admins/owners
  */
 export default function EditAnnouncementForm({ groupId, announcement, onSuccess, onCancel }) {
+  const titleInputId = useId();
+  const contentInputId = useId();
   const [title, setTitle] = useState(announcement?.title || "");
   const [content, setContent] = useState(announcement?.content || "");
   const [loading, setLoading] = useState(false);
@@ -76,10 +79,11 @@ export default function EditAnnouncementForm({ groupId, announcement, onSuccess,
 
       <form className="announcementEditForm" onSubmit={handleSubmit}>
         <div className="announcementEditField">
-          <label className="announcementEditLabel">
+          <label className="announcementEditLabel" htmlFor={titleInputId}>
             Title <span className="announcementEditRequired">*</span>
           </label>
           <input
+            id={titleInputId}
             type="text"
             className="announcementEditInput"
             value={title}
@@ -94,10 +98,11 @@ export default function EditAnnouncementForm({ groupId, announcement, onSuccess,
         </div>
 
         <div className="announcementEditField">
-          <label className="announcementEditLabel">
+          <label className="announcementEditLabel" htmlFor={contentInputId}>
             Content <span className="announcementEditRequired">*</span>
           </label>
           <textarea
+            id={contentInputId}
             className="announcementEditTextarea"
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -132,3 +137,20 @@ export default function EditAnnouncementForm({ groupId, announcement, onSuccess,
     </div>
   );
 }
+
+EditAnnouncementForm.propTypes = {
+  groupId: PropTypes.string.isRequired,
+  announcement: PropTypes.shape({
+    id: PropTypes.string,
+    title: PropTypes.string,
+    content: PropTypes.string,
+  }),
+  onSuccess: PropTypes.func,
+  onCancel: PropTypes.func,
+};
+
+EditAnnouncementForm.defaultProps = {
+  announcement: null,
+  onSuccess: undefined,
+  onCancel: undefined,
+};
