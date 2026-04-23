@@ -5,7 +5,14 @@ import { AvatarContent } from "../components/DashboardLayout";
 import { extractAvatarUrl } from "../utils/profileSync";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
+import CreateAnnouncementForm from "../components/CreateAnnouncementForm";
+import EditAnnouncementForm from "../components/EditAnnouncementForm";
+import { deleteGroupAnnouncement, archiveAnnouncement } from "../services/announcements";
 import "../styles/pages/GroupDetail.css";
+// Announcements.css owns the visual language for CreateAnnouncementForm /
+// EditAnnouncementForm — import it here so styles render correctly when the
+// user opens the Announcements tab without first visiting /announcements.
+import "../styles/pages/Announcements.css";
 
 function getMemberInitials(member) {
   if (!member) return "?";
@@ -64,7 +71,7 @@ function ownerFirstSort(a, b) {
 
 async function doLoadGroup(groupId, setters) {
   const {
-    setLoading, setGroup, setMembers, setSessions, setPreviewOnly,
+    setLoading, setGroup, setMembers, setSessions, setAnnouncements, setPreviewOnly,
     setScheduleDate, setScheduleTime, setSessionForm, setTransferOwnerId,
     setInviteEmail, setError,
   } = setters;
@@ -75,6 +82,7 @@ async function doLoadGroup(groupId, setters) {
     });
     if (res.status === 403 || res.status === 401) {
       await loadGroupPreview(groupId, setGroup, setMembers, setSessions);
+      setAnnouncements([]);
       setPreviewOnly(true);
       return;
     }
@@ -83,6 +91,22 @@ async function doLoadGroup(groupId, setters) {
     setGroup({ ...data, moduleCode: data.moduleCode || data.courseCode || "" });
     setMembers(Array.isArray(data.members) ? data.members : []);
     setSessions(Array.isArray(data.sessions) ? data.sessions : []);
+
+    // Fetch announcements for this group (members-only endpoint, guarded by HTTP status)
+    try {
+      const annRes = await fetch(`${API_BASE}/api/groups/${groupId}/announcements`, {
+        headers: authHeaders(), credentials: "include",
+      });
+      if (annRes.ok) {
+        const annData = await annRes.json();
+        setAnnouncements(Array.isArray(annData) ? annData : []);
+      } else {
+        setAnnouncements([]);
+      }
+    } catch {
+      setAnnouncements([]);
+    }
+
     setPreviewOnly(false);
     const ps = typeof data.preferredSchedule === "string" ? data.preferredSchedule : "";
     const parts = ps.split(/[T ]/);
@@ -198,6 +222,7 @@ async function executeUpdateGroupAction(group, scheduleDate, scheduleTime, setSe
       preferredSchedule: [scheduleDate, scheduleTime].filter(Boolean).join("T"),
       maxMembers: Number(group.maxMembers),
       approvalRequired: !!group.approvalRequired,
+      autoAnnounceEnabled: !!group.autoAnnounceEnabled,
     };
     const res = await fetch(`${API_BASE}/api/groups/${group.id}`, {
       method: "PUT", headers: authHeaders(), credentials: "include",
@@ -225,6 +250,7 @@ async function executeCreateSessionAction(groupId, sessionForm, setSessionForm, 
       location: sessionForm.location,
       meetingLink: sessionForm.meetingLink,
       notes: sessionForm.notes,
+      autoAnnounceEnabled: !!sessionForm.autoAnnounceEnabled,
     };
     const res = await fetch(`${API_BASE}/api/groups/${groupId}/sessions`, {
       method: "POST", headers: authHeaders(), credentials: "include",
@@ -355,6 +381,7 @@ export default function GroupDetail() {
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [previewOnly, setPreviewOnly] = useState(false);
@@ -363,27 +390,39 @@ export default function GroupDetail() {
   const [scheduleTime, setScheduleTime] = useState("");
   const [sessionForm, setSessionForm] = useState({
     title: "", startsAtDate: "", startsAtTime: "", endsAtDate: "", endsAtTime: "", location: "", meetingLink: "", notes: "",
+    autoAnnounceEnabled: true,
   });
   const [inviteEmail, setInviteEmail] = useState("");
   const [transferOwnerId, setTransferOwnerId] = useState("");
 
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  // `null` means "no explicit selection yet" — we derive the default below
+  // so we never have to call setState from inside an effect just to flip tabs.
+  const [activeTab, setActiveTab] = useState(null);
+
+  // Derived values — declared BEFORE any effect that references them so the
+  // effect deps array doesn't hit the temporal dead zone on the first render.
+  const isOwner = group?.isAdmin;
+  const scheduleMinDate = scheduleDate && scheduleDate < todayIso ? scheduleDate : todayIso;
+  // Owners default to "details" (they're usually editing); members/preview
+  // visitors default to "members". Once the user clicks another tab,
+  // `activeTab` is non-null and wins.
+  const defaultTab = isOwner && !previewOnly ? "details" : "members";
+  const effectiveTab = activeTab ?? defaultTab;
 
   const loadGroup = useCallback(() => doLoadGroup(groupId, {
-    setLoading, setGroup, setMembers, setSessions, setPreviewOnly,
+    setLoading, setGroup, setMembers, setSessions, setAnnouncements, setPreviewOnly,
     setScheduleDate, setScheduleTime, setSessionForm, setTransferOwnerId,
     setInviteEmail, setError,
   }), [groupId]);
 
   useEffect(() => { loadGroup(); }, [loadGroup]);
-
-  const isOwner = group?.isAdmin;
-  const scheduleMinDate = scheduleDate && scheduleDate < todayIso ? scheduleDate : todayIso;
 
   /* ── Owner actions ── */
 
@@ -422,13 +461,11 @@ export default function GroupDetail() {
     openDissolveGroupDialog(group?.id, setConfirmDialog, setSendingEmail, setToast, toastTimer, nav);
   };
 
-  /* ── Join from detail page ── */
+  /* ── Join / leave from detail page ── */
 
   const handleJoinFromDetail = () => {
     openJoinFromDetailDialog(group?.id, setConfirmDialog, setJoiningGroup, setToast, toastTimer, loadGroup);
   };
-
-  /* ── Leave from detail page ── */
 
   const handleLeaveFromDetail = () => {
     openLeaveFromDetailDialog(group?.id, setConfirmDialog, setLeavingGroup, setToast, toastTimer, loadGroup);
@@ -439,6 +476,460 @@ export default function GroupDetail() {
   if (loading) return <div className="gdPage"><p className="gdMsg">Loading group details…</p></div>;
   if (error) return <div className="gdPage"><p className="gdMsg gdError">{error}</p><button className="gdBackBtn" onClick={() => nav("/")}>← Back to Dashboard</button></div>;
   if (!group) return null;
+
+  const canEdit = isOwner && !previewOnly;
+  const showAnnouncementsTab = !previewOnly;
+
+  /* ── Reusable sub-renders ── */
+
+  const renderDetailsRead = () => (
+    <div className="gdSection">
+      <h2 className="gdSectionTitle">Group Details</h2>
+      <div className="gdInfoGrid">
+        <div className="gdInfoItem">
+          <span className="gdInfoLabel">Module / Subject</span>
+          <span className="gdInfoValue">{group.moduleCode || "—"}</span>
+        </div>
+        <div className="gdInfoItem">
+          <span className="gdInfoLabel">Topic</span>
+          <span className="gdInfoValue">{group.topic || "—"}</span>
+        </div>
+        <div className="gdInfoItem">
+          <span className="gdInfoLabel">Study Mode</span>
+          <span className="gdInfoValue">{getStudyModeLabel(group.studyMode)}</span>
+        </div>
+        <div className="gdInfoItem">
+          <span className="gdInfoLabel">Max Members</span>
+          <span className="gdInfoValue">{group.maxMembers ?? "—"}</span>
+        </div>
+        <div className="gdInfoItem">
+          <span className="gdInfoLabel">Location</span>
+          <span className="gdInfoValue">{group.location || "—"}</span>
+        </div>
+        <div className="gdInfoItem">
+          <span className="gdInfoLabel">Meeting Link</span>
+          <span className="gdInfoValue">
+            {group.meetingLink
+              ? <a href={group.meetingLink} target="_blank" rel="noopener noreferrer">{group.meetingLink}</a>
+              : "—"}
+          </span>
+        </div>
+        <div className="gdInfoItem gdInfoFull">
+          <span className="gdInfoLabel">Preferred Schedule</span>
+          <span className="gdInfoValue">{group.preferredSchedule ? formatDateTime(group.preferredSchedule) : "—"}</span>
+        </div>
+        <div className="gdInfoItem gdInfoFull">
+          <span className="gdInfoLabel">Description</span>
+          <span className="gdInfoValue">{group.description || "—"}</span>
+        </div>
+        {group.status && (
+          <div className="gdInfoItem">
+            <span className="gdInfoLabel">Status</span>
+            <span className="gdInfoValue">{group.status}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderDetailsEdit = () => (
+    <div className="gdSection">
+      <h2 className="gdSectionTitle">Group Details</h2>
+      <form className="gdForm" onSubmit={handleUpdateGroup}>
+        <label className="gdLabel">
+          <span>Group Name *</span>
+          <input className="gdInput" required value={group.name || ""} onChange={(e) => setGroup({ ...group, name: e.target.value })} />
+        </label>
+        <div className="gdRow">
+          <label className="gdLabel">
+            <span>Module / Subject *</span>
+            <input className="gdInput" required value={group.moduleCode || ""} onChange={(e) => setGroup({ ...group, moduleCode: e.target.value })} />
+          </label>
+          <label className="gdLabel">
+            <span>Topic</span>
+            <input className="gdInput" value={group.topic || ""} onChange={(e) => setGroup({ ...group, topic: e.target.value })} />
+          </label>
+        </div>
+        <div className="gdRow">
+          <label className="gdLabel">
+            <span>Study Mode</span>
+            <select className="gdInput" value={group.studyMode || "online"} onChange={(e) => setGroup({ ...group, studyMode: e.target.value })}>
+              <option value="online">Online</option>
+              <option value="in-person">In-Person</option>
+              <option value="hybrid">Hybrid</option>
+            </select>
+          </label>
+          <label className="gdLabel">
+            <span>Max Members</span>
+            <input className="gdInput" type="number" min={2} max={100} value={group.maxMembers || 10} onChange={(e) => setGroup({ ...group, maxMembers: Number(e.target.value) })} />
+          </label>
+        </div>
+        <label className="gdLabel">
+          <span>Location</span>
+          <input className="gdInput" value={group.location || ""} onChange={(e) => setGroup({ ...group, location: e.target.value })} />
+        </label>
+        <label className="gdLabel">
+          <span>Meeting Link</span>
+          <input className="gdInput" value={group.meetingLink || ""} onChange={(e) => setGroup({ ...group, meetingLink: e.target.value })} />
+        </label>
+        <label className="gdLabel">
+          <span>Preferred Schedule *</span>
+          <div className="gdRow">
+            <input className="gdInput" type="date" required min={scheduleMinDate} value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
+            <input className="gdInput" type="time" required value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
+          </div>
+        </label>
+        <label className="gdLabel">
+          <span>Description *</span>
+          <textarea className="gdInput gdTextarea" required rows={3} value={group.description || ""} onChange={(e) => setGroup({ ...group, description: e.target.value })} />
+        </label>
+        <label className="gdLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <input type="checkbox" checked={!!group.approvalRequired} onChange={(e) => setGroup({ ...group, approvalRequired: e.target.checked })} />
+          <span>Require admin approval for join requests</span>
+        </label>
+        <label className="gdLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={!!group.autoAnnounceEnabled}
+            onChange={(e) => setGroup({ ...group, autoAnnounceEnabled: e.target.checked })}
+          />
+          <span>Automatically post an announcement when group details change</span>
+        </label>
+        <div className="gdActions">
+          <button type="submit" className="gdSubmitBtn" disabled={sendingEmail}>
+            {sendingEmail ? "Saving…" : "Save Group"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
+  const renderMembersRead = () => (
+    <div className="gdSection">
+      <h2 className="gdSectionTitle">{previewOnly ? "Owner" : "Members"}</h2>
+      <div className="gdMemberList">
+        {(previewOnly ? members.filter((m) => m.role === "owner") : [...members].sort(ownerFirstSort)).map((m) => (
+          <div key={`${m.userId}-${m.role}`} className="gdMemberRow">
+            <div className="gdMemberAvatar">
+              <AvatarContent avatarUrl={extractAvatarUrl(m) || ""} userInitial={getMemberInitials(m)} />
+            </div>
+            <div>
+              <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</strong>
+              <div className="gdMemberMeta">{m.role}{m.role === "owner" ? "" : ` · ${m.membershipStatus}`}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderMembersEdit = () => (
+    <div className="gdSection">
+      <h2 className="gdSectionTitle">Members</h2>
+      <form className="gdRow" onSubmit={handleInviteMember}>
+        <label className="gdLabel" style={{ flex: 1 }}>
+          <span>Invite by email</span>
+          <input className="gdInput" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="student@u.nus.edu" />
+        </label>
+        <div className="gdActions" style={{ alignSelf: "end" }}>
+          <button type="submit" className="gdSubmitBtn">Invite</button>
+        </div>
+      </form>
+
+      {members.length > 0 && (
+        <div className="gdTableWrap">
+          <table className="gdTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...members].sort(ownerFirstSort).map((m) => (
+                <tr key={`${m.userId}-${m.role}`}>
+                  <td>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</td>
+                  <td><span className={`gdRoleBadge gdRole-${m.role}`}>{m.role}</span></td>
+                  <td>{m.role === "owner" ? "—" : <span className={`gdStatusBadge gdStatus-${m.membershipStatus}`}>{m.membershipStatus}</span>}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {(m.membershipStatus === "pending" || m.membershipStatus === "invited") && (
+                        <button className="memberApproveBtn" onClick={() => handleApproveMember(m.userId)}>Approve</button>
+                      )}
+                      {group.createdBy !== m.userId && (
+                        <button className="memberRejectBtn" onClick={() => handleRemoveMember(m.userId)}>Reject</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="gdRow" style={{ marginTop: 12 }}>
+        <label className="gdLabel" style={{ flex: 1 }}>
+          <span>Transfer Ownership</span>
+          <select className="gdInput" value={transferOwnerId} onChange={(e) => setTransferOwnerId(e.target.value)}>
+            <option value="">Select approved member</option>
+            {members
+              .filter((m) => m.membershipStatus === "approved" && m.userId !== group.createdBy)
+              .map((m) => (
+                <option key={m.userId} value={m.userId}>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</option>
+              ))}
+          </select>
+        </label>
+        <div className="gdActions" style={{ alignSelf: "end" }}>
+          <button className="gdSubmitBtn" onClick={handleTransferOwnership} type="button">Transfer</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSessionsRead = () => (
+    <div className="gdSection">
+      <h2 className="gdSectionTitle">Scheduled Sessions</h2>
+      {sessions.length === 0 && <p className="gdMemberMeta">No sessions scheduled yet.</p>}
+      <div className="gdSessionList">
+        {sessions.map((s) => (
+          <div key={s.id} className="gdSessionRow">
+            <div>
+              <strong>{s.title}</strong>
+              <div className="gdSessionMeta">{formatDateTime(s.startsAt)}{s.endsAt ? ` till ${formatDateTime(s.endsAt)}` : ""}</div>
+              <div className="gdSessionMeta">{s.location || s.meetingLink || "No location/link"}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderSessionsEdit = () => (
+    <div className="gdSection">
+      <h2 className="gdSectionTitle">Scheduled Sessions</h2>
+      <form className="gdForm" onSubmit={handleCreateSession}>
+        <label className="gdLabel">
+          <span>Session Title *</span>
+          <input className="gdInput" required value={sessionForm.title} onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })} />
+        </label>
+        <label className="gdLabel">
+          <span>Starts At *</span>
+          <div className="gdRow">
+            <input className="gdInput" type="date" required min={todayIso} value={sessionForm.startsAtDate} onChange={(e) => setSessionForm({ ...sessionForm, startsAtDate: e.target.value })} />
+            <input className="gdInput" type="time" required value={sessionForm.startsAtTime} onChange={(e) => setSessionForm({ ...sessionForm, startsAtTime: e.target.value })} />
+          </div>
+        </label>
+        <label className="gdLabel">
+          <span>Ends At</span>
+          <div className="gdRow">
+            <input className="gdInput" type="date" min={todayIso} value={sessionForm.endsAtDate} onChange={(e) => setSessionForm({ ...sessionForm, endsAtDate: e.target.value })} />
+            <input className="gdInput" type="time" value={sessionForm.endsAtTime} onChange={(e) => setSessionForm({ ...sessionForm, endsAtTime: e.target.value })} />
+          </div>
+        </label>
+        <div className="gdRow">
+          <label className="gdLabel">
+            <span>Location</span>
+            <input className="gdInput" value={sessionForm.location} onChange={(e) => setSessionForm({ ...sessionForm, location: e.target.value })} />
+          </label>
+          <label className="gdLabel">
+            <span>Meeting Link</span>
+            <input className="gdInput" value={sessionForm.meetingLink} onChange={(e) => setSessionForm({ ...sessionForm, meetingLink: e.target.value })} />
+          </label>
+        </div>
+        <label className="gdLabel">
+          <span>Notes</span>
+          <textarea className="gdInput gdTextarea" rows={2} value={sessionForm.notes} onChange={(e) => setSessionForm({ ...sessionForm, notes: e.target.value })} />
+        </label>
+        <label className="gdLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={!!sessionForm.autoAnnounceEnabled}
+            onChange={(e) => setSessionForm({ ...sessionForm, autoAnnounceEnabled: e.target.checked })}
+          />
+          <span>Automatically post an announcement when the session is created</span>
+        </label>
+        <div className="gdActions">
+          <button type="submit" className="gdSubmitBtn" disabled={sendingEmail}>
+            {sendingEmail ? "Creating Session…" : "Create Session"}
+          </button>
+        </div>
+      </form>
+
+      {sessions.length > 0 && (
+        <div className="gdTableWrap">
+          <table className="gdTable">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Starts At</th>
+                <th>Ends At</th>
+                <th>Location / Link</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.title}</td>
+                  <td>{formatDateTime(s.startsAt)}</td>
+                  <td>{s.endsAt ? formatDateTime(s.endsAt) : "—"}</td>
+                  <td>{s.location || s.meetingLink || "—"}</td>
+                  <td><button className="memberRejectBtn" onClick={() => handleDeleteSession(s.id)}>Delete</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  const handleAnnouncementCreated = () => {
+    showToast("Announcement posted successfully!", "success", setToast, toastTimer);
+    loadGroup();
+  };
+
+  const handleAnnouncementUpdated = () => {
+    setEditingAnnouncement(null);
+    showToast("Announcement updated.", "success", setToast, toastTimer);
+    loadGroup();
+  };
+
+  const handleAnnouncementDelete = (announcement) => {
+    setConfirmDialog({
+      message: "Delete this announcement? This action cannot be undone.",
+      confirmBtnClass: "confirmBtnRed",
+      cancelBtnClass: "confirmBtnOutline",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      onCancel: () => setConfirmDialog(null),
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteGroupAnnouncement(group.id, announcement.id);
+          showToast("Announcement deleted.", "success", setToast, toastTimer);
+          loadGroup();
+        } catch (err) {
+          showToast(err.message || "Failed to delete announcement", "error", setToast, toastTimer);
+        }
+      },
+    });
+  };
+
+  const handleAnnouncementArchive = async (announcement) => {
+    try {
+      await archiveAnnouncement(group.id, announcement.id);
+      showToast("Announcement archived for you.", "success", setToast, toastTimer);
+      loadGroup();
+    } catch (err) {
+      showToast(err.message || "Failed to archive announcement", "error", setToast, toastTimer);
+    }
+  };
+
+  const renderAnnouncements = () => (
+    <div className="gdSection">
+      <h2 className="gdSectionTitle">Announcements</h2>
+
+      {canEdit && (
+        <CreateAnnouncementForm
+          groupId={group.id}
+          onSuccess={handleAnnouncementCreated}
+          onError={(err) => showToast(err.message || "Create failed", "error", setToast, toastTimer)}
+        />
+      )}
+
+      {announcements.length === 0 ? (
+        <div className="announcementsEmpty" style={{ marginTop: 16 }}>
+          <p>No announcements yet.</p>
+          {canEdit && (
+            <p className="announcementsEmptySub">
+              Post the first announcement using the form above.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="announcementsFeed" style={{ marginTop: 16 }}>
+          {announcements.map((ann) => (
+            <article key={ann.id} className="announcementCard">
+              <header className="announcementCardHeader">
+                <div className="announcementGroupInfo" />
+                <div className="announcementCardActions">
+                  {canEdit && (
+                    <>
+                      <button
+                        type="button"
+                        className="announcementActionBtn edit"
+                        onClick={() => setEditingAnnouncement(ann)}
+                        aria-label="Edit announcement"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="announcementActionBtn delete"
+                        onClick={() => handleAnnouncementDelete(ann)}
+                        aria-label="Delete announcement"
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="announcementActionBtn archive"
+                    onClick={() => handleAnnouncementArchive(ann)}
+                    aria-label="Archive (hide) this announcement"
+                    title="Archive (hide for me only)"
+                  >
+                    Archive
+                  </button>
+                </div>
+              </header>
+              <h3 className="announcementTitle">{ann.title}</h3>
+              <p className="announcementContent">{ann.content}</p>
+              <footer className="announcementCardFooter">
+                <span className="announcementAuthor">
+                  Posted by {ann.authorName || ann.authorEmail || "Unknown"}
+                  {ann.createdAt && (
+                    <>
+                      {" on "}
+                      <span className="announcementTime">{formatDateTime(ann.createdAt)}</span>
+                    </>
+                  )}
+                </span>
+              </footer>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {editingAnnouncement && (
+        <div
+          className="announcementsModalOverlay"
+          onClick={() => setEditingAnnouncement(null)}
+          role="presentation"
+        >
+          <div
+            className="announcementsModal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gdAnnouncementsEditTitle"
+          >
+            <EditAnnouncementForm
+              groupId={group.id}
+              announcement={editingAnnouncement}
+              onSuccess={handleAnnouncementUpdated}
+              onCancel={() => setEditingAnnouncement(null)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="gdPage">
@@ -457,320 +948,85 @@ export default function GroupDetail() {
           </span>
         </div>
 
-        {isOwner && !previewOnly ? (
-          /* ════════ OWNER: EDITABLE VIEW ════════ */
-          <>
-            <div className="gdSection">
-              <h2 className="gdSectionTitle">Group Details</h2>
-              <form className="gdForm" onSubmit={handleUpdateGroup}>
-                <label className="gdLabel">
-                  <span>Group Name *</span>
-                  <input className="gdInput" required value={group.name || ""} onChange={(e) => setGroup({ ...group, name: e.target.value })} />
-                </label>
-                <div className="gdRow">
-                  <label className="gdLabel">
-                    <span>Module / Subject *</span>
-                    <input className="gdInput" required value={group.moduleCode || ""} onChange={(e) => setGroup({ ...group, moduleCode: e.target.value })} />
-                  </label>
-                  <label className="gdLabel">
-                    <span>Topic</span>
-                    <input className="gdInput" value={group.topic || ""} onChange={(e) => setGroup({ ...group, topic: e.target.value })} />
-                  </label>
-                </div>
-                <div className="gdRow">
-                  <label className="gdLabel">
-                    <span>Study Mode</span>
-                    <select className="gdInput" value={group.studyMode || "online"} onChange={(e) => setGroup({ ...group, studyMode: e.target.value })}>
-                      <option value="online">Online</option>
-                      <option value="in-person">In-Person</option>
-                      <option value="hybrid">Hybrid</option>
-                    </select>
-                  </label>
-                  <label className="gdLabel">
-                    <span>Max Members</span>
-                    <input className="gdInput" type="number" min={2} max={100} value={group.maxMembers || 10} onChange={(e) => setGroup({ ...group, maxMembers: Number(e.target.value) })} />
-                  </label>
-                </div>
-                <label className="gdLabel">
-                  <span>Location</span>
-                  <input className="gdInput" value={group.location || ""} onChange={(e) => setGroup({ ...group, location: e.target.value })} />
-                </label>
-                <label className="gdLabel">
-                  <span>Meeting Link</span>
-                  <input className="gdInput" value={group.meetingLink || ""} onChange={(e) => setGroup({ ...group, meetingLink: e.target.value })} />
-                </label>
-                <label className="gdLabel">
-                  <span>Preferred Schedule *</span>
-                  <div className="gdRow">
-                    <input className="gdInput" type="date" required min={scheduleMinDate} value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
-                    <input className="gdInput" type="time" required value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
-                  </div>
-                </label>
-                <label className="gdLabel">
-                  <span>Description *</span>
-                  <textarea className="gdInput gdTextarea" required rows={3} value={group.description || ""} onChange={(e) => setGroup({ ...group, description: e.target.value })} />
-                </label>
-                <label className="gdLabel" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <input type="checkbox" checked={!!group.approvalRequired} onChange={(e) => setGroup({ ...group, approvalRequired: e.target.checked })} />
-                  <span>Require admin approval for join requests</span>
-                </label>
-                <div className="gdActions">
-                  <button type="submit" className="gdSubmitBtn" disabled={sendingEmail}>
-                    {sendingEmail ? "Saving…" : "Save Group"}
-                  </button>
-                </div>
-              </form>
-            </div>
+        <div className="gdTabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={effectiveTab === "details"}
+            className={`gdTab ${effectiveTab === "details" ? "active" : ""}`}
+            onClick={() => setActiveTab("details")}
+          >
+            Details
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={effectiveTab === "members"}
+            className={`gdTab ${effectiveTab === "members" ? "active" : ""}`}
+            onClick={() => setActiveTab("members")}
+          >
+            Members
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={effectiveTab === "sessions"}
+            className={`gdTab ${effectiveTab === "sessions" ? "active" : ""}`}
+            onClick={() => setActiveTab("sessions")}
+          >
+            Sessions
+          </button>
+          {showAnnouncementsTab && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveTab === "announcements"}
+              className={`gdTab ${effectiveTab === "announcements" ? "active" : ""}`}
+              onClick={() => setActiveTab("announcements")}
+            >
+              Announcements
+            </button>
+          )}
+        </div>
 
-            <div className="gdDivider"><span className="gdDividerLabel">Members</span></div>
+        {effectiveTab === "details" && (canEdit ? renderDetailsEdit() : renderDetailsRead())}
+        {effectiveTab === "members" && (canEdit ? renderMembersEdit() : renderMembersRead())}
+        {effectiveTab === "sessions" && (canEdit ? renderSessionsEdit() : renderSessionsRead())}
+        {effectiveTab === "announcements" && showAnnouncementsTab && renderAnnouncements()}
 
-            <div className="gdSection">
-              <h2 className="gdSectionTitle">Members</h2>
-              <form className="gdRow" onSubmit={handleInviteMember}>
-                <label className="gdLabel" style={{ flex: 1 }}>
-                  <span>Invite by email</span>
-                  <input className="gdInput" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="student@u.nus.edu" />
-                </label>
-                <div className="gdActions" style={{ alignSelf: "end" }}>
-                  <button type="submit" className="gdSubmitBtn">Invite</button>
-                </div>
-              </form>
+        {canEdit && (
+          <div className="gdFooterActions">
+            <button type="button" className="gdBackBtn" onClick={() => nav("/")}>← Back to Dashboard</button>
+            <button type="button" className="gdDissolveBtn" onClick={handleDissolveGroup}>Dissolve Group</button>
+          </div>
+        )}
 
-              {members.length > 0 && (
-                <div className="gdTableWrap">
-                  <table className="gdTable">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...members].sort(ownerFirstSort).map((m) => (
-                        <tr key={`${m.userId}-${m.role}`}>
-                          <td>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</td>
-                          <td><span className={`gdRoleBadge gdRole-${m.role}`}>{m.role}</span></td>
-                          <td>{m.role === "owner" ? "—" : <span className={`gdStatusBadge gdStatus-${m.membershipStatus}`}>{m.membershipStatus}</span>}</td>
-                          <td>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              {(m.membershipStatus === "pending" || m.membershipStatus === "invited") && (
-                                <button className="memberApproveBtn" onClick={() => handleApproveMember(m.userId)}>Approve</button>
-                              )}
-                              {group.createdBy !== m.userId && (
-                                <button className="memberRejectBtn" onClick={() => handleRemoveMember(m.userId)}>Reject</button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+        {previewOnly && group.status !== "dissolved" && group.status !== "full" && (
+          <div className="gdFooterActions gdFooterActionsCentered">
+            <button
+              className="gdSubmitBtn"
+              style={{ padding: "12px 40px", fontSize: 15 }}
+              onClick={handleJoinFromDetail}
+              disabled={joiningGroup}
+              type="button"
+            >
+              {joiningGroup ? "Joining…" : "Join This Group"}
+            </button>
+          </div>
+        )}
 
-              <div className="gdRow" style={{ marginTop: 12 }}>
-                <label className="gdLabel" style={{ flex: 1 }}>
-                  <span>Transfer Ownership</span>
-                  <select className="gdInput" value={transferOwnerId} onChange={(e) => setTransferOwnerId(e.target.value)}>
-                    <option value="">Select approved member</option>
-                    {members
-                      .filter((m) => m.membershipStatus === "approved" && m.userId !== group.createdBy)
-                      .map((m) => (
-                        <option key={m.userId} value={m.userId}>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</option>
-                      ))}
-                  </select>
-                </label>
-                <div className="gdActions" style={{ alignSelf: "end" }}>
-                  <button className="gdSubmitBtn" onClick={handleTransferOwnership} type="button">Transfer</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="gdDivider"><span className="gdDividerLabel">Session Schedule</span></div>
-
-            <div className="gdSection">
-              <h2 className="gdSectionTitle">Scheduled Sessions</h2>
-              <form className="gdForm" onSubmit={handleCreateSession}>
-                <label className="gdLabel">
-                  <span>Session Title *</span>
-                  <input className="gdInput" required value={sessionForm.title} onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })} />
-                </label>
-                <label className="gdLabel">
-                  <span>Starts At *</span>
-                  <div className="gdRow">
-                    <input className="gdInput" type="date" required min={new Date().toISOString().split("T")[0]} value={sessionForm.startsAtDate} onChange={(e) => setSessionForm({ ...sessionForm, startsAtDate: e.target.value })} />
-                    <input className="gdInput" type="time" required value={sessionForm.startsAtTime} onChange={(e) => setSessionForm({ ...sessionForm, startsAtTime: e.target.value })} />
-                  </div>
-                </label>
-                <label className="gdLabel">
-                  <span>Ends At</span>
-                  <div className="gdRow">
-                    <input className="gdInput" type="date" min={new Date().toISOString().split("T")[0]} value={sessionForm.endsAtDate} onChange={(e) => setSessionForm({ ...sessionForm, endsAtDate: e.target.value })} />
-                    <input className="gdInput" type="time" value={sessionForm.endsAtTime} onChange={(e) => setSessionForm({ ...sessionForm, endsAtTime: e.target.value })} />
-                  </div>
-                </label>
-                <div className="gdRow">
-                  <label className="gdLabel">
-                    <span>Location</span>
-                    <input className="gdInput" value={sessionForm.location} onChange={(e) => setSessionForm({ ...sessionForm, location: e.target.value })} />
-                  </label>
-                  <label className="gdLabel">
-                    <span>Meeting Link</span>
-                    <input className="gdInput" value={sessionForm.meetingLink} onChange={(e) => setSessionForm({ ...sessionForm, meetingLink: e.target.value })} />
-                  </label>
-                </div>
-                <label className="gdLabel">
-                  <span>Notes</span>
-                  <textarea className="gdInput gdTextarea" rows={2} value={sessionForm.notes} onChange={(e) => setSessionForm({ ...sessionForm, notes: e.target.value })} />
-                </label>
-                <div className="gdActions">
-                  <button type="submit" className="gdSubmitBtn" disabled={sendingEmail}>
-                    {sendingEmail ? "Creating Session…" : "Create Session"}
-                  </button>
-                </div>
-              </form>
-
-              {sessions.length > 0 && (
-                <div className="gdTableWrap">
-                  <table className="gdTable">
-                    <thead>
-                      <tr>
-                        <th>Title</th>
-                        <th>Starts At</th>
-                        <th>Ends At</th>
-                        <th>Location / Link</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sessions.map((s) => (
-                        <tr key={s.id}>
-                          <td>{s.title}</td>
-                          <td>{formatDateTime(s.startsAt)}</td>
-                          <td>{s.endsAt ? formatDateTime(s.endsAt) : "—"}</td>
-                          <td>{s.location || s.meetingLink || "—"}</td>
-                          <td><button className="memberRejectBtn" onClick={() => handleDeleteSession(s.id)}>Delete</button></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div className="gdFooterActions">
-              <button type="button" className="gdBackBtn" onClick={() => nav("/")}>← Back to Dashboard</button>
-              <button type="button" className="gdDissolveBtn" onClick={handleDissolveGroup}>Dissolve Group</button>
-            </div>
-          </>
-        ) : (
-          /* ════════ STUDENT: READ-ONLY VIEW ════════ */
-          <>
-            <div className="gdSection">
-              <h2 className="gdSectionTitle">Group Details</h2>
-              <div className="gdInfoGrid">
-                <div className="gdInfoItem">
-                  <span className="gdInfoLabel">Module / Subject</span>
-                  <span className="gdInfoValue">{group.moduleCode || "—"}</span>
-                </div>
-                <div className="gdInfoItem">
-                  <span className="gdInfoLabel">Topic</span>
-                  <span className="gdInfoValue">{group.topic || "—"}</span>
-                </div>
-                <div className="gdInfoItem">
-                  <span className="gdInfoLabel">Study Mode</span>
-                  <span className="gdInfoValue">{getStudyModeLabel(group.studyMode)}</span>
-                </div>
-                <div className="gdInfoItem">
-                  <span className="gdInfoLabel">Max Members</span>
-                  <span className="gdInfoValue">{group.maxMembers ?? "—"}</span>
-                </div>
-                <div className="gdInfoItem">
-                  <span className="gdInfoLabel">Location</span>
-                  <span className="gdInfoValue">{group.location || "—"}</span>
-                </div>
-                <div className="gdInfoItem">
-                  <span className="gdInfoLabel">Meeting Link</span>
-                  <span className="gdInfoValue">{group.meetingLink ? <a href={group.meetingLink} target="_blank" rel="noopener noreferrer">{group.meetingLink}</a> : "—"}</span>
-                </div>
-                <div className="gdInfoItem gdInfoFull">
-                  <span className="gdInfoLabel">Preferred Schedule</span>
-                  <span className="gdInfoValue">{group.preferredSchedule ? formatDateTime(group.preferredSchedule) : "—"}</span>
-                </div>
-                <div className="gdInfoItem gdInfoFull">
-                  <span className="gdInfoLabel">Description</span>
-                  <span className="gdInfoValue">{group.description || "—"}</span>
-                </div>
-                {group.status && (
-                  <div className="gdInfoItem">
-                    <span className="gdInfoLabel">Status</span>
-                    <span className="gdInfoValue">{group.status}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="gdSection">
-              <h2 className="gdSectionTitle">{previewOnly ? "Owner" : "Members"}</h2>
-              <div className="gdMemberList">
-                {(previewOnly ? members.filter((m) => m.role === "owner") : [...members].sort(ownerFirstSort)).map((m) => (
-                  <div key={`${m.userId}-${m.role}`} className="gdMemberRow">
-                    <div className="gdMemberAvatar">
-                      <AvatarContent avatarUrl={extractAvatarUrl(m) || ""} userInitial={getMemberInitials(m)} />
-                    </div>
-                    <div>
-                      <strong>{[m.firstName, m.lastName].filter(Boolean).join(" ") || m.userId}</strong>
-                      <div className="gdMemberMeta">{m.role}{m.role === "owner" ? "" : ` · ${m.membershipStatus}`}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="gdSection">
-              <h2 className="gdSectionTitle">Scheduled Sessions</h2>
-              {sessions.length === 0 && <p className="gdMemberMeta">No sessions scheduled yet.</p>}
-              <div className="gdSessionList">
-                {sessions.map((s) => (
-                  <div key={s.id} className="gdSessionRow">
-                    <div>
-                      <strong>{s.title}</strong>
-                      <div className="gdSessionMeta">{formatDateTime(s.startsAt)}{s.endsAt ? ` till ${formatDateTime(s.endsAt)}` : ""}</div>
-                      <div className="gdSessionMeta">{s.location || s.meetingLink || "No location/link"}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {previewOnly && group.status !== "dissolved" && group.status !== "full" && (
-              <div className="gdSection" style={{ textAlign: "center" }}>
-                <button
-                  className="gdSubmitBtn"
-                  style={{ padding: "12px 40px", fontSize: 15 }}
-                  onClick={handleJoinFromDetail}
-                  disabled={joiningGroup}
-                >
-                  {joiningGroup ? "Joining…" : "Join This Group"}
-                </button>
-              </div>
-            )}
-
-            {!previewOnly && !isOwner && (
-              <div className="gdSection" style={{ textAlign: "center" }}>
-                <button
-                  className="gdLeaveBtn"
-                  style={{ padding: "12px 40px", fontSize: 15 }}
-                  onClick={handleLeaveFromDetail}
-                  disabled={leavingGroup}
-                >
-                  {leavingGroup ? "Leaving…" : "Leave This Group"}
-                </button>
-              </div>
-            )}
-          </>
+        {!previewOnly && !isOwner && (
+          <div className="gdFooterActions gdFooterActionsCentered">
+            <button
+              className="gdLeaveBtn"
+              style={{ padding: "12px 40px", fontSize: 15 }}
+              onClick={handleLeaveFromDetail}
+              disabled={leavingGroup}
+              type="button"
+            >
+              {leavingGroup ? "Leaving…" : "Leave This Group"}
+            </button>
+          </div>
         )}
       </div>
 
@@ -786,7 +1042,7 @@ export default function GroupDetail() {
       )}
 
       {toast && (
-      <Toast toast={toast} onDismiss={() => setToast(null)} />
+        <Toast toast={toast} onDismiss={() => setToast(null)} />
       )}
     </div>
   );

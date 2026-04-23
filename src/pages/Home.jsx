@@ -11,7 +11,7 @@ import PropTypes from "prop-types";
 import { SWA_LOGOUT_URL } from "../AuthConfig";
 import { API_BASE, authHeaders, waitForToken } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
-import { WellBeingIcon } from "../components/Icons";
+import { WellBeingIcon, AnnouncementIcon } from "../components/Icons";
 import {
   getRuMemberInitials,
   ruAuthRequestOptions,
@@ -27,6 +27,7 @@ import GroupChatWorkspace from "../components/chat/GroupChatWorkspace";
 import { groupChatService } from "../services/groupChatService";
 import AiTutor from "./AiTutor";
 import WellBeing from "./WellBeing";
+import Announcements from "./Announcements";
 import "../styles/pages/Dashboard.css";
 import "../styles/pages/GroupDetail.css";
 import "../styles/pages/RestrictUser.css";
@@ -144,9 +145,30 @@ function getProfileDisplayName(profileData) {
   return fullName || profileData?.name || "";
 }
 
+// Collator with natural numeric ordering so CS1010 < CS1020 < CS2030
+// (lexical sort would put CS10100 before CS1020 which looks wrong).
+const MODULE_COLLATOR = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+
+/**
+ * Sort groups alphabetically by module/subject code first, then by group name
+ * as a tiebreak. Groups without a module code sink to the end so they don't
+ * interleave with the properly-coded ones.
+ */
+function sortGroupsByModule(list) {
+  return [...list].sort((a, b) => {
+    const codeA = (a.moduleCode || a.courseCode || "").trim();
+    const codeB = (b.moduleCode || b.courseCode || "").trim();
+    if (codeA && !codeB) return -1;
+    if (!codeA && codeB) return 1;
+    const byCode = MODULE_COLLATOR.compare(codeA, codeB);
+    if (byCode !== 0) return byCode;
+    return MODULE_COLLATOR.compare(a.name || "", b.name || "");
+  });
+}
+
 function filterDashboardGroups(groups, search, myGroupsOnly) {
   const q = search.toLowerCase().trim();
-  return groups.filter((group) => {
+  const matched = groups.filter((group) => {
     const matchesAdminFilter = !myGroupsOnly || group.isAdmin;
     const matchesSearch =
       !q ||
@@ -156,6 +178,7 @@ function filterDashboardGroups(groups, search, myGroupsOnly) {
       group.topic?.toLowerCase().includes(q);
     return matchesAdminFilter && matchesSearch;
   });
+  return sortGroupsByModule(matched);
 }
 
 function openMeetingLink(url) {
@@ -1386,7 +1409,9 @@ function DashboardHome() {
   const [activeModule, setActiveModule] = useState(location.state?.activeModule || "studyGroups");
   const [groupChats, setGroupChats] = useState([]);
   const [groupChatsLoading, setGroupChatsLoading] = useState(false);
-  const [selectedGroupChatId, setSelectedGroupChatId] = useState("");
+  // Allow other dashboard pages (e.g. Announcements) to deep-link into a chat
+  // via navigation state so the sidebar chat buttons feel instant.
+  const [selectedGroupChatId, setSelectedGroupChatId] = useState(location.state?.selectedGroupChatId || "");
   const [myGroupsOnly, setMyGroupsOnly] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -1827,6 +1852,7 @@ function DashboardHome() {
         <nav className="dashNav">
           <span className="dashNavLabel">MODULES</span>
           <button className={`dashNavItem ${activeModule === "studyGroups" ? "active" : ""}`} onClick={() => { setActiveModule("studyGroups"); closeSidebar(); }}><GroupsIcon /> Study Groups</button>
+          <button className={`dashNavItem ${activeModule === "announcements" ? "active" : ""}`} onClick={() => { setActiveModule("announcements"); closeSidebar(); }}><AnnouncementIcon /> Announcements</button>
           <button className={`dashNavItem ${activeModule === "groupChats" ? "active" : ""}`} onClick={() => { setActiveModule("groupChats"); closeSidebar(); }}><GroupsIcon /> Group Chats</button>
           <button className={`dashNavItem ${activeModule === "peerTutoring" ? "active" : ""}`} onClick={() => { setActiveModule("peerTutoring"); closeSidebar(); }}><TutoringIcon /> Peer Tutoring</button>
           <button className={`dashNavItem ${activeModule === "restrictedMembers" ? "active" : ""}`} onClick={() => { setActiveModule("restrictedMembers"); closeSidebar(); }}><RestrictIcon /> Restricted Member</button>
@@ -1893,6 +1919,13 @@ function DashboardHome() {
           />
         )}
         {activeModule === "restrictedMembers" && <RestrictedMemberSection showToast={showToast} setConfirmDialog={setConfirmDialog} />}
+        {activeModule === "announcements" && (
+          <Announcements
+            showToast={showToast}
+            setConfirmDialog={setConfirmDialog}
+            initialSelectedGroupId={location.state?.selectedGroupId}
+          />
+        )}
         {activeModule === "wellBeing" && <WellBeing />}
         {activeModule === "aiTutor" && (
           <>

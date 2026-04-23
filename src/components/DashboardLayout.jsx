@@ -4,16 +4,23 @@ import PropTypes from "prop-types";
 import { SWA_LOGOUT_URL } from "../AuthConfig";
 import { API_BASE, authHeaders } from "../utils/auth";
 import { extractAvatarUrl, subscribeProfileUpdated } from "../utils/profileSync";
-import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon, WellBeingIcon } from "./Icons";
+import { MenuIcon, CloseIcon, GroupsIcon, TutoringIcon, AiIcon, SupportIcon, RestrictIcon, WellBeingIcon, AnnouncementIcon } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
 import Toast from "./Toast";
+import GroupChatsNavList from "./chat/GroupChatsNavList";
+import { fetchAccessibleGroupChats } from "../services/groupChatService";
 import "../styles/pages/Dashboard.css";
 
+// Keep this list in lock-step with the inline sidebar in Home.jsx — users expect
+// the left nav to look identical across modules so nothing appears or vanishes
+// when they navigate between them.
 const NAV_ITEMS = [
   { id: "groups", label: "Study Groups", icon: <GroupsIcon />, path: "/", navState: { activeModule: "studyGroups" } },
+  { id: "announcements", label: "Announcements", icon: <AnnouncementIcon />, path: "/", navState: { activeModule: "announcements" } },
+  { id: "chats", label: "Group Chats", icon: <GroupsIcon />, path: "/", navState: { activeModule: "groupChats" } },
   { id: "tutoring", label: "Peer Tutoring", icon: <TutoringIcon />, path: "/", navState: { activeModule: "peerTutoring" } },
   { id: "restrict", label: "Restricted Member", icon: <RestrictIcon />, path: "/", navState: { activeModule: "restrictedMembers" } },
-  { id: "ai", label: "AI Tutor", icon: <AiIcon />, disabled: true },
+  { id: "ai", label: "AI Tutor", icon: <AiIcon />, path: "/", navState: { activeModule: "aiTutor" } },
   { id: "support", label: "Support", icon: <SupportIcon />, disabled: true },
   { id: "wellbeing", label: "Well-being", icon: <WellBeingIcon />, path: "/", navState: { activeModule: "wellBeing" } },
 ];
@@ -94,6 +101,11 @@ export default function DashboardLayout({ activeNav, children }) {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  // Mirror Home.jsx's group-chats strip so the sidebar looks the same on every
+  // dashboard-style page. Failures are swallowed — the rest of the page must
+  // remain usable even if the chats endpoint is down.
+  const [groupChats, setGroupChats] = useState([]);
+  const [groupChatsLoading, setGroupChatsLoading] = useState(false);
 
   const showToast = useCallback((message, type = "success") => {
     clearTimeout(toastTimer.current);
@@ -106,6 +118,23 @@ export default function DashboardLayout({ activeNav, children }) {
   useEffect(() => {
     let cancelled = false;
     fetchProfileData(authHeaders(), () => cancelled, setAvatarUrl, setProfileName, setProfileEmail).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setGroupChatsLoading(true);
+    fetchAccessibleGroupChats()
+      .then((chats) => {
+        if (cancelled) return;
+        setGroupChats(Array.isArray(chats) ? chats : []);
+      })
+      .catch(() => {
+        if (!cancelled) setGroupChats([]);
+      })
+      .finally(() => {
+        if (!cancelled) setGroupChatsLoading(false);
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -179,6 +208,18 @@ export default function DashboardLayout({ activeNav, children }) {
               {item.icon} {item.label}
             </button>
           ))}
+
+          <GroupChatsNavList
+            chats={groupChats}
+            activeChatId=""
+            loading={groupChatsLoading}
+            onSelectChat={(chatId) => {
+              // Jump to Home with the chat pre-selected so it opens directly
+              // instead of landing on the Study Groups module first.
+              nav("/", { state: { activeModule: "groupChats", selectedGroupChatId: chatId, avatarUrl } });
+              closeSidebar();
+            }}
+          />
         </nav>
 
         <div className="dashSidebarFooter">
