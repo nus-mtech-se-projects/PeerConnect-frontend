@@ -26,7 +26,7 @@
 
 .announcementsSubtitle {
   font-size: 14px;
-  color: #6b7280;
+  color: #4b5563;
   margin: 0;
 }
 
@@ -236,7 +236,7 @@
 .announcementCreateCounter,
 .announcementEditCounter {
   font-size: 11px;
-  color: #6b7280;
+  color: #4b5563;
   text-align: right;
 }
 
@@ -252,13 +252,15 @@
   height: 40px;
   border-radius: 10px;
   border: none;
-  background: linear-gradient(135deg, #EF7C00 0%, #ff9a3c 100%);
+  /* Deeper orange base (from #EF7C00) pushes white-text contrast over the
+     WCAG AA normal-text bar (4.5:1) while staying on-brand. */
+  background: linear-gradient(135deg, #a14703 0%, #c95e00 100%);
   color: #ffffff;
   font-weight: 700;
   padding: 0 22px;
   font-size: 13px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(239, 124, 0, 0.24);
+  box-shadow: 0 4px 14px rgba(161, 71, 3, 0.28);
   transition: filter 120ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
 
@@ -306,7 +308,7 @@
 .announcementsEmpty {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: #4b5563;
 }
 
 .announcementsEmpty p {
@@ -383,7 +385,7 @@
 
 .announcementTime {
   font-size: 12px;
-  color: #6b7280;
+  color: #4b5563;
   white-space: nowrap;
   margin-right: 4px;
 }
@@ -456,7 +458,7 @@
 
 .announcementAuthor {
   font-size: 12px;
-  color: #6b7280;
+  color: #4b5563;
   font-style: italic;
 }
 

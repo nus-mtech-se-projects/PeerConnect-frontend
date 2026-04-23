@@ -21,7 +21,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (err) {
-    if (err && err.name === "AbortError") {
+    if (err?.name === "AbortError") {
       throw new Error("Request timed out");
     }
     throw err;

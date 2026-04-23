@@ -907,16 +907,18 @@ export default function GroupDetail() {
       )}
 
       {editingAnnouncement && (
-        <div
-          className="announcementsModalOverlay"
-          onClick={() => setEditingAnnouncement(null)}
-          role="presentation"
-        >
-          <div
+        <div className="announcementsModalOverlay">
+          {/* Button element so the backdrop is natively focusable + keyboard
+              accessible (Enter/Space trigger the close) without extra ARIA. */}
+          <button
+            type="button"
+            className="announcementsModalBackdrop"
+            aria-label="Close edit announcement dialog"
+            onClick={() => setEditingAnnouncement(null)}
+          />
+          <dialog
+            open
             className="announcementsModal"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
             aria-labelledby="gdAnnouncementsEditTitle"
           >
             <EditAnnouncementForm
@@ -925,7 +927,7 @@ export default function GroupDetail() {
               onSuccess={handleAnnouncementUpdated}
               onCancel={() => setEditingAnnouncement(null)}
             />
-          </div>
+          </dialog>
         </div>
       )}
     </div>
