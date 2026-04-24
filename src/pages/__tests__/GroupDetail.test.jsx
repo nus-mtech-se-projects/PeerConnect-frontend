@@ -1000,11 +1000,14 @@ describe("GroupDetail – member management UAT", () => {
   it("invite member clears email input on success", async () => {
     await initOwnerView();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const emailInput = screen.getByPlaceholderText("student@u.nus.edu");
-    await user.type(emailInput, "new@u.nus.edu");
+    await user.type(screen.getByPlaceholderText("student@u.nus.edu"), "new@u.nus.edu");
     mockApiSuccess();
     fireEvent.click(screen.getByText("Invite"));
-    await waitFor(() => expect(emailInput).toHaveValue(""));
+    // loadGroup() remounts the form while loading=true, so we must re-query
+    // the input on each retry rather than holding a stale detached element.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("student@u.nus.edu")).toHaveValue("")
+    );
   });
 
   it("approved members appear in transfer ownership dropdown", async () => {
