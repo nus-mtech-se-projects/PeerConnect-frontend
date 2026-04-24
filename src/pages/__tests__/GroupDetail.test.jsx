@@ -365,7 +365,9 @@ describe("GroupDetail – preview (non-member)", () => {
 describe("GroupDetail – member view", () => {
   it("renders read-only view with Leave button and members", async () => {
     await initMemberView();
-    expect(screen.getByText("Members")).toBeInTheDocument();
+    // Two "Members" texts can legitimately appear: the tab button and the
+    // section heading. Asserting >= 1 keeps the test robust to that.
+    expect(screen.getAllByText("Members").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Leave This Group")).toBeInTheDocument();
     expect(screen.getByText("Alice Tan")).toBeInTheDocument();
     expect(screen.getByText("Bob Lee")).toBeInTheDocument();
@@ -662,7 +664,11 @@ describe("GroupDetail – owner view", () => {
     await user.clear(nameInput);
     await user.type(nameInput, "New Name");
     expect(nameInput).toHaveValue("New Name");
-    const checkbox = screen.getByRole("checkbox");
+    // The owner view renders several checkboxes (approval, auto-announce on
+    // group, auto-announce on session). The "approval" checkbox is the one
+    // next to its descriptive label, so we grab it through its associated text.
+    const approvalLabel = screen.getByText(/require admin approval/i);
+    const checkbox = approvalLabel.closest("label").querySelector("input[type='checkbox']");
     expect(checkbox.checked).toBe(false);
     fireEvent.click(checkbox);
     expect(checkbox.checked).toBe(true);
@@ -994,11 +1000,14 @@ describe("GroupDetail – member management UAT", () => {
   it("invite member clears email input on success", async () => {
     await initOwnerView();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const emailInput = screen.getByPlaceholderText("student@u.nus.edu");
-    await user.type(emailInput, "new@u.nus.edu");
+    await user.type(screen.getByPlaceholderText("student@u.nus.edu"), "new@u.nus.edu");
     mockApiSuccess();
     fireEvent.click(screen.getByText("Invite"));
-    await waitFor(() => expect(emailInput).toHaveValue(""));
+    // loadGroup() remounts the form while loading=true, so we must re-query
+    // the input on each retry rather than holding a stale detached element.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("student@u.nus.edu")).toHaveValue("")
+    );
   });
 
   it("approved members appear in transfer ownership dropdown", async () => {
