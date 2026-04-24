@@ -122,7 +122,10 @@ test.describe('Member Management', () => {
 
   test('owner can toggle approvalRequired checkbox', async ({ page }) => {
     await setupAndGoto(page, MOCK_GROUP_WITH_PENDING);
-    const checkbox = page.locator('input[type="checkbox"]');
+    // Scope to the specific checkbox — there are now multiple checkboxes on
+    // the page (approvalRequired + auto-announce toggles), so a bare
+    // input[type="checkbox"] locator matches too many elements.
+    const checkbox = page.getByRole('checkbox', { name: /require admin approval/i });
     await expect(checkbox).toBeChecked();
     await checkbox.uncheck();
     await expect(checkbox).not.toBeChecked();
