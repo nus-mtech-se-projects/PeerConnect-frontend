@@ -83,6 +83,9 @@
 }
 
 .profileInput {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 10px 14px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
