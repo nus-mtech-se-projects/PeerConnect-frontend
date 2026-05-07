@@ -8,16 +8,14 @@ import {
   notifyUnreadChanged,
   useUnreadAnnouncements,
 } from "../unreadAnnouncements";
+import {
+  getUnreadAnnouncementCount,
+} from "../../services/announcements";
 
 vi.mock("../../services/announcements", () => ({
   getUnreadAnnouncementCount: vi.fn(),
   markAnnouncementsRead: vi.fn(),
 }));
-
-// eslint-disable-next-line import/first
-import {
-  getUnreadAnnouncementCount,
-} from "../../services/announcements";
 
 describe("useUnreadAnnouncements", () => {
   beforeEach(() => {
