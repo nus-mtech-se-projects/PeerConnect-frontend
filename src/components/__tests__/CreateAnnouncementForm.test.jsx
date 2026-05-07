@@ -1,13 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CreateAnnouncementForm from "../CreateAnnouncementForm";
+import { createGroupAnnouncement } from "../../services/announcements.js";
 
 vi.mock("../../services/announcements.js", () => ({
   createGroupAnnouncement: vi.fn(),
 }));
-
-// eslint-disable-next-line import/first
-import { createGroupAnnouncement } from "../../services/announcements.js";
 
 const GROUP_ID = "group-123";
 

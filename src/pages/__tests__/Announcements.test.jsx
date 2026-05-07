@@ -1,6 +1,11 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Announcements from "../Announcements";
+import {
+  getJoinedGroupsWithAnnouncements,
+  archiveAnnouncement,
+  getArchivedAnnouncements,
+} from "../../services/announcements";
 
 vi.mock("../../services/announcements", () => ({
   getJoinedGroupsWithAnnouncements: vi.fn(),
@@ -19,13 +24,6 @@ vi.mock("../../components/CreateAnnouncementForm", () => ({
 vi.mock("../../components/EditAnnouncementForm", () => ({
   default: () => <div data-testid="edit-announcement-form" />,
 }));
-
-// eslint-disable-next-line import/first
-import {
-  getJoinedGroupsWithAnnouncements,
-  archiveAnnouncement,
-  getArchivedAnnouncements,
-} from "../../services/announcements";
 
 const GROUP_A = { id: "g-a", name: "Algorithms Crew", moduleCode: "CS3230", isAdmin: true, joined: true };
 const GROUP_B = { id: "g-b", name: "Capstone Squad", moduleCode: "SWE5006", isAdmin: false, joined: true };
