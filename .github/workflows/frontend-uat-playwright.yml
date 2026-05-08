@@ -1,12 +1,6 @@
 name: Frontend UAT (Playwright)
 
 on:
-  pull_request:
-    branches: [ main ]
-  push:
-    branches:
-      - main
-      - "new_devsecops_pipelines"
   workflow_dispatch:
 jobs:
   uat:
