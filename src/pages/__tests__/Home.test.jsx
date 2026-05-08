@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Home from "../Home";
@@ -79,9 +79,9 @@ function mockDashboardFetch({
   });
 }
 
-function renderHome() {
+function renderHome(initialEntry = "/") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Home />
     </MemoryRouter>
   );
@@ -140,6 +140,292 @@ describe("Home page", () => {
     await user.click(await screen.findByRole("button", { name: /peer tutoring/i }));
 
     expect(await screen.findByText(/select your role above to get started with peer tutoring/i)).toBeInTheDocument();
+  });
+
+  it("filters and sorts study groups by search and my-groups toggle", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    mockDashboardFetch({
+      profile: { firstName: "Test", lastName: "Student" },
+      groups: [
+        {
+          id: "general",
+          name: "General Hangout",
+          topic: "Planning",
+          studyMode: "hybrid",
+          joined: false,
+          isAdmin: false,
+          memberCount: 1,
+        },
+        {
+          id: "admin",
+          name: "Algorithms Crew",
+          moduleCode: "CS3230",
+          topic: "Graphs",
+          studyMode: "online",
+          joined: true,
+          isAdmin: true,
+          memberCount: 3,
+          maxMembers: 8,
+          preferredSchedule: "2026-06-01T10:00",
+          status: "active",
+        },
+        {
+          id: "member",
+          name: "Architecture Studio",
+          courseCode: "AR1101",
+          topic: "Models",
+          studyMode: "in-person",
+          joined: true,
+          isAdmin: false,
+          memberCount: 2,
+        },
+      ],
+    });
+
+    renderHome();
+
+    expect(await screen.findByText("Algorithms Crew")).toBeInTheDocument();
+    expect(screen.getByText("Architecture Studio")).toBeInTheDocument();
+    expect(screen.getByText("General Hangout")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText(/search by name/i), "ar1101");
+    expect(screen.queryByText("Algorithms Crew")).not.toBeInTheDocument();
+    expect(screen.getByText("Architecture Studio")).toBeInTheDocument();
+
+    await user.clear(screen.getByPlaceholderText(/search by name/i));
+    await user.click(screen.getByRole("button", { name: /my groups/i }));
+
+    expect(screen.getByText("Algorithms Crew")).toBeInTheDocument();
+    expect(screen.queryByText("Architecture Studio")).not.toBeInTheDocument();
+    expect(screen.queryByText("General Hangout")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /manage/i })).toBeInTheDocument();
+  });
+
+  it("renders study group membership states and opens group details", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    mockDashboardFetch({
+      profile: { firstName: "Test", lastName: "Student" },
+      groups: [
+        {
+          id: "pending",
+          name: "Pending Group",
+          studyMode: "online",
+          membershipStatus: "pending",
+          joined: false,
+          isAdmin: false,
+          memberCount: 1,
+          maxMembers: 4,
+        },
+        {
+          id: "full",
+          name: "Full Group",
+          studyMode: "in-person",
+          status: "full",
+          joined: false,
+          isAdmin: false,
+        },
+        {
+          id: "dissolved",
+          name: "Dissolved Group",
+          studyMode: "online",
+          status: "dissolved",
+          joined: true,
+          isAdmin: false,
+        },
+      ],
+    });
+
+    renderHome();
+
+    expect(await screen.findByText("Pending Group")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pending/i })).toBeInTheDocument();
+    expect(screen.getByText("Full Group").closest(".groupCard")).toHaveTextContent("In-Person");
+    expect(within(screen.getByText("Full Group").closest(".groupCard")).getByRole("button", { name: /^join$/i })).toBeDisabled();
+    expect(within(screen.getByText("Dissolved Group").closest(".groupCard")).getByRole("button", { name: /^leave$/i })).toBeDisabled();
+
+    await user.click(within(screen.getByText("Pending Group").closest(".groupCard")).getByRole("button", { name: /info/i }));
+    expect(mockNavigate).toHaveBeenCalledWith("/group/pending");
+  });
+
+  it("creates a hybrid study group and switches to group chats", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    const fetchSpy = mockDashboardFetch({
+      profile: { firstName: "Test", lastName: "Student" },
+      groups: [],
+    });
+
+    renderHome();
+
+    await user.click(await screen.findByRole("button", { name: /create group/i }));
+    await user.type(screen.getByLabelText(/group name/i), "Hybrid Study Circle");
+    await user.type(screen.getByLabelText(/module \/ subject/i), "CS2103");
+    await user.type(screen.getByLabelText(/^topic/i), "Testing");
+    await user.selectOptions(screen.getByLabelText(/study mode/i), "hybrid");
+    await user.type(screen.getByLabelText(/location/i), "COM1");
+    await user.type(screen.getByLabelText(/meeting link/i), "https://teams.example/meet");
+    await user.type(document.querySelector("input[type='date']"), "2026-06-01");
+    await user.type(document.querySelector("input[type='time']"), "10:30");
+    await user.type(screen.getByLabelText(/description/i), "Discuss project tests");
+    await user.click(screen.getByLabelText(/require admin approval/i));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /^create group$/i }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/api/groups"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining("\"preferredSchedule\":\"2026-06-01T10:30\""),
+        }),
+      );
+    });
+    expect(await screen.findByText(/select a group chat from the left sidebar/i)).toBeInTheDocument();
+  });
+
+  it("shows an error toast when study group creation fails", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    mockDashboardFetch({
+      profile: { firstName: "Test", lastName: "Student" },
+      groups: [],
+      groupDetails: {},
+    }).mockImplementation((input, init = {}) => {
+      const url = String(input);
+      const method = (init?.method || "GET").toUpperCase();
+      if (method === "POST" && url.endsWith("/api/groups")) {
+        return mockJsonResponse({ error: "Create group failed" }, false, 400);
+      }
+      if (url.endsWith("/api/users/me")) return mockJsonResponse({ firstName: "Test", lastName: "Student" });
+      if (url.endsWith("/api/profile")) return mockJsonResponse({});
+      if (url.endsWith("/api/groups")) return mockJsonResponse([]);
+      return mockJsonResponse({});
+    });
+
+    renderHome();
+
+    await user.click(await screen.findByRole("button", { name: /create group/i }));
+    await user.type(screen.getByLabelText(/group name/i), "Bad Group");
+    await user.type(screen.getByLabelText(/module \/ subject/i), "CS0000");
+    await user.type(screen.getByLabelText(/meeting link/i), "https://teams.example/meet");
+    await user.type(document.querySelector("input[type='date']"), "2026-06-01");
+    await user.type(document.querySelector("input[type='time']"), "10:30");
+    await user.type(screen.getByLabelText(/description/i), "Bad group");
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /^create group$/i }));
+
+    expect(await screen.findByText("Create group failed")).toBeInTheDocument();
+  });
+
+  it("loads restricted members and allows a restricted user", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input, init = {}) => {
+      const url = String(input);
+      const method = (init?.method || "GET").toUpperCase();
+      if (url.endsWith("/api/users/me")) return mockJsonResponse({ firstName: "Admin", lastName: "User" });
+      if (url.endsWith("/api/profile")) return mockJsonResponse({});
+      if (url.endsWith("/api/groups")) return mockJsonResponse([]);
+      if (url.endsWith("/api/group-chats")) return mockJsonResponse([]);
+      if (method === "GET" && url.endsWith("/api/restricted-users")) {
+        return mockJsonResponse([
+          {
+            restrictedUserId: "user-1",
+            firstName: "Blocked",
+            lastName: "Student",
+            createdAt: "2026-04-01T00:00:00.000Z",
+          },
+        ]);
+      }
+      if (method === "DELETE" && url.endsWith("/api/restricted-users/user-1")) {
+        return mockJsonResponse({});
+      }
+      return mockJsonResponse({});
+    });
+
+    renderHome({ pathname: "/", state: { activeModule: "restrictedMembers" } });
+
+    expect(await screen.findByRole("heading", { level: 1, name: /restricted members/i })).toBeInTheDocument();
+    expect(await screen.findByText("Blocked Student")).toBeInTheDocument();
+    expect(screen.getByText(/4\/1\/2026|01\/04\/2026|4\/1\/26/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^allow$/i }));
+    expect(screen.getByText(/are you sure you want to allow this user/i)).toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /^allow$/i }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/api/restricted-users/user-1"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+    expect(await screen.findByText(/user allowed successfully/i)).toBeInTheDocument();
+  });
+
+  it("searches users and restricts a result", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input, init = {}) => {
+      const url = String(input);
+      const method = (init?.method || "GET").toUpperCase();
+      if (url.endsWith("/api/users/me")) return mockJsonResponse({ firstName: "Admin", lastName: "User" });
+      if (url.endsWith("/api/profile")) return mockJsonResponse({});
+      if (url.endsWith("/api/groups")) return mockJsonResponse([]);
+      if (url.endsWith("/api/group-chats")) return mockJsonResponse([]);
+      if (method === "GET" && url.endsWith("/api/restricted-users")) return mockJsonResponse([]);
+      if (method === "GET" && url.includes("/api/restricted-users/search")) {
+        return mockJsonResponse([
+          { userId: "user-2", firstName: "Alice", lastName: "Search", restricted: false },
+          { userId: "user-3", firstName: "Bob", lastName: "Allowed", restricted: true },
+        ]);
+      }
+      if (method === "POST" && url.endsWith("/api/restricted-users")) return mockJsonResponse({});
+      return mockJsonResponse({});
+    });
+
+    renderHome({ pathname: "/", state: { activeModule: "restrictedMembers" } });
+
+    await screen.findByRole("heading", { level: 1, name: /restricted members/i });
+    expect(await screen.findByText(/no restricted members/i)).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText(/search users by email/i), "al");
+    expect(await screen.findByText("Alice Search")).toBeInTheDocument();
+    expect(screen.getByText("Bob Allowed")).toBeInTheDocument();
+
+    await user.click(within(screen.getByText("Alice Search").closest("tr")).getByRole("button", { name: /^restrict$/i }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/api/restricted-users"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ userId: "user-2" }),
+        }),
+      );
+    });
+    expect(await screen.findByText(/user restricted successfully/i)).toBeInTheDocument();
+    expect(within(screen.getByText("Alice Search").closest("tr")).getByRole("button", { name: /^allow$/i })).toBeInTheDocument();
+  });
+
+  it("handles restricted-member load and search failures", async () => {
+    const user = userEvent.setup({ delay: null });
+    localStorage.setItem("accessToken", makeAccessToken());
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/users/me")) return mockJsonResponse({ firstName: "Admin", lastName: "User" });
+      if (url.endsWith("/api/profile")) return mockJsonResponse({});
+      if (url.endsWith("/api/groups")) return mockJsonResponse([]);
+      if (url.endsWith("/api/group-chats")) return mockJsonResponse([]);
+      if (url.endsWith("/api/restricted-users")) return mockJsonResponse({}, false, 500);
+      if (url.includes("/api/restricted-users/search")) return mockJsonResponse({}, false, 500);
+      return mockJsonResponse({});
+    });
+
+    renderHome({ pathname: "/", state: { activeModule: "restrictedMembers" } });
+
+    await screen.findByRole("heading", { level: 1, name: /restricted members/i });
+    await user.type(screen.getByPlaceholderText(/search users by email/i), "zz");
+    expect(await screen.findByText(/no users found/i)).toBeInTheDocument();
   });
 
   it("shows the tutor dashboard empty state in peer tutoring", async () => {
