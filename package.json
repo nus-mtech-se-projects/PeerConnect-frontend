@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage.enabled true --coverage.provider=v8 --coverage.reporter=lcov --coverage.reporter=text"
   },
   "dependencies": {
     "prop-types": "^15.8.1",

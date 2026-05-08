@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Profile from "../Profile";
@@ -30,6 +30,14 @@ describe("Profile page", () => {
     mockNav.mockClear();
     localStorage.clear();
     vi.restoreAllMocks();
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:avatar-preview"),
+      revokeObjectURL: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   // ── Loading ────────────────────────────────────────────────────────────────
@@ -65,6 +73,41 @@ describe("Profile page", () => {
     expect(screen.getByDisplayValue("Computer Science")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Year 2")).toBeInTheDocument();
     expect(screen.getByDisplayValue("I love coding")).toBeInTheDocument();
+  });
+
+  it("falls back to user name and avatar values from the profile response", async () => {
+    mockFetchProfile({
+      name: "Fallback Name",
+      email: "fallback@u.nus.edu",
+      fullTime: false,
+      avatarUrl: "https://cdn.example/avatar.png",
+    });
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    expect(await screen.findByText("Fallback Name")).toBeInTheDocument();
+    expect(screen.getByText("fallback@u.nus.edu")).toBeInTheDocument();
+    expect(screen.getByAltText("Avatar")).toHaveAttribute("src", "https://cdn.example/avatar.png");
+    expect(screen.getByLabelText(/no/i)).toBeChecked();
+  });
+
+  it("keeps the default form when profile loading fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("offline"));
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    expect(await screen.findByText("Student")).toBeInTheDocument();
+    expect(screen.getByText("U")).toBeInTheDocument();
+  });
+
+  it("redirects to login when loading profile is unauthorized", async () => {
+    localStorage.setItem("accessToken", "token");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: false, status: 401 });
+
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(mockNav).toHaveBeenCalledWith("/login");
+    });
+    expect(localStorage.getItem("accessToken")).toBeNull();
   });
 
   it("renders Save Profile and Change Password buttons", async () => {
@@ -122,6 +165,54 @@ describe("Profile page", () => {
     await user.click(screen.getByRole("button", { name: /save profile/i }));
 
     expect(await screen.findByText(/profile saved successfully/i)).toBeInTheDocument();
+  });
+
+  it("sends normalized profile values when saving", async () => {
+    mockFetchProfile();
+    const saveSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: true });
+
+    const user = userEvent.setup({ delay: null });
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    await user.selectOptions(await screen.findByRole("combobox", { name: /faculty/i }), "School of Computing");
+    await user.selectOptions(screen.getByRole("combobox", { name: /major/i }), "Computer Science");
+    await user.selectOptions(screen.getByRole("combobox", { name: /year of study/i }), "3");
+    await user.click(screen.getByLabelText(/no/i));
+    await user.type(screen.getByPlaceholderText(/tell others about yourself/i), "  Hello NUS  ");
+    await user.click(screen.getByRole("button", { name: /save profile/i }));
+
+    await waitFor(() => {
+      expect(saveSpy).toHaveBeenLastCalledWith(
+        expect.stringContaining("/api/profile"),
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({
+            faculty: "School of Computing",
+            major: "Computer Science",
+            yearOfStudy: 3,
+            fullTime: false,
+            bio: "Hello NUS",
+            avatarUrl: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  it("redirects to login when saving is unauthorized", async () => {
+    mockFetchProfile();
+    localStorage.setItem("accessToken", "token");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: false, status: 403 });
+
+    const user = userEvent.setup({ delay: null });
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    await user.click(await screen.findByRole("button", { name: /save profile/i }));
+
+    await waitFor(() => {
+      expect(mockNav).toHaveBeenCalledWith("/login");
+    });
+    expect(localStorage.getItem("accessToken")).toBeNull();
   });
 
   it("shows error message on failed save", async () => {
@@ -186,6 +277,70 @@ describe("Profile page", () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     expect(await screen.findByText(/file must be smaller than 2 mb/i)).toBeInTheDocument();
+  });
+
+  it("uploads a valid avatar and then removes it", async () => {
+    mockFetchProfile();
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ avatarUrl: "https://cdn.example/new-avatar.png" }),
+      })
+      .mockResolvedValueOnce({ ok: true });
+    localStorage.setItem("accessToken", "avatar-token");
+
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    await screen.findByRole("button", { name: /save profile/i });
+    const file = new File(["content"], "avatar.png", { type: "image/png" });
+    fireEvent.change(document.querySelector("input[type='file']"), { target: { files: [file] } });
+
+    expect(await screen.findByAltText("Avatar")).toHaveAttribute("src", "https://cdn.example/new-avatar.png");
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:avatar-preview");
+
+    fireEvent.click(screen.getByTitle("Remove avatar"));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenLastCalledWith(
+        expect.stringContaining("/api/profile/avatar"),
+        expect.objectContaining({
+          method: "DELETE",
+          headers: { Authorization: "Bearer avatar-token" },
+        }),
+      );
+    });
+    expect(screen.queryByAltText("Avatar")).not.toBeInTheDocument();
+  });
+
+  it("shows an error when avatar upload fails", async () => {
+    mockFetchProfile();
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: false, status: 413 });
+
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    await screen.findByRole("button", { name: /save profile/i });
+    const file = new File(["content"], "avatar.jpg", { type: "image/jpeg" });
+    fireEvent.change(document.querySelector("input[type='file']"), { target: { files: [file] } });
+
+    expect(await screen.findByText(/upload failed \(413\)/i)).toBeInTheDocument();
+    expect(screen.queryByAltText("Avatar")).not.toBeInTheDocument();
+  });
+
+  it("handles drag states and empty file selections", async () => {
+    mockFetchProfile();
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    await screen.findByRole("button", { name: /save profile/i });
+    const dropZone = screen.getByText(/click or drag image here/i).closest("button");
+
+    fireEvent.dragOver(dropZone);
+    expect(dropZone).toHaveClass("profileDropZoneActive");
+
+    fireEvent.dragLeave(dropZone);
+    expect(dropZone).not.toHaveClass("profileDropZoneActive");
+
+    fireEvent.drop(dropZone, { dataTransfer: { files: [] } });
+    expect(screen.queryByText(/upload failed/i)).not.toBeInTheDocument();
   });
 
   // ── Navigation ─────────────────────────────────────────────────────────────
