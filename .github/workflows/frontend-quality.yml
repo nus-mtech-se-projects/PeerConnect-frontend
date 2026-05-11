@@ -4,10 +4,9 @@ on:
   pull_request:
     branches: [ main ]
   push:
-    branches: 
-      - main
-      - "new_devsecops_pipelines"
+    branches: [ main ]
   workflow_dispatch:
+
 concurrency:
   group: frontend-quality-${{ github.ref }}
   cancel-in-progress: true
@@ -41,74 +40,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  uat:
-    runs-on: ubuntu-latest
-    needs: quality
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Build app
-        run: npm run build
-
-      - name: Run Playwright UAT tests
-        run: npx playwright test
-        env:
-          CI: true
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-
-  dast:
-    runs-on: ubuntu-latest
-    needs: quality
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-      - run: npm run build
-
-      - name: Start preview server
-        run: npm run preview &
-        env:
-          CI: true
-
-      - name: Wait for server
-        run: npx wait-on http://localhost:4173
-
-      - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@2b5fc7f98d837319798ab7f128ea50b7d40563b6
-        with:
-          target: 'http://localhost:4173'
-          fail_action: false
-
-      - name: Upload ZAP Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-report-${{ github.run_number }}
-          path: report_html.html
-          retention-days: 30

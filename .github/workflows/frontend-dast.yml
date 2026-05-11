@@ -1,12 +1,21 @@
 name: Frontend DAST (OWASP ZAP)
 
 on:
+  workflow_run:
+    workflows: ["Azure Static Web Apps CI/CD"]
+    types: [completed]
+    branches: [main]
   schedule:
-    - cron: '0 2 * * *'
+    # GitHub cron uses UTC. This runs daily at 02:00 Asia/Singapore.
+    - cron: '0 18 * * *'
   workflow_dispatch:
+
+env:
+  DAST_TARGET_URL: ${{ vars.FRONTEND_LIVE_URL || 'https://salmon-island-0f8625f00.6.azurestaticapps.net' }}
 
 jobs:
   dast:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -14,26 +23,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-      - run: npm run build
-
-      - name: Start preview server
-        run: npm run preview &
-        env:
-          CI: true
-
-      - name: Wait for server
-        run: npx wait-on http://localhost:4173
+      - name: Wait for live site
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --location "$DAST_TARGET_URL" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for $DAST_TARGET_URL"
+          exit 1
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@2b5fc7f98d837319798ab7f128ea50b7d40563b6
         with:
-          target: 'http://localhost:4173'
+          target: ${{ env.DAST_TARGET_URL }}
           fail_action: false
 
       - name: Upload ZAP Report
