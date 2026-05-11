@@ -1,17 +1,18 @@
 name: Azure Static Web Apps CI/CD
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Frontend UAT (Playwright)"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: azure-static-web-apps-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
 
 jobs:
   build_and_deploy_job:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'workflow_run'
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     permissions:
@@ -25,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           submodules: true
           lfs: false
 
@@ -54,29 +56,4 @@ jobs:
           app_location: "/"
           api_location: ""
           output_location: "dist"
-          github_id_token: ${{ steps.idtoken.outputs.result }}
-
-  close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    name: Close Pull Request
-    permissions:
-      id-token: write
-    steps:
-      - name: Get Id Token
-        uses: actions/github-script@v6
-        id: idtoken
-        with:
-          script: |
-            return await core.getIDToken()
-          result-encoding: string
-
-      - name: Close Pull Request
-        id: closepullrequest
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_SALMON_ISLAND_0F8625F00 }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: 'close'
-          app_location: '/'
           github_id_token: ${{ steps.idtoken.outputs.result }}
