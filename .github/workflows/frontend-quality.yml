@@ -1,4 +1,4 @@
-name: Frontend Quality
+name: Frontend CI/CD
 
 on:
   pull_request:
@@ -8,8 +8,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: frontend-quality-${{ github.ref }}
+  group: frontend-cicd-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  DAST_TARGET_URL: ${{ vars.FRONTEND_LIVE_URL || 'https://salmon-island-0f8625f00.6.azurestaticapps.net' }}
 
 jobs:
   quality:
@@ -40,3 +43,117 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  uat:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build app
+        run: npm run build
+
+      - name: Run Playwright UAT tests
+        run: npx playwright test
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: uat
+    name: Deploy to Azure Static Web Apps
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+      VITE_MSAL_CLIENT_ID: ${{ secrets.VITE_MSAL_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: false
+
+      - name: Install OIDC Client from Core Package
+        run: npm install @actions/core@1.6.0 @actions/http-client
+
+      - name: Get Id Token
+        uses: actions/github-script@v6
+        id: idtoken
+        with:
+          script: |
+            const coredemo = require('@actions/core')
+            return await coredemo.getIDToken()
+          result-encoding: string
+
+      - name: Show env check
+        run: |
+          echo "VITE_API_BASE=$VITE_API_BASE"
+          echo "VITE_MSAL_CLIENT_ID=$VITE_MSAL_CLIENT_ID"
+
+      - name: Build And Deploy
+        id: builddeploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_SALMON_ISLAND_0F8625F00 }}
+          action: "upload"
+          app_location: "/"
+          api_location: ""
+          output_location: "dist"
+          github_id_token: ${{ steps.idtoken.outputs.result }}
+
+  dast:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: deploy
+    name: DAST Scan Live Site
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for live site
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --location "$DAST_TARGET_URL" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for $DAST_TARGET_URL"
+          exit 1
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@2b5fc7f98d837319798ab7f128ea50b7d40563b6
+        with:
+          target: ${{ env.DAST_TARGET_URL }}
+          fail_action: false
+
+      - name: Upload ZAP Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report-${{ github.run_number }}
+          path: report_html.html
+          retention-days: 30
