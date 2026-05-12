@@ -53,28 +53,24 @@ jobs:
       id-token: write
       contents: read
     env:
-      AZURE_STATIC_WEB_APPS_API_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_SALMON_ISLAND_0F8625F00 }}
       VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
       VITE_MSAL_CLIENT_ID: ${{ secrets.VITE_MSAL_CLIENT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: true
           lfs: false
 
-      - name: Validate Azure Static Web Apps deployment token
-        run: |
-          if [ -z "$AZURE_STATIC_WEB_APPS_API_TOKEN" ]; then
-            echo "Missing AZURE_STATIC_WEB_APPS_API_TOKEN_SALMON_ISLAND_0F8625F00 secret."
-            exit 1
-          fi
+      - name: Install OIDC Client from Core Package
+        run: npm install @actions/core@1.6.0 @actions/http-client
 
       - name: Get Id Token
         uses: actions/github-script@v6
         id: idtoken
         with:
           script: |
-            return await core.getIDToken()
+            const coredemo = require('@actions/core')
+            return await coredemo.getIDToken()
           result-encoding: string
 
       - name: Show env check
