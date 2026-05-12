@@ -96,6 +96,7 @@ jobs:
   uat:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    name: Run Playwright UAT Tests on Live Site
     needs: deploy
     steps:
       - uses: actions/checkout@v4
