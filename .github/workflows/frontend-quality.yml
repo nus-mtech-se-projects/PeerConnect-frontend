@@ -50,6 +50,7 @@ jobs:
     needs: quality
     name: Deploy to Azure Static Web Apps
     permissions:
+      id-token: write
       contents: read
     env:
       VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
@@ -59,6 +60,18 @@ jobs:
         with:
           submodules: true
           lfs: false
+
+      - name: Install OIDC Client from Core Package
+        run: npm install @actions/core@1.6.0 @actions/http-client
+
+      - name: Get Id Token
+        uses: actions/github-script@v6
+        id: idtoken
+        with:
+          script: |
+            const coredemo = require('@actions/core')
+            return await coredemo.getIDToken()
+          result-encoding: string
 
       - name: Show env check
         run: |
@@ -74,6 +87,7 @@ jobs:
           app_location: "/"
           api_location: ""
           output_location: "dist"
+          github_id_token: ${{ steps.idtoken.outputs.result }}
 
   uat:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
